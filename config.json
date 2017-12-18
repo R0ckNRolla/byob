@@ -7,7 +7,7 @@
 		"pycrypto": "https://pypi.python.org/packages/60/db/645aa9af249f059cc3a368b118de33889219e0362141e75d4eaf6f80f163/pycrypto-2.6.1.tar.gz",
                 "pypiwin32": "https://download.lfd.uci.edu/pythonlibs/yjwkc9i2/pywin32-221-cp27-cp27m-win_amd64.whl",
                 "mss": "https://pypi.python.org/packages/14/3e/7b18da0505e9279187e8148853c0f395f616f2d69915b0040031e7b82bc5/mss-2.0.0.tar.gz",
-                "pyHook": "https://download.lfd.uci.edu/pythonlibs/yjwkc9i2/pywin32-221-cp27-cp27m-win_amd64.whl",
+                "pyHook": "https://download.lfd.uci.edu/pythonlibs/yjwkc9i2/pyHook-1.5.1-cp27-cp27m-win_amd64.whl",
                 "opencv-python": "https://pypi.python.org/packages/3f/f2/67a2c6e806bab8c8e18e2e3631e2c43d8146bc0b5d2c1a51eac96ae7b128/opencv_python-3.3.0.10-cp27-cp27m-win_amd64.whl"
             },
             "32": {
