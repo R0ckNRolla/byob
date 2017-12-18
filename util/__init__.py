@@ -1,1 +1,1 @@
-__all__ = ['checkvm', 'encrypted_launcher', 'loader', 'obfuscator','packetsniffer']
+__all__ = ['checkvm', 'loader', 'obfuscator','packetsniffer']

