@@ -2,12 +2,18 @@
     "packages": {
         "nt": {
             "64": {
+		"numpy": "https://pypi.python.org/packages/14/82/8aaa29b26c4263ff1a8c87d44b1b55283ef3afcf8d67aefab006359224f7/numpy-1.14.0rc1-cp27-none-win_amd64.whl",
+		"requests": "https://pypi.python.org/packages/26/ff/c71b3943bebdd9f7ceb9e137296370587eb0b33fe2eb3732ae168bc45204/requests-2.7.0-py2.py3-none-any.whl",
+		"pycrypto": "https://pypi.python.org/packages/60/db/645aa9af249f059cc3a368b118de33889219e0362141e75d4eaf6f80f163/pycrypto-2.6.1.tar.gz",
                 "pypiwin32": "https://download.lfd.uci.edu/pythonlibs/yjwkc9i2/pywin32-221-cp27-cp27m-win_amd64.whl",
                 "mss": "https://pypi.python.org/packages/14/3e/7b18da0505e9279187e8148853c0f395f616f2d69915b0040031e7b82bc5/mss-2.0.0.tar.gz",
                 "pyHook": "https://download.lfd.uci.edu/pythonlibs/yjwkc9i2/pywin32-221-cp27-cp27m-win_amd64.whl",
                 "opencv-python": "https://pypi.python.org/packages/3f/f2/67a2c6e806bab8c8e18e2e3631e2c43d8146bc0b5d2c1a51eac96ae7b128/opencv_python-3.3.0.10-cp27-cp27m-win_amd64.whl"
             },
             "32": {
+		"numpy": "https://pypi.python.org/packages/7d/78/74f1d1043d612b46a4a93356e031a27dbfe04db22e5119c9ca1f7b215de8/numpy-1.14.0rc1-cp27-none-win32.whl",
+		"requests": "https://pypi.python.org/packages/26/ff/c71b3943bebdd9f7ceb9e137296370587eb0b33fe2eb3732ae168bc45204/requests-2.7.0-py2.py3-none-any.whl",
+		"pycrypto": "https://pypi.python.org/packages/60/db/645aa9af249f059cc3a368b118de33889219e0362141e75d4eaf6f80f163/pycrypto-2.6.1.tar.gz",
                 "pypiwin32": "https://download.lfd.uci.edu/pythonlibs/yjwkc9i2/pywin32-221-cp27-cp27m-win32.whl",
                 "mss": "https://pypi.python.org/packages/14/3e/7b18da0505e9279187e8148853c0f395f616f2d69915b0040031e7b82bc5/mss-2.0.0.tar.gz",
                 "pyHook": "https://download.lfd.uci.edu/pythonlibs/yjwkc9i2/pyHook-1.5.1-cp27-cp27m-win32.whl",
@@ -16,17 +22,21 @@
         },
         "posix": {
             "64": {
+                "numpy": "https://pypi.python.org/packages/51/90/a67ef54c738915b3f8141a04c0b444f1c115b3c17ea165fb35ecb69b8cf2/numpy-1.14.0rc1-cp27-cp27m-macosx_10_6_intel.macosx_10_9_intel.macosx_10_9_x86_64.macosx_10_10_intel.macosx_10_10_x86_64.whl",
+		"requests": "https://pypi.python.org/packages/26/ff/c71b3943bebdd9f7ceb9e137296370587eb0b33fe2eb3732ae168bc45204/requests-2.7.0-py2.py3-none-any.whl",
+		"pycrypto": "https://pypi.python.org/packages/60/db/645aa9af249f059cc3a368b118de33889219e0362141e75d4eaf6f80f163/pycrypto-2.6.1.tar.gz",
                 "python-xlib": "https://github.com/python-xlib/python-xlib/releases/download/0.21/python_xlib-0.21-py2.py3-none-any.whl",
                 "pyxhook": "https://pypi.python.org/packages/70/d1/8f56e13b002502ad85975f2dcebb5d1026551e34cafc77ae70a294a67eed/pyxhook-1.0.0.tar.gz",
                 "mss": "https://pypi.python.org/packages/14/3e/7b18da0505e9279187e8148853c0f395f616f2d69915b0040031e7b82bc5/mss-2.0.0.tar.gz",
-                "numpy": "https://pypi.python.org/packages/51/90/a67ef54c738915b3f8141a04c0b444f1c115b3c17ea165fb35ecb69b8cf2/numpy-1.14.0rc1-cp27-cp27m-macosx_10_6_intel.macosx_10_9_intel.macosx_10_9_x86_64.macosx_10_10_intel.macosx_10_10_x86_64.whl",
                 "opencv-python": "https://pypi.python.org/packages/15/fa/5675b9d219a7d6136e36908de472dc8daadd4bb427640a88927ff1361087/opencv_python-3.3.0.10-cp27-cp27m-macosx_10_6_intel.macosx_10_9_intel.macosx_10_9_x86_64.macosx_10_10_intel.macosx_10_10_x86_64.whl"
                 },
             "32": {
+                "numpy": "https://pypi.python.org/packages/51/90/a67ef54c738915b3f8141a04c0b444f1c115b3c17ea165fb35ecb69b8cf2/numpy-1.14.0rc1-cp27-cp27m-macosx_10_6_intel.macosx_10_9_intel.macosx_10_9_x86_64.macosx_10_10_intel.macosx_10_10_x86_64.whl",
+		"requests": "https://pypi.python.org/packages/26/ff/c71b3943bebdd9f7ceb9e137296370587eb0b33fe2eb3732ae168bc45204/requests-2.7.0-py2.py3-none-any.whl",
+		"pycrypto": "https://pypi.python.org/packages/60/db/645aa9af249f059cc3a368b118de33889219e0362141e75d4eaf6f80f163/pycrypto-2.6.1.tar.gz",
                 "python-xlib": "https://github.com/python-xlib/python-xlib/releases/download/0.21/python_xlib-0.21-py2.py3-none-any.whl",
                 "pyxhook": "https://pypi.python.org/packages/70/d1/8f56e13b002502ad85975f2dcebb5d1026551e34cafc77ae70a294a67eed/pyxhook-1.0.0.tar.gz",
                 "mss": "https://pypi.python.org/packages/14/3e/7b18da0505e9279187e8148853c0f395f616f2d69915b0040031e7b82bc5/mss-2.0.0.tar.gz",
-                "numpy": "https://pypi.python.org/packages/51/90/a67ef54c738915b3f8141a04c0b444f1c115b3c17ea165fb35ecb69b8cf2/numpy-1.14.0rc1-cp27-cp27m-macosx_10_6_intel.macosx_10_9_intel.macosx_10_9_x86_64.macosx_10_10_intel.macosx_10_10_x86_64.whl",
                 "opencv-python": "https://pypi.python.org/packages/15/fa/5675b9d219a7d6136e36908de472dc8daadd4bb427640a88927ff1361087/opencv_python-3.3.0.10-cp27-cp27m-macosx_10_6_intel.macosx_10_9_intel.macosx_10_9_x86_64.macosx_10_10_intel.macosx_10_10_x86_64.whl"
             }
         }
