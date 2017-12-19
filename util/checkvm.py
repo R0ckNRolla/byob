@@ -3,17 +3,14 @@ import sys
 import _winreg
 import psutil
 
-HKEY_LOCAL_MACHINE = -2147483646
-KEY_READ        = 131097
-process_list       = []
+HKEY_LOCAL_MACHINE  = -2147483646
+KEY_READ            = 131097
+process_list        = []
 
 def get_process_list():
-    if not process_list:
-        for p in psutil.process_iter():
-            process_list.append(p.name())       
-    return process_list
+    return [p.name() for p in psutil.process_iter()]      
 
-def check_existing_key(k, key):
+def get_existing_key(k, key):
     try:
         hkey = _winreg.OpenKey(k, key, 0, KEY_READ)
         return hkey
@@ -32,11 +29,11 @@ def check_hyper_V():
             'SYSTEM\\ControlSet001\\Services\\vmiexchange', 
     ]
     for key in keys:
-        h = check_existing_key(HKEY_LOCAL_MACHINE, key)
+        h = get_existing_key(HKEY_LOCAL_MACHINE, key)
         if h:
             _winreg.CloseKey(h)
             return key
-    h = check_existing_key(HKEY_LOCAL_MACHINE, 'HARDWARE\\DESCRIPTION\\System')
+    h = get_existing_key(HKEY_LOCAL_MACHINE, 'HARDWARE\\DESCRIPTION\\System')
     if h:
         string = str(_winreg.QueryValueEx(h, 'SystemBiosVersion')[0])
         if 'vrtual' in string:
@@ -51,11 +48,11 @@ def check_VMWare():
             'SYSTEM\\ControlSet001\\Services\\VMMEMCTL',
     ]
     for key in keys:
-        h = check_existing_key(HKEY_LOCAL_MACHINE, key)
+        h = get_existing_key(HKEY_LOCAL_MACHINE, key)
         if h:
             _winreg.CloseKey(h)
             return True
-    h = check_existing_key(HKEY_LOCAL_MACHINE, 'HARDWARE\\DESCRIPTION\\System\\BIOS')
+    h = get_existing_key(HKEY_LOCAL_MACHINE, 'HARDWARE\\DESCRIPTION\\System\\BIOS')
     if h:
         string = str(_winreg.QueryValueEx(h, 'SystemManufacturer')[0])
         if 'vmware' in string:
@@ -75,7 +72,7 @@ def check_Virtual_PC():
             'SYSTEM\\ControlSet001\\Services\\msvmmouf'
     ]
     for key in keys:
-        h = check_existing_key(HKEY_LOCAL_MACHINE, key)
+        h = get_existing_key(HKEY_LOCAL_MACHINE, key)
         if h:
             _winreg.CloseKey(h)
             return True
@@ -93,11 +90,11 @@ def check_Virtual_Box():
             'SYSTEM\\ControlSet001\\Services\\VBoxSF', 
     ]
     for key in keys:
-        h = check_existing_key(HKEY_LOCAL_MACHINE, key)
+        h = get_existing_key(HKEY_LOCAL_MACHINE, key)
         if h:
             _winreg.CloseKey(h)
             return True
-    h = check_existing_key(HKEY_LOCAL_MACHINE, 'HARDWARE\\DESCRIPTION\\System')
+    h = get_existing_key(HKEY_LOCAL_MACHINE, 'HARDWARE\\DESCRIPTION\\System')
     if h:
         string = str(_winreg.QueryValueEx(h, 'SystemBiosVersion')[0])
         if 'vbox' in string:
@@ -118,30 +115,20 @@ def check_xen():
             'SYSTEM\\ControlSet001\\Services\\xenvdb', 
     ]
     for key in keys:
-        h = check_existing_key(HKEY_LOCAL_MACHINE, key)
+        h = get_existing_key(HKEY_LOCAL_MACHINE, key)
         if h:
             _winreg.CloseKey(h)
             return True
 
 def check_qemu():
-    h = check_existing_key(HKEY_LOCAL_MACHINE, 'HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0')
+    h = get_existing_key(HKEY_LOCAL_MACHINE, 'HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0')
     if h:
         string = str(_winreg.QueryValueEx(h, 'ProcessorNameString')[0])
         if 'vmware' in string:
             return True
 
 def run(*args, **kwargs):
-    vm = []
-    if check_hyper_V():
-        vm.append('This is a Hyper-V machine.')
-    if check_VMWare():
-        vm.append('This is a VMWare machine.')
-    if check_Virtual_PC():
-        vm.append('This is a Virtual PC.')
-    if check_Virtual_Box():
-        vm.append('This is a Virtual Box.')
-    if check_xen():
-        vm.append('This is a Xen Machine.')
-    if check_qemu():
-        vm.append('This is a Qemu machine.')
-    return vm
+    try:
+        return any([globals()[i]() for i in globals() if i.startswith('check')])
+    except Exception as e:
+        return str(e)
