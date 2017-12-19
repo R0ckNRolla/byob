@@ -101,7 +101,6 @@ class Client(object):
         self.q          = long(kwargs.get('q'))
         self.s          = long(kwargs.get('s'))
         self.v          = bool(kwargs.get('v'))
-        self.info       = self.get_info()
         self.logger     = self.get_logger()
         self.modules    = self.get_modules()
         self.results    = self.get_results()
