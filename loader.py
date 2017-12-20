@@ -43,7 +43,7 @@ def main(*args, **kwargs):
         if bool([i.split()[c] for i in os.popen(s).read().splitlines()[2:] if i.split()[c].lower().split('.')[0] in (kwargs.get('procs') or ['xenservice', 'vboxservice', 'vboxtray', 'vmusrvc', 'vmsrvc', 'vmwareuser', 'vmwaretray', 'vmtoolsd', 'vmcompute', 'vmmem'])]) if (bool(kwargs.get('checkvm')) if 'checkvm' in kwargs else False) else bool([]):
             print 'aborting...'
 #           return abort()
-    if 'config' in args:
+    if 'config' in kwargs:
         return run(**kwargs)
     else:
         print "missing argument 'config'"
