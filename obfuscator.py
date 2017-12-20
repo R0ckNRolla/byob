@@ -21,7 +21,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-'''
+''' 
 
 ,adPPYYba, 8b,dPPYba,   ,adPPYb,d8 88,dPPYba,  aa       aa
 ""     `Y8 88P'   `"8a a8"    `Y88 88P'   `"8a 88       88
@@ -40,9 +40,6 @@ a8P     88 a8"    `Y88 a8"    `Y88 88P'    "8a 88 ""     `Y8 88P'   `"8a MM88MMM
  `"Ybbd8"'  `"YbbdP"Y8  `"YbbdP"Y8 88`YbbdP"'  88 `"8bbdP"Y8 88       88   88,
             aa,    ,88  aa,    ,88 88                                      "Y888
              "Y8bbdP"    "Y8bbdP"  88
-
-
-https://github.com/colental/AngryEggplant
 
 '''
 
@@ -85,24 +82,20 @@ def obfuscate(filename):
     return output_file
     
 
-def main(filename, mode=None):
-    try:
-        result = obfuscate(filename)
-    except Exception as e:
-        result = 'Error: {}'.format(str(e))
-    if mode:
+def main(path=None):
+    if path:
+	if os.path.isfile(path):
+            result = obfuscate(path)
+	else:
+	    result = "file '{}' not found".format(path)
+	return result
+    elif len(sys.argv) == 2:
+	if os.path.isfile(sys.argv[1]):
+	    result = obfuscate(sys.argv[1])
+	else:
+	    result = "file '{}' not found".format(sys.argv[1])
         print result
-    else:
-        return result
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print 'usage: obfuscator.py <filename>'
-        sys.exit(0)
-    if not os.path.isfile(sys.argv[1]):
-        print "File '{}' not found".format(sys.argv[1])
-        sys.exit(0)
-    filename = sys.argv[1]
-    main(filename, mode=True)
-
+    main()
