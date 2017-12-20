@@ -1,12 +1,15 @@
 #!/usr/bin/python
-import socket
 import os
 import sys
 import struct
+import socket
 import binascii
 
+packet_buffer = []
 
-def analyze_udp_header(data):
+
+def packetsniffer_udp_header(data):
+    global packet_buffer
     try:
         udp_hdr = struct.unpack('!4H', data[:8])
         src     = udp_hdr[0]
@@ -14,18 +17,19 @@ def analyze_udp_header(data):
         length  = udp_hdr[2]
         chksum  = udp_hdr[3]
         data    = data[8:]
-        print '|================== UDP HEADER ==================|'
-	print '|================================================|'
-        print '|{:>20} | {}\t\t\t |'.format('Source', src)
-        print '|{:>20} | {}\t\t\t |'.format('Dest', dst)
-        print '|{:>20} | {}\t\t\t |'.format('Length', length)
-        print '|{:>20} | {}\t\t\t |'.format('Check Sum', chksum)
-	print '|================================================|'
+        packet_buffer.append('|================== UDP HEADER ==================|')
+	packet_buffer.append('|================================================|')
+        packet_buffer.append('|{:>20} | {}\t\t\t |'.format('Source', src))
+        packet_buffer.append('|{:>20} | {}\t\t\t |'.format('Dest', dst))
+        packet_buffer.append('|{:>20} | {}\t\t\t |'.format('Length', length))
+        packet_buffer.append('|{:>20} | {}\t\t\t |'.format('Check Sum', chksum))
+	packet_buffer.append('|================================================|')
         return data
     except Exception as e:
-        print "Error in {} header: '{}'".format('UDP', str(e))
+        packet_buffer.append("Error in {} header: '{}'".format('UDP', str(e)))
 
-def analyze_tcp_header(recv_data):
+def packetsniffer_tcp_header(recv_data):
+    global packet_buffer
     try:
         tcp_hdr  = struct.unpack('!2H2I4H', recv_data[:20])
         src_port = tcp_hdr[0]
@@ -48,22 +52,23 @@ def analyze_tcp_header(recv_data):
         urg_pnt = tcp_hdr[7]
         recv_data = recv_data[20:]
 
-        print '|================== TCP HEADER ==================|'
-	print '|================================================|'
-        print '|{:>20} | {}\t\t\t |'.format('Source', src_port)
-        print '|{:>20} | {}\t\t\t |'.format('Target', dst_port)
-        print '|{:>20} | {}\t\t\t |'.format('Seq Num', seq_num)
-        print '|{:>20} | {}\t\t |'.format('Ack Num', ack_num)
-	print '|{:>20} | {}\t\t |'.format('Flags', ', '.join([flag for flag in flagdata if flagdata.get(flag)]))
-        print '|{:>20} | {}\t\t\t |'.format('Window', win)
-        print '|{:>20} | {}\t\t\t |'.format('Check Sum', chk_sum)
-        print '|{:>20} | {}\t\t\t |'.format('Urg Pnt', urg_pnt)
-	print '|================================================|'
+        packet_buffer.append('|================== TCP HEADER ==================|')
+	packet_buffer.append('|================================================|')
+        packet_buffer.append('|{:>20} | {}\t\t\t |'.format('Source', src_port))
+        packet_buffer.append('|{:>20} | {}\t\t\t |'.format('Target', dst_port))
+        packet_buffer.append('|{:>20} | {}\t\t\t |'.format('Seq Num', seq_num))
+        packet_buffer.append('|{:>20} | {}\t\t |'.format('Ack Num', ack_num))
+	packet_buffer.append('|{:>20} | {}\t\t |'.format('Flags', ', '.join([flag for flag in flagdata if flagdata.get(flag)])))
+        packet_buffer.append('|{:>20} | {}\t\t\t |'.format('Window', win))
+        packet_buffer.append('|{:>20} | {}\t\t\t |'.format('Check Sum', chk_sum))
+        packet_buffer.append('|{:>20} | {}\t\t\t |'.format('Urg Pnt', urg_pnt))
+	packet_buffer.append('|================================================|')
         return recv_data
     except Exception as e:
-        print "Error in {} header: '{}'".format('TCP', str(e))
+        packet_buffer.append("Error in {} header: '{}'".format('TCP', str(e)))
 
-def analyze_ip_header(data):
+def packetsniffer_ip_header(data):
+    global packet_buffer
     try:
         ip_hdr  = struct.unpack('!6H4s4s', data[:20]) 
         ver     = ip_hdr[0] >> 12
@@ -80,28 +85,28 @@ def analyze_ip_header(data):
         dest    = socket.inet_ntoa(ip_hdr[7])
         data    = data[20:]
 
-        print '|================== IP HEADER ===================|'
-	print '|================================================|' 
-	print '|{:>20} | {}\t\t\t{}'.format('VER', ver, ' |')
-        print '|{:>20} | {}\t\t\t{}'.format('IHL', ihl, ' |')
-        print '|{:>20} | {}\t\t\t{}'.format('TOS', tos, ' |')
-        print '|{:>20} | {}\t\t\t{}'.format('Length', tot_len, ' |')
-        print '|{:>20} | {}\t\t\t{}'.format('ID', ip_id, ' |')
-        print '|{:>20} | {}\t\t\t{}'.format('Flags', flags, ' |')
-        print '|{:>20} | {}\t\t\t{}'.format('Frag Offset', fragofs, ' |')
-        print '|{:>20} | {}\t\t\t{}'.format('TTL', ttl, ' |')
-        print '|{:>20} | {}\t\t\t{}'.format('Next Protocol', ipproto, ' |')
-        print '|{:>20} | {}\t\t\t{}'.format('Check Sum', chksum, ' |')
-        print '|{:>20} | {}\t\t{}'.format('Source IP', src, ' |')
-        print '|{:>20} | {}\t\t{}'.format('Dest IP', dest, ' |')
-	print '|================================================|'
-
+        packet_buffer.append('|================== IP HEADER ===================|')
+	packet_buffer.append('|================================================|')
+	packet_buffer.append('|{:>20} | {}\t\t\t{}'.format('VER', ver, ' |'))
+        packet_buffer.append('|{:>20} | {}\t\t\t{}'.format('IHL', ihl, ' |'))
+        packet_buffer.append('|{:>20} | {}\t\t\t{}'.format('TOS', tos, ' |'))
+        packet_buffer.append('|{:>20} | {}\t\t\t{}'.format('Length', tot_len, ' |'))
+        packet_buffer.append('|{:>20} | {}\t\t\t{}'.format('ID', ip_id, ' |'))
+        packet_buffer.append('|{:>20} | {}\t\t\t{}'.format('Flags', flags, ' |'))
+        packet_buffer.append('|{:>20} | {}\t\t\t{}'.format('Frag Offset', fragofs, ' |'))
+        packet_buffer.append('|{:>20} | {}\t\t\t{}'.format('TTL', ttl, ' |'))
+        packet_buffer.append('|{:>20} | {}\t\t\t{}'.format('Next Protocol', ipproto, ' |'))
+        packet_buffer.append('|{:>20} | {}\t\t\t{}'.format('Check Sum', chksum, ' |'))
+        packet_buffer.append('|{:>20} | {}\t\t{}'.format('Source IP', src, ' |'))
+        packet_buffer.append('|{:>20} | {}\t\t{}'.format('Dest IP', dest, ' |'))
+	packet_buffer.append('|================================================|')
         return data, ipproto
     except Exception as e:
-        print "Error in {} header: '{}'".format('IP', str(e))
+        packet_buffer.append("Error in {} header: '{}'".format('IP', str(e)))
 
 
-def analyze_ether_header(data):
+def packetsniffer_ethernet_header(data):
+    global packet_buffer
     try:
         ip_bool = False
         eth_hdr = struct.unpack('!6s6sH', data[:14])
@@ -109,49 +114,39 @@ def analyze_ether_header(data):
         src_mac = binascii.hexlify(eth_hdr[1])
         proto   = eth_hdr[2] >> 8
 
-	print '|================================================|'
-        print '|================== ETH HEADER ==================|'
-	print '|================================================|'
-        print '|{:>20} | {}\t{}'.format('Target MAC', '{}:{}:{}:{}:{}:{}'.format(dst_mac[0:2],dst_mac[2:4],dst_mac[4:6],dst_mac[6:8],dst_mac[8:10],dst_mac[10:12]), ' |')
-        print '|{:>20} | {}\t{}'.format('Source MAC', '{}:{}:{}:{}:{}:{}'.format(src_mac[0:2],src_mac[2:4],src_mac[4:6],src_mac[6:8],src_mac[8:10],src_mac[10:12]), ' |')
-        print '|{:>20} | {}\t\t\t{}'.format('Protocol', proto, ' |')
-	print '|================================================|'
+	packet_buffer.append('|================================================|')
+        packet_buffer.append('|================== ETH HEADER ==================|')
+	packet_buffer.append('|================================================|')
+        packet_buffer.append('|{:>20} | {}\t{}'.format('Target MAC', '{}:{}:{}:{}:{}:{}'.format(dst_mac[0:2],dst_mac[2:4],dst_mac[4:6],dst_mac[6:8],dst_mac[8:10],dst_mac[10:12]), ' |'))
+        packet_buffer.append('|{:>20} | {}\t{}'.format('Source MAC', '{}:{}:{}:{}:{}:{}'.format(src_mac[0:2],src_mac[2:4],src_mac[4:6],src_mac[6:8],src_mac[8:10],src_mac[10:12]), ' |'))
+        packet_buffer.append('|{:>20} | {}\t\t\t{}'.format('Protocol', proto, ' |'))
+	packet_buffer.append('|================================================|')
 
         if proto == 8:
             ip_bool = True
         data = data[14:]
         return data, ip_bool
     except Exception as e:
-        print "Error in {} header: '{}'".format('ETH', str(e))
+        packet_buffer.append("Error in {} header: '{}'".format('ETH', str(e)))
 
 
-def main():
-    print 
-    print 'Listening for incoming packets on all ports...'
-    print
-    print '     (press ctrl-c anytime to stop)'
-    print
+def packetsniffer():
+    global packet_buffer
+    if os.name is 'posix':
+        return 'Packetsniffer is not compatible with Windows-based platforms'
     sniffer_socket = socket.socket(socket.PF_PACKET, socket.SOCK_RAW, socket.htons(0x0003))
     while sniffer_socket:
         try:
             recv_data = sniffer_socket.recv(2048)
-            os.system('clear')
-            recv_data, ip_bool = analyze_ether_header(recv_data)
+            recv_data, ip_bool = packetsniffer_ethernet_header(recv_data)
             if ip_bool:
-                recv_data, ip_proto = analyze_ip_header(recv_data)
+                recv_data, ip_proto = packetsniffer_ip_header(recv_data)
                 if ip_proto == 6:
-                    recv_data = analyze_tcp_header(recv_data)
+                    recv_data = packetsniffer_tcp_header(recv_data)
                 elif ip_proto == 17:
-                    recv_data = analyze_udp_header(recv_data)
+                    recv_data = packetsniffer_udp_header(recv_data)
         except KeyboardInterrupt:
-            if raw_input('Quit packetsniffer? (y/n): ').lower().startswith('y'):
-                sys.exit(0)
-            else:
-                continue
+            break
+    return '\n'.join(packet_buffer)
 
-if __name__ == '__main__':
-    if os.name is 'posix':
-        main()
-    else:
-        print 'Packetsniffer is not compatible with Windows-based platforms'
-        sys.exit(0)
+
