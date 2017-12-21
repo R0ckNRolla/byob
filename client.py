@@ -835,7 +835,10 @@ class Client(object):
             prompt = "[%d @ {}]> ".format(os.getcwd())
             self._send(prompt, method='prompt')   
             data = self._receive()
-            cmd, _, action = data.partition(' ')
+            if data:
+                cmd, _, action = data.partition(' ')
+            else:
+                continue
             if cmd in self.cmds:
                 result = self.cmds[cmd](action) if len(action) else self.cmds[cmd]()
             else:
