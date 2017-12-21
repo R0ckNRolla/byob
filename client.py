@@ -873,7 +873,7 @@ class Client(object):
     @command
     def options(self,*arg): return self._options(arg[0]) if arg else self._options()
 
-    @commnad
+    @command
     def get(self, target): return getattr(self, target)() if target in ('jobs','results','options','status','commands','modules','info') else '\n'.join(["usage: {:>16}".format("'get <option>'"), "options: {}".format("'jobs','results','options','status','commands','modules','info'")]) 
 
     @command    
