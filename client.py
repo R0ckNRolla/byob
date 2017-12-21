@@ -99,8 +99,6 @@ class Client(object):
         self.q          = long(kwargs.get('q')) or long()
         self.s          = long(kwargs.get('s')) or long()
         self.v          = bool(kwargs.get('v')) or bool()
-        __command__       = __command__
-        __modules__       = __modules__
         self.info       = self._info()
         self.logger     = self._logger()
         self.results    = self._results()
@@ -365,7 +363,7 @@ class Client(object):
             
     @command
     def run_modules(self):
-        mods = [self.jobs.update({ mod : Thread(target=getattr(self, mod), name=mod }) for mod in __modules__ if __modules__[mod].status if sys.platform in __modules__[mod].platforms if mod not in self.jobs]
+        mods = [self.jobs.update({ mod : Thread(target=getattr(self, mod), name=mod)}) for mod in __modules__ if __modules__[mod].status if sys.platform in __modules__[mod].platforms if mod not in self.jobs]
         for module in mods:
             self.jobs[module].start()
         if not self.mode:
