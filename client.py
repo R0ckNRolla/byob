@@ -840,13 +840,8 @@ class Client(object):
 
     @command
     def run_modules(self):
-        mods = [Thread(target=getattr(self, mod), name=mod) for mod in self.mods if self.mods[mod].status if sys.platform in self.mods[mod].platforms if mod not in self.threads]
-        for module in mods:
-            if self.v:
-                print 'Running {}...'.format(str(module))
-            self.threads[module].start()
-        if not self.mode:
-            return "Tasks complete."
+        jobs = [Thread(target=getattr(self, mod), name=mod) for mod in self.mods if self.mods[mod].status if sys.platform in self.mods[mod].platforms if mod not in self.threads]
+        return sef._show({module: module.run() for module in jobs})
 
     @command
     def shell(self):
