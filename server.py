@@ -343,7 +343,7 @@ class ClientHandler(threading.Thread):
             with self.lock:
                 method, data = ('prompt', prompt) if prompt else server.recv_client()
             if 'prompt' in method:
-                command = raw_input(data)
+                command = raw_input(data % int(self.name))
                 cmd, _, action = command.partition(' ')
                 if cmd in server.commands:
                     result = server.commands[cmd](action) if len(action) else server.commands[cmd]()
@@ -353,8 +353,9 @@ class ClientHandler(threading.Thread):
                 else:
                     server.send_client(command)
                     self.run()
-            elif len(data):
-                print data
+            else:
+                if data and len(data):
+                    print data
                 
 
 class LogRecordHandler(socketserver.StreamRequestHandler):
