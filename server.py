@@ -107,9 +107,9 @@ class Server(object):
             'client'        :   self.select_client,
             'clients'       :   self.list_clients,
             'help'          :   self.print_help,
+            'info'          :   self.get_client_info,
             'quit'          :   self.quit_server,
 	    'sendall'	    :   self.sendall_clients,
-            'info'          :   self.identify_client,
             'stream'        :   self.livestream_client
             }
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -207,6 +207,17 @@ class Server(object):
         for client in self.get_clients():
             self.send_client(msg, client)
 
+    def recv_client(self, client=None):
+        client = client or self.current_client
+        buffer, method, message  = "", "", ""
+        if client:
+            while "\n" not in buffer:
+                buffer += client.conn.recv(4096)
+            if len(buffer):
+                method, _, message = buffer.partition(':')
+                message = server.decrypt(client.dhkey, message)
+        return method, message
+
     def remove_client(self, key):
         return self.clients.pop(int(key), None)
 
@@ -248,41 +259,32 @@ class Server(object):
         client  = client or self.current_client
         if client:
             while True:
-                while len(data) < header:
-                    data   += client.conn.recv(4096)
-                packed_size = data[:header]
-                data        = data[header:]
-                msg_size    = struct.unpack("L", packed_size)[0]
-                while len(data) < msg_size:
-                    data   += client.conn.recv(4096)
-                frame_data  = data[:msg_size]
-                data        = data[msg_size:]
-                frame       = pickle.loads(frame_data)    
-                cv2.imshow(client.addr, frame)
-                if cv2.waitKey(30) & 0xFF == 27:
-                    break
-            cv2.destroyAllWindows()
+                try:
+                    while len(data) < header:
+                        data   += client.conn.recv(4096)
+                    packed_size = data[:header]
+                    data        = data[header:]
+                    msg_size    = struct.unpack("L", packed_size)[0]
+                    while len(data) < msg_size:
+                        data   += client.conn.recv(4096)
+                    frame_data  = data[:msg_size]
+                    data        = data[msg_size:]
+                    frame       = pickle.loads(frame_data)    
+                    cv2.imshow(client.addr, frame)
+                    if cv2.waitKey(30) & 0xFF == 27:
+                        break
+                except KeyboardInterrupt:
+                    cv2.destroyAllWindows()
 
-    def identify_client(self, client=None):
+    def get_client_info(self, client=None):
         client = client or self.current_client
         if client:
             self.send_client('info', client)
             method, message = self.recv_client(client)
             client.info     = message
             return client.info
-        
-    def recv_client(self, client=None):
-        client = client or self.current_client
-        buffer, method, message  = "", "", ""
-        if client:
-            while "\n" not in buffer:
-                buffer += client.conn.recv(4096)
-            if len(buffer):
-                method, _, message = buffer.partition(':')
-                message = server.decrypt(client.dhkey, message)
-        return method, message
 
-    def manager(self):
+    def client_manager(self):
         while True:
             conn, addr  = self.s.accept()
             name        = len(self.clients) + 1
@@ -294,11 +296,13 @@ class Server(object):
                 break
 
     def run(self):
-        t1 = threading.Thread(target=self.manager)
+        t1 = threading.Thread(target=self.client_manager)
         t1.start()
         while True:
             if exit_status:
                 break
+            if self.current_client:
+                self.lock.acquire_lock()
             if not self.current_client:
                 output = ''
                 with self.lock:
