@@ -249,7 +249,7 @@ class Client(object):
 
     def _options(self, module=None):
         modules = [_ for _ in self.mods] if not module else [module]
-        return self._show({m: m.options for m in modules})
+        return self._show({m: self.mods[m].options for m in modules})
 
     def _show(self, dict_or_json):
         try:
@@ -920,10 +920,10 @@ class Client(object):
     def unzip(self, fname): return ZipFile(fname).extractall('.')
 
     @command
-    def modules(self): return '\n'.join([mod for mod in self.mods])
+    def modules(self): return '\n'.join([mod for mod in sorted(self.mods.keys())])
 
     @command
-    def commands(self): return '\n'.join([cmd for cmd in self.cmds])
+    def commands(self): return '\n'.join([cmd for cmd in sorted(self.cmds.keys())])
 
     @command
     def options(self,*arg): return self._options(arg[0]) if arg else self._options()
