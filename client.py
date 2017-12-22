@@ -537,8 +537,6 @@ class Client(object):
         try:
             self.socket  = self._connect(host=self._target(o=self.__a__, p=self.__b__))
             self.dhkey   = self._diffiehellman()
-            self.threads['thread_handler'] = Thread(target=self._thread_handler, name='thread_handler')
-            self.threads['thread_handler'].start()
             while True:
                 if self.exit:
                     break
@@ -933,16 +931,6 @@ class Client(object):
             return True
         except: pass
         return False
-
-    def _thread_handler(self):
-        while True:
-            if self.exit:
-                break
-            for job in self.threads:
-                if not self.threads[job].is_alive():
-                    task_done = self.threads.pop(job, None)
-                    del task_done
-            time.sleep(1)
 
     def _command(fx, cmds=__command__):
         __command__[fx.func_name] = fx
