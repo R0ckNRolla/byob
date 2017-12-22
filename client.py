@@ -93,9 +93,9 @@ class Client(object):
         self._threads    = {}
         self._info       = self._get_info()
         self._logger     = self._get_logger()
-        self._result     = self._get_framework()
         self._modules    = {mod: getattr(self, mod) for mod in __modules__}
         self._commands   = {cmd: getattr(self, cmd) for cmd in __command__}
+        self._result     = self._get_framework()
 
     # private worker functions
 
