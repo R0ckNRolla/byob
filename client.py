@@ -80,7 +80,6 @@ else:
 
 
 class Client(object):
-    global _module
     global __modules__
     __modules__ = {}
     def __init__(self, *args, **kwargs):
