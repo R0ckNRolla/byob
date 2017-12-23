@@ -440,14 +440,14 @@ class Client(object):
             
     def _show(self, target):
         try:
-            results = json.dumps(dict_or_json, indent=2, separators=(',',': '), sort_keys=True)
+            results = json.dumps(dict_or_json, indent=2, separators=(',','\t'), sort_keys=True)
         except:
             try:
                 string_repr = repr(dict_or_json)
                 string_repr = string_repr.replace('None', 'null').replace('True', 'true').replace('False', 'false').replace("u'", "'").replace("'", '"')
                 string_repr = re.sub(r':(\s+)(<[^>]+>)', r':\1"\2"', string_repr)
                 string_repr = string_repr.replace('(', '[').replace(')', ']')
-                results     = json.dumps(json.loads(string_repr), indent=2, separators=(', ', ': '), sort_keys=True)
+                results     = json.dumps(json.loads(string_repr), indent=2, separators=(',', '\t'), sort_keys=True)
             except:
                 results = repr(dict_or_json)
         return results
@@ -1039,7 +1039,7 @@ class Client(object):
     def help(self, target): return self._help(target)
 
     @_command
-    def info(self): return self._show(self._info, indent=2, separators=(',','\t'))
+    def info(self): return self._show(self._info)
 
     @_command
     def commands(self): return self._help_commands 
