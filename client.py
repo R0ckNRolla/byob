@@ -537,8 +537,8 @@ class Client(object):
             if not data:
                 continue
             cmd, _, action = bytes(data).partition(' ')
-            if cmd in self.commands:
-                result = self.commands[cmd](action) if len(action) else self.commands[cmd]()
+            if cmd in self._commands:
+                result = self._commands[cmd](action) if len(action) else self._commands[cmd]()
             else:
                 result = bytes().join(subprocess.Popen(data, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
             if result and len(result):
