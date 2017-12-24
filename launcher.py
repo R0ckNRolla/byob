@@ -35,9 +35,9 @@ def run(*args, **kwargs):
                             print 'Error:', str(e)
                         if not len(RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'show', FoamyNonstopHistory])) and 'pastebin' in NobleRusticWalrus:
                             if 'pyHook' in FoamyNonstopHistory:
-                                ZonkedEnthusiasticTadpole = 'pyHook‑1.5.1‑cp27‑cp27m‑win_amd64.whl'
+                                ZonkedEnthusiasticTadpole = 'pyHook-1.5.1-cp27-cp27m-win_amd64.whl'
                             elif 'pypiwin32' in FoamyNonstopHistory:
-                                ZonkedEnthusiasticTadpole = 'pywin32‑221‑cp27‑cp27m‑win_amd64.whl'
+                                ZonkedEnthusiasticTadpole = 'pywin32-221-cp27-cp27m-win_amd64.whl'
                             else:
                                 ZonkedEnthusiasticTadpole = os.path.basename(NobleRusticWalrus)
                             try:
