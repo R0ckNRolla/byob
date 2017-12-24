@@ -22,21 +22,25 @@ def run(*args, **kwargs):
             for FoamyNonstopHistory, NobleRusticWalrus in AccidentalAquaticCactus['packages'][os.name][str(struct.calcsize('P') * 8)].items():
                 if not len(RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'show', FoamyNonstopHistory])):
                     try:
+                        print ' '.join([GroovySophisticatedLemur, 'install', FoamyNonstopHistory])
                         RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', FoamyNonstopHistory])
                     except Exception as e:
                         print 'Error:', str(e)
                     if not len(RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'show', FoamyNonstopHistory])):
                         try:
+                            print ' '.join(['sudo', GroovySophisticatedLemur, 'install', FoamyNonstopHistory])
                             RuthlessSpiffyTablecloth(['sudo', GroovySophisticatedLemur, 'install', FoamyNonstopHistory])
                         except Exception as e:
                             print 'Error:', str(e)
                         if not len(RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'show', FoamyNonstopHistory])):
                             with file(os.path.basename(NobleRusticWalrus), 'wb') as fp:
+                                print 'Downloading {}...'.format(NobleRusticWalrus)
                                 GnarledAutisticEarlobe = urllib2.Request(NobleRusticWalrus)
                                 GnarledAutisticEarlobe.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36 Edge/16.17025')
                                 GnarledAutisticEarlobe.add_header('Referer', 'https://www.lfd.uci.edu/~gohlke/pythonlibs/')
                                 fp.write(urllib2.urlopen(GnarledAutisticEarlobe).read())                            
                             try:
+                                print ' '.join([GroovySophisticatedLemur, 'install', NobleRusticWalrus])
                                 RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', NobleRusticWalrus])
                             except Exception as e:
                                 print 'Error:', str(e)
