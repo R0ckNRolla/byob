@@ -54,6 +54,7 @@ from uuid import uuid1
 from ftplib import FTP
 from struct import pack
 from random import choice
+from platform import uname
 from imp import new_module
 from tempfile import mktemp
 from zipfile import ZipFile
