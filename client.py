@@ -103,8 +103,8 @@ class Client(object):
 
     def _help_command(self, cmd): return getattr(self, cmd).func_doc if cmd in self._commands else "'{}' not found".format(cmd)
     
-    def _help_modules(self): return self._show({mod: self._modules[mod].status for mod in self._modules})
-
+    def _help_modules(self): return '\n'.join(['{:>12}{:>13}'.format(mod, ('enabled' if self._modules[mod].status else 'disabled')) for mod in self._modules])
+    
     def _wget(self, target): return urlretrieve(target)[0]
     
     def _cat(self,filename): return open(filename).read(4000) 
