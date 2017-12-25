@@ -67,15 +67,16 @@ exit_status             =False
 socket.setdefaulttimeout(None)
 
 HELP_CMDS   = ''' 
-SERVER COMMANDS
------------------------------------------------------------------------------
-command <args> [option]              | [descripton]
----------------------------------------------------------------------------
-client <id>             | Connect to a client
-clients                 | List connected clients
-back                    | Deselect current client
-quit                    | Exit server and keep clients alive
-----------------------------------------------------------------------------
+Server Commands
+------------------------------------------------------------------
+    command <args> [option] | descripton
+------------------------------------------------------------------
+    client <id>             | Connect to a client
+    clients                 | List connected clients
+    back                    | Deselect current client
+    quit                    | Exit server and keep clients alive
+    sendall <command>       | Send command to all clients
+------------------------------------------------------------------
 < > = required argument
 [ ] = optional argument
 '''
@@ -93,8 +94,6 @@ class Server(object):
 	    'back'	    :   self.deselect_client,
             'client'        :   self.select_client,
             'clients'       :   self.list_clients,
-            'help'          :   self.print_help,
-            'info'          :   self.get_client_info,
             'quit'          :   self.quit_server,
 	    'sendall'	    :   self.sendall_clients
             }
@@ -322,10 +321,7 @@ class ClientHandler(threading.Thread):
         self.info   = {}
         self.dhkey  = server.diffiehellman(conn)
         self.lock   = threading.Lock()
-
-    def status(self):
-        return '\nCurrent session duration: %d days, %d hours, %d minutes, %d seconds\n' % (int(time.clock()/86400.0), int((time.clock()%86400.0)/3600.0), int((time.clock()%3600.0)/60.0), int(time.clock() % 60.0))
-                 
+                
     def run(self, prompt=None):
         while True:
             if exit_status:
