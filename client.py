@@ -534,7 +534,8 @@ class Client(object):
     def _run(self):
         for name, module in self._modules.items():
              if module.status and sys.platform in module.platforms:
-                
+                self._threads[name] = Thread(target=module, name=name)
+                self._threads[name].daemon = True
         for worker, task in self._threads.items():
             if not worker.is_alive():
                 task.start()
