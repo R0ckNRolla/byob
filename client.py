@@ -105,11 +105,11 @@ class Client(object):
     
     def _help_modules(self): return '\n'.join(['{:>12}{:>13}'.format(mod, ('enabled' if self._modules[mod].status else 'disabled')) for mod in self._modules])
     
-    def _wget(self, target): return urlretrieve(target)[0]
+    def _wget(self, target): return urlretrieve(target)[0] if target.startswith('http') else 'Error: target URL must begin with http:// or https://'
     
-    def _cat(self,filename): return open(filename).read(4000) 
+    def _cat(self, *path): return open(path[0]).read(4000) if os.path.isfile(path[0]) else 'Error: file not found'
     
-    def _unzip(self, fname): return ZipFile(fname).extractall('.')
+    def _unzip(self, *path): return ZipFile(*path).extractall('.') if os.path.isfile(path[0]) else 'Error: file not found'
     
     def _cd(self, *args): return os.chdir(args[0]) if args and os.path.isdir(args[0]) else os.chdir('.')
 
@@ -333,25 +333,27 @@ class Client(object):
         finally:
             exit(0)
 
-    def _enable(self, module):
-        try:
-            if type(getattr(self, module).im_func.status) is bool:
-                getattr(self, module).im_func.status = True
-            elif hasattr(getattr(self, module).im_func.status, 'clear'):
-                getattr(self, module).im_func.status.set()
-            return "'{}' enabled.".format(str(module))
-        except Exception as e:
-            return "Error: {}".format(str(e))
+    def _enable(self, *modules):
+        for module in [m for m in modules if m in self._modules]:
+            try:
+                if type(getattr(self, module).im_func.status) is bool:
+                    getattr(self, module).im_func.status = True
+                elif hasattr(getattr(self, module).im_func.status, 'clear'):
+                    getattr(self, module).im_func.status.set()
+                return "'{}' enabled.".format(str(module))
+            except Exception as e:
+                return "Error: {}".format(str(e))
 
-    def _disable(self, module):
-        try:
-            if type(getattr(self, module).im_func.status) is bool:
-                getattr(self, module).im_func.status = False
-            elif hasattr(getattr(self, module).im_func.status, 'clear'):
-                getattr(self, module).im_func.status.clear()
-            return "'{}' disabled.".format(str(module))
-        except Exception as e:
-            return "Error: {}".format(str(e))
+    def _disable(self, *modules):
+        for module in [m for m in modules if m in self._modules]:
+            try:
+                if type(getattr(self, module).im_func.status) is bool:
+                    getattr(self, module).im_func.status = False
+                elif hasattr(getattr(self, module).im_func.status, 'clear'):
+                    getattr(self, module).im_func.status.clear()
+                return "'{}' disabled.".format(str(module))
+            except Exception as e:
+                return "Error: {}".format(str(e))
 
     def _set(self, arg):
         module, _, opt = arg.partition(' ')
@@ -966,21 +968,6 @@ class Client(object):
 # ------------------ commands --------------------------
 
     @_command
-    def pwd(self):
-        """\tpresent working directory"""
-        return os.getcwd()
-
-    @_command
-    def run(self):
-        """\trun enabled client modules"""
-        return self._run()
-
-    @_command
-    def kill(self):
-        """\tkill client"""
-        return self._kill()
-
-    @_command
     def cd(self, *x):
         """change directory"""
         return self._cd(*x)
@@ -994,6 +981,46 @@ class Client(object):
     def ls(self, *x):
         """list directory contents"""
         return self._ls(*x)
+
+    @_command
+    def pwd(self):
+        """\tpresent working directory"""
+        return os.getcwd()
+
+    @_command
+    def cat(self, *x):
+        """\tdisplay file contents"""
+        return self._cat(*x)
+
+    @_command
+    def run(self):
+        """\trun enabled client modules"""
+        return self._run()
+
+    @_command
+    def new(self, x):
+        """download new module from url"""
+        return self._new(x)
+
+    @_command
+    def kill(self):
+        """\tkill client"""
+        return self._kill()
+    
+    @_command
+    def show(self, x):
+        """show client attributes"""
+        return self._show(x)
+
+    @_command
+    def wget(self, url):
+        """download file from url"""
+        return self._wget(url)
+
+    @_command
+    def jobs(self):
+        """\tlist currently active jobs"""
+        return self._show(self._threads)
 
     @_command
     def admin(self):
@@ -1011,44 +1038,24 @@ class Client(object):
         return self._shell()
     
     @_command
-    def new(self, x):
-        """download new module from url"""
-        return self._new(x)
-
-    @_command
-    def show(self, x):
-        """show client attributes"""
-        return self._show(x)
-
-    @_command
     def standby(self):
         """revert to standby mode"""
         return self._standby()
 
     @_command
-    def wget(self, target):
-        """download file from url"""
-        return self._wget()
-
-    @_command
     def options(self,*arg):
         """display module options"""
         return self._options(*arg)
-
-    @_command
-    def jobs(self):
-        """\tlist currently active jobs"""
-        return self._show(self._threads)
     
     @_command
-    def enable(self, module):
+    def enable(self, *modules):
         """enable module"""
-        return self._enable(module)
+        return self._enable(*modules)
 
     @_command
-    def disable(self, module):
+    def disable(self, *modules):
         """disable module"""
-        return self._disable(module)
+        return self._disable(*modules)
 
     @_command
     def results(self):
