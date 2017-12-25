@@ -1174,6 +1174,6 @@ class Client(object):
 
 def main(*args, **kwargs):
     client = Client(**kwargs)
-    return client
+    return client.start()
 
 
