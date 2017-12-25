@@ -43,40 +43,6 @@
 
 '''
 
-import os
-import sys
-import time
-import json
-import socket
-import threading
-import subprocess
-from mss import mss
-from uuid import uuid1
-from ftplib import FTP
-from struct import pack
-from random import choice
-from platform import uname
-from imp import new_module
-from zipfile import ZipFile
-from requests import request
-from logging import getLogger
-from urllib import urlretrieve
-from Crypto.Cipher import AES
-from Crypto.Hash import HMAC, SHA256
-from tempfile import mktemp, gettempdir
-from base64 import b64encode, b64decode
-from logging.handlers import SocketHandler
-from Crypto.Util.number import long_to_bytes, bytes_to_long
-if os.name is 'nt':
-    from ctypes import windll
-    from pyHook import HookManager
-    from pythoncom import PumpMessages
-    from win32com.shell.shell import ShellExecuteEx
-    from _winreg import OpenKey, SetValueEx, CloseKey, HKEY_CURRENT_USER, REG_SZ, KEY_WRITE
-    from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, imwrite, waitKey
-else:
-    from pyxhook import HookManager
-
 
 
 class Client(object):
