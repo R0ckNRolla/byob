@@ -192,7 +192,8 @@ class Client(object):
     def _connect(self, host='localhost', port=1337):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            print 'Connecting to {}:{}...'.format(host, port)
+            if self.__v__:
+                print 'Connecting to {}:{}...'.format(host, port)
             s.connect((host, port))
             return s
         except Exception as e:
