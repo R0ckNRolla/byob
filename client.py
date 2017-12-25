@@ -1123,7 +1123,7 @@ class Client(object):
         usage:          help [option]
         description:    show command usage information
         """
-        return self._help(args)
+        return self._help(*args)
 
     @_command
     def info(self):
