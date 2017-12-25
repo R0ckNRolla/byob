@@ -987,7 +987,7 @@ class Client(object):
     @_command
     def show(self, x): """usage:\t\tshow <option>\ndescription:\tshow client attributes""" return self._show(x)
 
-    @_command
+     @_command
     def standby(self): """usage:\t\tstandby\ndescription:\trevert to standby mode""" return self._standby()
 
     @_command
