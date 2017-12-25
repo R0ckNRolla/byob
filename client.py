@@ -99,9 +99,9 @@ class Client(object):
 
     # ------------------- private functions -------------------------
 
-    def _help(self, *arg): return '\n'.join(['{}{:>90}'.format(x[0], x[1]) for x in {cmd: self._commands[cmd].func_doc for cmd in self._commands}.items()]) if not arg else self._help_command(arg[0])
+    def _help(self, *arg): return '\n'.join(['{}{:>90}'.format(cmd, self._commands[cmd].func_doc) for cmd in self._commands]) if not len(arg) else self._help_command(arg[0])
 
-    def _help_command(self, cmd): return getattr(self, cmd).func_doc if bool(len(cmd) and cmd in self._commands) else "'{}' not found".format(cmd)
+    def _help_command(self, cmd): return getattr(self, cmd).func_doc if cmd in self._commands else "'{}' not found".format(cmd)
     
     def _help_modules(self): return self._show({mod: self._modules[mod].status for mod in self._modules})
 
