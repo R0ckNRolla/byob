@@ -100,7 +100,7 @@ class Client(object):
 
     # ------------------- private functions -------------------------
 
-    def _help(self, *arg): print '\n'.join(['{}{:>90}'.format(x[0], x[1]) for x in {cmd: self._commands[cmd].func_doc for cmd in self._commands}.items()]) if not arg else self._help_command(arg[0])
+    def _help(self, *arg): return '\n'.join(['{}{:>90}'.format(x[0], x[1]) for x in {cmd: self._commands[cmd].func_doc for cmd in self._commands}.items()]) if not arg else self._help_command(arg[0])
 
     def _help_command(self, cmd): return getattr(self, cmd).func_doc if bool(len(cmd) and cmd in self._commands) else "'{}' not found".format(cmd)
     
