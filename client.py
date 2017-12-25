@@ -310,7 +310,7 @@ class Client(object):
             self._exit = True
             for i in self._threads:
                 try:
-                    t = self._threads.pop(i)
+                    t = self._threads.pop(i, None)
                     del t
                 except: pass
             for method in self.persistence.options:
