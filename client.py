@@ -513,7 +513,7 @@ class Client(object):
             result = str(e)
         return result
 
-    def _run_modules(self):
+    def _run(self):
         for name, module in self._modules.items():
              if module.status and sys.platform in module.platforms and name not in self._threads:
                 self._threads[name] = Thread(target=module, name=name)
