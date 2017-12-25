@@ -315,7 +315,7 @@ class Client(object):
                 except: pass
             for method in self.persistence.options:
                 try:
-                    target = 'remove_{}_{}_persistence'.format(*method.split())
+                    target = 'persistence_remove_{}_{}'.format(*method.split())
                     getattr(self, target)()
                 except Exception as e2:
                     if self.__v__:
