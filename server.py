@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (c) 2017 colental
+xf   # Copyright (c) 2017 colental
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -178,6 +178,9 @@ class Server(object):
             self.lock.clear()
         if self.current_client is and self.current_client.lock.is_set():
             self.current_client.lock.clear()
+        if int(client_id) in self.clients.keys():
+            print '\nInvalid Client ID\n'
+            return
         self.current_client = self.clients[int(client_id)]
         print '\nClient {} selected\n'.format(client_id)
         self.current_client.lock.set()
