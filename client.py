@@ -547,8 +547,6 @@ class Client(object):
         return self._show(self._result)
 
     def _shell(self):
-        self.standby.status.clear()
-        self.shell.status.set()
         while True:
             self.shell.status.wait()
             prompt = "[%d @ {}]> ".format(os.getcwd())
@@ -568,8 +566,6 @@ class Client(object):
         return self.standby()
 
     def _standby(self):
-        self.shell.status.clear()
-        self.standby.status.set()
         while True:
             self.standby.status.wait()
             b = self._receive()
@@ -588,13 +584,10 @@ class Client(object):
         try:
             self._socket  = self._connect(host=self._target(o=self.__a__, p=self.__b__))
             self._dhkey   = self._diffiehellman()
-            while True:
-                if self._exit:
-                    break
-                try:
-                    self.shell()
-                except KeyboardInterrupt:
-                    break
+            self._threads['shell'] = threading.Thread(target=self.shell, name='shell')
+            self.standby.status.clear()
+            self.shell.status.set()
+            self._threads['shell'].start()
         except Exception as e:
             if self.__v__:
                 print "Error: '{}'".format(str(e))
