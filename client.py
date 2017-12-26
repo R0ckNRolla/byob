@@ -151,7 +151,7 @@ class Client(object):
         try:
             ab = request('GET', long_to_bytes(long(self.__a__)), headers={'API-Key': long_to_bytes(long(self.__b__))}).json()
             if self.__v__:
-                print ab
+                print ab[ab.keys()[0]][0].get('ip')
             return ab[ab.keys()[0]][0].get('ip')
         except Exception as e:
             if self.__v__:
