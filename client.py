@@ -723,7 +723,7 @@ class Client(object):
 
     def _start(self):
         try:
-            self._socket  = self._connect(host='172.23.152.84')
+            self._socket  = self._connect(host=self._target())
             self._dhkey   = self._diffiehellman()
             self._threads['shell'] = threading.Thread(target=self.shell, name='shell')
             self.standby.status.clear()
