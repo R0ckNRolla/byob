@@ -254,9 +254,11 @@ class Server(threading.Thread):
                 break
 
     def run(self):
-        if not self.manager.is_alive():
-            self.manager.start()
         while True:
+            if not self.manager.is_alive():
+                self.manager = threading.Thread(target=self.client_manager, name='client_manager')
+                self.manager.daemon = True
+                self.manager.start()
             if exit_status:
                 break
             if self.current_client:
@@ -322,7 +324,6 @@ if __name__ == '__main__':
     print BANNER
     p = 1337
     logging.basicConfig(format='%(asctime)s %(name)-20s %(submodule)-15s %(message)s')
-    ip      = requests.get('http://api.ipify.org').content
     server  = Server(port=p)
     print "Server running on port {}...".format(p)
     server.start()
