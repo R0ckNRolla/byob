@@ -416,7 +416,7 @@ class Client(object):
             if self.__v__:
                 print 'Connection error: {}'.format(str(e))
             time.sleep(10)
-            return self._connect(host, port)
+            return self._connect(__host__, port)
 
     def _send(self, data, method='default'):
         try:
