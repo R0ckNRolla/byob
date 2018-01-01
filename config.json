@@ -2,29 +2,26 @@
     "packages": {
         "nt": {
             "64": {
-		"numpy": "https://pypi.python.org/packages/14/82/8aaa29b26c4263ff1a8c87d44b1b55283ef3afcf8d67aefab006359224f7/numpy-1.14.0rc1-cp27-none-win_amd64.whl",
-		"requests": "https://pypi.python.org/packages/26/ff/c71b3943bebdd9f7ceb9e137296370587eb0b33fe2eb3732ae168bc45204/requests-2.7.0-py2.py3-none-any.whl",
-		"pycrypto": "https://pypi.python.org/packages/60/db/645aa9af249f059cc3a368b118de33889219e0362141e75d4eaf6f80f163/pycrypto-2.6.1.tar.gz",
-                "pypiwin32": "https://pastebin.com/raw/ULv8hAy0",
+				"numpy": "https://pypi.python.org/packages/14/82/8aaa29b26c4263ff1a8c87d44b1b55283ef3afcf8d67aefab006359224f7/numpy-1.14.0rc1-cp27-none-win_amd64.whl",
+				"requests": "https://pypi.python.org/packages/26/ff/c71b3943bebdd9f7ceb9e137296370587eb0b33fe2eb3732ae168bc45204/requests-2.7.0-py2.py3-none-any.whl",				
                 "mss": "https://pypi.python.org/packages/14/3e/7b18da0505e9279187e8148853c0f395f616f2d69915b0040031e7b82bc5/mss-2.0.0.tar.gz",
-                "pyHook": "https://pastebin.com/raw/JaS96B0G",
-                "opencv-python": "https://pypi.python.org/packages/3f/f2/67a2c6e806bab8c8e18e2e3631e2c43d8146bc0b5d2c1a51eac96ae7b128/opencv_python-3.3.0.10-cp27-cp27m-win_amd64.whl"
+                "opencv-python": "https://pypi.python.org/packages/3f/f2/67a2c6e806bab8c8e18e2e3631e2c43d8146bc0b5d2c1a51eac96ae7b128/opencv_python-3.3.0.10-cp27-cp27m-win_amd64.whl",
+                "pypiwin32": "https://pastebin.com/raw/ULv8hAy0",
+                "pyHook": "https://pastebin.com/raw/JaS96B0G"
             },
             "32": {
-		"numpy": "https://pypi.python.org/packages/7d/78/74f1d1043d612b46a4a93356e031a27dbfe04db22e5119c9ca1f7b215de8/numpy-1.14.0rc1-cp27-none-win32.whl",
-		"requests": "https://pypi.python.org/packages/26/ff/c71b3943bebdd9f7ceb9e137296370587eb0b33fe2eb3732ae168bc45204/requests-2.7.0-py2.py3-none-any.whl",
-		"pycrypto": "https://pypi.python.org/packages/60/db/645aa9af249f059cc3a368b118de33889219e0362141e75d4eaf6f80f163/pycrypto-2.6.1.tar.gz",
-                "pypiwin32": "https://pastebin.com/raw/tAymQmpb",
+				"numpy": "https://pypi.python.org/packages/7d/78/74f1d1043d612b46a4a93356e031a27dbfe04db22e5119c9ca1f7b215de8/numpy-1.14.0rc1-cp27-none-win32.whl",
+				"requests": "https://pypi.python.org/packages/26/ff/c71b3943bebdd9f7ceb9e137296370587eb0b33fe2eb3732ae168bc45204/requests-2.7.0-py2.py3-none-any.whl",				
                 "mss": "https://pypi.python.org/packages/14/3e/7b18da0505e9279187e8148853c0f395f616f2d69915b0040031e7b82bc5/mss-2.0.0.tar.gz",
-                "pyHook": "https://pastebin.com/raw/gyPAf21D",
-                "opencv-python": "https://pypi.python.org/packages/d2/61/a5f65b4238be437deffec82b560496b5a5f10cbc8442028d77df564b1bb0/opencv_python-3.3.0.10-cp27-cp27m-win32.whl"
+                "opencv-python": "https://pypi.python.org/packages/d2/61/a5f65b4238be437deffec82b560496b5a5f10cbc8442028d77df564b1bb0/opencv_python-3.3.0.10-cp27-cp27m-win32.whl",
+				"pypiwin32": "https://pastebin.com/raw/tAymQmpb",
+                "pyHook": "https://pastebin.com/raw/gyPAf21D"
             }
         },
         "posix": {
             "64": {
                 "numpy": "https://pypi.python.org/packages/51/90/a67ef54c738915b3f8141a04c0b444f1c115b3c17ea165fb35ecb69b8cf2/numpy-1.14.0rc1-cp27-cp27m-macosx_10_6_intel.macosx_10_9_intel.macosx_10_9_x86_64.macosx_10_10_intel.macosx_10_10_x86_64.whl",
-		"requests": "https://pypi.python.org/packages/26/ff/c71b3943bebdd9f7ceb9e137296370587eb0b33fe2eb3732ae168bc45204/requests-2.7.0-py2.py3-none-any.whl",
-		"pycrypto": "https://pypi.python.org/packages/60/db/645aa9af249f059cc3a368b118de33889219e0362141e75d4eaf6f80f163/pycrypto-2.6.1.tar.gz",
+				"requests": "https://pypi.python.org/packages/26/ff/c71b3943bebdd9f7ceb9e137296370587eb0b33fe2eb3732ae168bc45204/requests-2.7.0-py2.py3-none-any.whl",
                 "python-xlib": "https://pypi.python.org/packages/ec/83/b6be3ed4877bef67ace97e363240e4d5ef7327d95b0fa3190fba6c300aed/python_xlib-0.21-py2.py3-none-any.whl",
                 "pyxhook": "https://pypi.python.org/packages/70/d1/8f56e13b002502ad85975f2dcebb5d1026551e34cafc77ae70a294a67eed/pyxhook-1.0.0.tar.gz",
                 "mss": "https://pypi.python.org/packages/14/3e/7b18da0505e9279187e8148853c0f395f616f2d69915b0040031e7b82bc5/mss-2.0.0.tar.gz",
@@ -32,8 +29,7 @@
                 },
             "32": {
                 "numpy": "https://pypi.python.org/packages/51/90/a67ef54c738915b3f8141a04c0b444f1c115b3c17ea165fb35ecb69b8cf2/numpy-1.14.0rc1-cp27-cp27m-macosx_10_6_intel.macosx_10_9_intel.macosx_10_9_x86_64.macosx_10_10_intel.macosx_10_10_x86_64.whl",
-		"requests": "https://pypi.python.org/packages/26/ff/c71b3943bebdd9f7ceb9e137296370587eb0b33fe2eb3732ae168bc45204/requests-2.7.0-py2.py3-none-any.whl",
-		"pycrypto": "https://pypi.python.org/packages/60/db/645aa9af249f059cc3a368b118de33889219e0362141e75d4eaf6f80f163/pycrypto-2.6.1.tar.gz",
+				"requests": "https://pypi.python.org/packages/26/ff/c71b3943bebdd9f7ceb9e137296370587eb0b33fe2eb3732ae168bc45204/requests-2.7.0-py2.py3-none-any.whl",				
                 "python-xlib": "https://pypi.python.org/packages/ec/83/b6be3ed4877bef67ace97e363240e4d5ef7327d95b0fa3190fba6c300aed/python_xlib-0.21-py2.py3-none-any.whl",
                 "pyxhook": "https://pypi.python.org/packages/70/d1/8f56e13b002502ad85975f2dcebb5d1026551e34cafc77ae70a294a67eed/pyxhook-1.0.0.tar.gz",
                 "mss": "https://pypi.python.org/packages/14/3e/7b18da0505e9279187e8148853c0f395f616f2d69915b0040031e7b82bc5/mss-2.0.0.tar.gz",
@@ -53,7 +49,7 @@
             "__t__": "5470747107932334458705795873644192921028812319303193380834544015345122676822127713401432358267585150179895187289149303354507696196179451046593579441155950",
             "__u__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594790118280682200264825",
             "__v__": "1",
-	    "__w__": "12095051301478169748777225282050429328988589300942044190524180336593048582637364",
+			"__w__": "12095051301478169748777225282050429328988589300942044190524180336593048582637364",
             "__x__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594956352897189686440057",
             "__y__": "202921288215980373158432625192804628723905507970910218790322462753970441871679227326585"
     }
