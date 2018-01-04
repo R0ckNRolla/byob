@@ -105,7 +105,7 @@ class Server(threading.Thread):
         self.manager        = threading.Thread(target=self.client_manager, name='client_manager')
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.s.bind(('localhost', port))
+        self.s.bind(('0.0.0.0', port))
         self.s.listen(5)
         self.lock.set()
 
@@ -131,7 +131,7 @@ class Server(threading.Thread):
 
     @property
     def __encryption(self):
-        return {'endian': '<' if sys.byteorder == 'little' else '!', 'rounds': 32, 'block_size': 8}
+        return {'endian': '<' if sys.byteorder == 'little' else '!', 'rounds': 32, 'key_size': 16, 'block_size': 8}
 
     def _encryption(self, block, dhkey):
         v0, v1  = struct.unpack(self.encryption['endian'] + "2L", block)
@@ -157,7 +157,7 @@ class Server(threading.Thread):
     def diffiehellman(self, connection, bits=2048):
         p = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
         g = 2
-        a = self._bytes_to_long(os.urandom(32))
+        a = self._bytes_to_long(os.urandom(self.encryption['key_size']))
         xA = pow(g, a, p)
         connection.sendall(self._long_to_bytes(xA))
         xB = self._bytes_to_long(connection.recv(256))
