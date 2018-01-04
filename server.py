@@ -166,7 +166,7 @@ class Server(threading.Thread):
 
     @__encryption.getter
     def encryption(self):
-	return self.__encryption
+        return self.__encryption
 
     def _encrypt(self, data, dhkey):
         padded = self._pad(data)
@@ -236,6 +236,7 @@ class Server(threading.Thread):
             self.current_client.lock.clear()
         self.current_client = None
         self.lock.set()
+        return self.run()
     
     @command  
     def send_client(self, msg, client_id):
@@ -299,7 +300,7 @@ class Server(threading.Thread):
             try:
                 for client in self.get_clients():
                     try:
-                        self.send_client('mode standby', client.name)
+                        self.send_client('standby', client.name)
                     except: pass
             finally:
                 sys.exit(0)
