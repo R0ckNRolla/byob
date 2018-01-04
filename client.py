@@ -766,16 +766,11 @@ class Client(object):
             return 'Upload error: {}'.format(str(e))
 
     def _run(self):
-        tasks = []
-        for name, module in self._modules.items():
-             if module.status.is_set() and sys.platform in module.platforms:
-                self._threads[name] = threading.Thread(target=module, name=time.time())
-                self._threads[name].daemon = True
-                tasks.append(name)
-        for task, worker in self._threads.items():
-            if task in tasks and not worker.is_alive():
-                worker.start()
-        return "Running modules: {}".format(', '.join(i for i in tasks))
+        tasks = [task for task,module in self._modules.items() if module.status.is_set() if sys.platform in module.platforms]
+        for task in tasks:
+            self._threads[task] = threading.Thread(target=self._modules[task], name=time.time())
+            self._threads[task].start()
+        return "Running: {}".format(', '.join(tasks))
 
     def _shell(self):
         self.standby.status.clear()
