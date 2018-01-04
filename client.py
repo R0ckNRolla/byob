@@ -1262,7 +1262,7 @@ class Client(object):
 
 
 def main(*args, **kwargs):
-    config = kwargs.get('config')
+    config = kwargs
     if config:
         if '__w__' in config:
             exec 'import urllib' in globals()
