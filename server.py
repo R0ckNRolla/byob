@@ -108,7 +108,7 @@ class Server(threading.Thread):
         self.manager        = threading.Thread(target=self.client_manager, name='client_manager')
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.s.bind(('localhost', port))
+        self.s.bind(('0.0.0.0', port))
         self.s.listen(5)
         self.lock.set()
 
@@ -370,7 +370,7 @@ class Server(threading.Thread):
                 data = data[msg_size:]
                 frame = pickle.loads(frame_data)
                 cv2.imshow(window_name, frame)
-                key = cv2.waitKey(20)
+                key = cv2.waitKey(70)
                 if key == 32:
                     break
         finally:
