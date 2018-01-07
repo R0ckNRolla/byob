@@ -1,1 +1,1 @@
-__all__ = ['client', 'encrypted_launcher', 'launcher', 'obfuscator', 'server']
+__all__ = ['client', 'launcher', 'obfuscator', 'server']
