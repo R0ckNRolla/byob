@@ -108,7 +108,7 @@ class Server(threading.Thread):
         self.manager        = threading.Thread(target=self.client_manager, name='client_manager')
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.s.bind(('0.0.0.0', port))
+        self.s.bind(('localhost', port))
         self.s.listen(5)
         self.lock.set()
 
@@ -285,6 +285,49 @@ class Server(threading.Thread):
             finally:
                 sys.exit(0)
 
+    def stream_client(self):
+        if not self.current_client:
+            return 'No Client selected'
+        client = self.current_client
+        client.lock.clear()
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        retries = 5
+        while retries > 0:
+            try:
+                port = random.randint(6000,9999)
+                s.bind(('0.0.0.0', port))
+                s.listen(1)
+                self.send_client('stream {}'.format(port), client.name)
+                conn, addr  = s.accept()
+                break
+            except:
+                retries -= 1
+        print '\n Streaming {} ( press <space> any time to stop )'.format(addr[0])
+        header_size = struct.calcsize("L")
+        window_name = addr[0]
+        cv2.namedWindow(window_name)
+        data = ""
+        try:
+            while True:
+                while len(data) < header_size:
+                    data += conn.recv(4096)
+                packed_msg_size = data[:header_size]
+                data = data[header_size:]
+                msg_size = struct.unpack("L", packed_msg_size)[0]
+                while len(data) < msg_size:
+                    data += conn.recv(4096)
+                frame_data = data[:msg_size]
+                data = data[msg_size:]
+                frame = pickle.loads(frame_data)
+                cv2.imshow(window_name, frame)
+                key = cv2.waitKey(70)
+                if key == 32:
+                    break
+        finally:
+            conn.close()
+            cv2.destroyAllWindows()
+            client.lock.set()
+        return client.run()
         
     def select_client(self, client_id):
         if self.lock.is_set():
@@ -340,45 +383,6 @@ class Server(threading.Thread):
             if output and len(output):
                 print output
 
-    def stream_client(self, port=None):
-        if not port:
-            port = random.randint(6000,9999)
-        if not self.current_client:
-            return 'No Client selected'
-        client = self.current_client
-        client.lock.clear()
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.bind(('0.0.0.0', port))
-        s.listen(1)
-        self.send_client('stream {}'.format(port), client.name)
-        conn, addr  = s.accept()
-        print '\nLive streaming {}...\n( press <space> any time to stop )\n'.format(addr[0])
-        header_size = struct.calcsize("L")
-        window_name = addr[0]
-        cv2.namedWindow(window_name)
-        data = ""
-        try:
-            while True:
-                while len(data) < header_size:
-                    data += conn.recv(4096)
-                packed_msg_size = data[:header_size]
-                data = data[header_size:]
-                msg_size = struct.unpack("L", packed_msg_size)[0]
-                while len(data) < msg_size:
-                    data += conn.recv(4096)
-                frame_data = data[:msg_size]
-                data = data[msg_size:]
-                frame = pickle.loads(frame_data)
-                cv2.imshow(window_name, frame)
-                key = cv2.waitKey(70)
-                if key == 32:
-                    break
-        finally:
-            try:
-                conn.close()
-            except: pass
-            cv2.destroyAllWindows()
-            client.lock.set()
 
 class ConnectionHandler(threading.Thread):
     global server
