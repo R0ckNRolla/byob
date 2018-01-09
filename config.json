@@ -2,19 +2,19 @@
     "packages": {
         "nt": {
             "64": {
-				"numpy": "https://pypi.python.org/packages/14/82/8aaa29b26c4263ff1a8c87d44b1b55283ef3afcf8d67aefab006359224f7/numpy-1.14.0rc1-cp27-none-win_amd64.whl",
-				"requests": "https://pypi.python.org/packages/26/ff/c71b3943bebdd9f7ceb9e137296370587eb0b33fe2eb3732ae168bc45204/requests-2.7.0-py2.py3-none-any.whl",				
+		"numpy": "https://pypi.python.org/packages/14/82/8aaa29b26c4263ff1a8c87d44b1b55283ef3afcf8d67aefab006359224f7/numpy-1.14.0rc1-cp27-none-win_amd64.whl",
+		"requests": "https://pypi.python.org/packages/26/ff/c71b3943bebdd9f7ceb9e137296370587eb0b33fe2eb3732ae168bc45204/requests-2.7.0-py2.py3-none-any.whl",				
                 "mss": "https://pypi.python.org/packages/14/3e/7b18da0505e9279187e8148853c0f395f616f2d69915b0040031e7b82bc5/mss-2.0.0.tar.gz",
                 "opencv-python": "https://pypi.python.org/packages/3f/f2/67a2c6e806bab8c8e18e2e3631e2c43d8146bc0b5d2c1a51eac96ae7b128/opencv_python-3.3.0.10-cp27-cp27m-win_amd64.whl",
                 "pypiwin32": "https://pastebin.com/raw/ULv8hAy0",
                 "pyHook": "https://pastebin.com/raw/JaS96B0G"
             },
             "32": {
-				"numpy": "https://pypi.python.org/packages/7d/78/74f1d1043d612b46a4a93356e031a27dbfe04db22e5119c9ca1f7b215de8/numpy-1.14.0rc1-cp27-none-win32.whl",
-				"requests": "https://pypi.python.org/packages/26/ff/c71b3943bebdd9f7ceb9e137296370587eb0b33fe2eb3732ae168bc45204/requests-2.7.0-py2.py3-none-any.whl",				
+		"numpy": "https://pypi.python.org/packages/7d/78/74f1d1043d612b46a4a93356e031a27dbfe04db22e5119c9ca1f7b215de8/numpy-1.14.0rc1-cp27-none-win32.whl",
+		"requests": "https://pypi.python.org/packages/26/ff/c71b3943bebdd9f7ceb9e137296370587eb0b33fe2eb3732ae168bc45204/requests-2.7.0-py2.py3-none-any.whl",				
                 "mss": "https://pypi.python.org/packages/14/3e/7b18da0505e9279187e8148853c0f395f616f2d69915b0040031e7b82bc5/mss-2.0.0.tar.gz",
                 "opencv-python": "https://pypi.python.org/packages/d2/61/a5f65b4238be437deffec82b560496b5a5f10cbc8442028d77df564b1bb0/opencv_python-3.3.0.10-cp27-cp27m-win32.whl",
-				"pypiwin32": "https://pastebin.com/raw/tAymQmpb",
+		"pypiwin32": "https://pastebin.com/raw/tAymQmpb",
                 "pyHook": "https://pastebin.com/raw/gyPAf21D"
             }
         },

