@@ -1400,7 +1400,7 @@ def main(*args, **kwargs):
         exec imports in globals()
     if 'f' not in kwargs and '__file__' in globals():
         kwargs['f'] = bytes(long(globals()['__file__'].encode('hex'), 16))
-    return Client(**kwargs)
+    return Client(**kwargs)._start()
 
 if __name__ == '__main__':
     m = main(**{
