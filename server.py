@@ -63,7 +63,7 @@ import SocketServer
 
 
 colorama.init(autoreset=True)
-socket.setdefaulttimeout(None)
+socket.setdefaulttimeout(1.0)
 
 
 # globals
@@ -199,15 +199,22 @@ class Server(threading.Thread):
         return struct.pack(self.encryption['endian'] + "2L", v0, v1)
 
     def diffiehellman(self, connection, bits=2048):
-        p = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
-        g = 2
-        a = self._bytes_to_long(os.urandom(self.encryption['key_size']))
-        xA = pow(g, a, p)
-        connection.sendall(self._long_to_bytes(xA))
-        xB = self._bytes_to_long(connection.recv(256))
-        x = pow(xB, a, p)
-        return sys.modules['hashlib'].new('md5', string=self._long_to_bytes(x)).digest()
-
+        try:
+            p = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
+            g = 2
+            a = self._bytes_to_long(os.urandom(self.encryption['key_size']))
+            xA = pow(g, a, p)
+            connection.sendall(self._long_to_bytes(xA))
+            xB = self._bytes_to_long(connection.recv(256))
+            x = pow(xB, a, p)
+            return sys.modules['hashlib'].new('md5', string=self._long_to_bytes(x)).digest()
+        except: pass
+        try:
+            if connection.getpeername():
+                time.sleep(1)
+                return self.diffiehellman(connection)
+        except: pass
+        
     @__encryption.getter
     def encryption(self):
         return self.__encryption
@@ -273,9 +280,7 @@ class Server(threading.Thread):
                     try:
                         buffer += client.conn.recv(4096)
                     except:
-                        client.lock.clear()
-                        self.current_client = None
-                        print('\n' + server._text_color + server._text_style + 'Client {} has disconnected'.format(client.name))
+                        raise socket.error
                 if len(buffer):
                     try:
                         method, _, message = buffer.partition(':')
@@ -309,6 +314,7 @@ class Server(threading.Thread):
             except Exception as e:
                 self._error(str(e))
                 self.current_client = None
+                self.remove_client(int(client_id))
         return self.run()
 
     def deselect_client(self):
@@ -326,7 +332,19 @@ class Server(threading.Thread):
                 print(self._text_color + self._text_style + 'Unable to connect to client {}'.format(client.name))
 
     def remove_client(self, key):
-        return self.clients.pop(int(key), None)
+        try:
+            thread = self.clients.pop(int(key), None)
+            self._print('Client {} disconnected'.format(thread.name))
+            if not self.current_client:
+                self.lock.set()
+                return self.run()
+            else:
+                self.lock.clear()
+                self.current_client.lock.set()
+                return self.current_client.run()
+        except:
+            return self._error('Invalid Client ID')
+
           
     def kill_client(self, client_id):
         client = self.clients.get(int(client_id))
@@ -409,14 +427,18 @@ class Server(threading.Thread):
 
     def client_manager(self):
         while True:
-            conn, addr  = self.s.accept()
-            name        = len(self.clients) + 1
-            dhkey       = self.diffiehellman(conn)
-            client      = ConnectionHandler(conn, addr, name, dhkey)
-            self.clients[name] = client
-            client.start()
-            if exit_status:
-                break
+            try:
+                conn, addr  = self.s.accept()
+                conn.settimeout(3.0)
+                name        = len(self.clients) + 1
+                dhkey   = self.diffiehellman(conn)
+                client      = ConnectionHandler(conn, addr, name, dhkey)
+                self.clients[name] = client
+                client.start()
+                if exit_status:
+                    break
+            except:
+                continue
 
     def usage(self):
         print
@@ -451,12 +473,6 @@ class Server(threading.Thread):
                 self.manager.start()
             if exit_status:
                 break
-            if self.current_client:
-                if self.lock.is_set():
-                    self.lock.clear()
-            else:
-                if not self.lock.is_set():
-                    self.lock.set()
             self.lock.wait()
             output = ''
             cmd_buffer = self._prompt('$ ')
@@ -489,6 +505,7 @@ class ConnectionHandler(threading.Thread):
         self.info   = {}
         self.lock   = threading.Event()
         self._dhkey = dhkey
+        self.conn.settimeout(3.0)
 
     def run(self):
         while True:
@@ -499,8 +516,8 @@ class ConnectionHandler(threading.Thread):
             try:
                 method, data = ('prompt', self.prompt) if self.prompt else server.recv_client(self.name)
             except:
-                self.lock.clear()
-                server._print('Client {} disconnected'.format(client.name))
+                
+                break
             if 'prompt' in method:
                 self.prompt = data.format(self.name)
                 command = server._prompt(self.prompt)
@@ -515,6 +532,10 @@ class ConnectionHandler(threading.Thread):
                 if data:
                     server._print(data)
             self.prompt = None
+        server.remove_client(self.name)
+        server.current_client = None
+        server.lock.set()
+        server.run()
          
 
 if __name__ == '__main__':
