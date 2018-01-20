@@ -18,15 +18,15 @@ def run(*args, **kwargs):
         vector  = blocks[0]
         result  = []
         for block in blocks[1:]:
-            u,v = struct.unpack("!" + "2L", block)
-            k   = struct.unpack("!" + "4L", key)
+            u,v = struct.unpack("!2L", block)
+            k   = struct.unpack("!4L", key)
             d,m = 0x9e3779b9L, 0xffffffffL
             sum = (d * 32) & m
             for _ in range(32):
                 v   = (v - (((u << 4 ^ u >> 5) + u) ^ (sum + k[sum >> 11 & 3]))) & m
                 sum = (sum - d) & m
                 u   = (u - (((v << 4 ^ v >> 5) + v) ^ (sum + k[sum & 3]))) & m
-            packed  = struct.pack("!" + "2L", u, v)
+            packed  = struct.pack("!2L", u, v)
             output  = "".join(chr(ord(x) ^ ord(y)) for x, y in zip(vector, packed))
             vector  = block
             result.append(output)
