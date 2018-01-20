@@ -340,7 +340,7 @@ class Server(threading.Thread):
                     method, _, message = buffer.partition(':')
                     message = server.decrypt(message.rstrip(), client.name)
                     return (method, message)
-            self._return()
+            return
         else:
             self._error('Invalid Client ID')
     
