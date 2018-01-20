@@ -305,7 +305,7 @@ class Client(object):
             else:
                 return "'{}' not found.".format(target)
         except Exception as e:
-            self._debug(str(e))
+            return "Unable to remove target '{}', failed with error: '{}'".format(str(e))
 
     @public
     def upload(self, *args):
