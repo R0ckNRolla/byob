@@ -154,6 +154,6 @@ def main(*args, **kwargs):
             time.sleep(1)
             return main(**kwargs)
 
-# Below this line clients append their dynamically generated code
 
-
+if __name__ == '__main__':
+    main(config=81405076676456706424)

