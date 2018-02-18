@@ -92,8 +92,8 @@ def config(*arg, **options):
 
 class Client():
     
-    debug       = True
-    _exit       = False
+    debug       = 0
+    _exit       = 0
     _jobs       = {}
     _network    = {}
     _queue      = Queue.Queue()

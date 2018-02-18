@@ -82,17 +82,17 @@ __PORT__    = 1337
 
 # default database interaction targets
 ___DB___    = {
-    'domain': 'https://snapchat.sex/',
+    'domain': None,
     'pages': {
-        'results'   : 'result.php?id={}',
-        'query'     : 'query.php',
-        'session'   : 'session.php'
+        'results'   : None,
+        'query'     : None,
+        'session'   : None
         },
     'session_key': None
     }
 
 # enable/disable debugging output
-__DEBUG__   = True
+__DEBUG__   = False
 
 # comment/uncomment the following line to disable/enable color 
 colorama.init(autoreset=False)
