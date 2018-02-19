@@ -148,7 +148,7 @@ class ServerThread(threading.Thread):
         self.s.listen(100)
 
     def _prompt(self, data):
-        return raw_input(self._prompt_color + self._prompt_style + data + self._text_color + self._text_style)
+        return raw_input(self._prompt_color + self._prompt_style + '\n' + data + self._text_color + self._text_style)
     
     def _error(self, data):
         if self.current_client:
@@ -600,9 +600,8 @@ class ServerThread(threading.Thread):
             print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "\n\n\t[+] " + colorama.Fore.RESET + colorama.Style.DIM + "Client {} - new connection from {}\n".format(client.name, client.addr[0]) + self._text_color + self._text_style)
             self.count  += 1
             client.start()
-            threads[self.run.func_name] = threading.Thread(target=self._return, name=time.time())
-            threads[self.run.func_name].start()
-
+            self._return()
+            
     def run(self):
         while True:
             try:
@@ -718,7 +717,7 @@ class ClientHandler(threading.Thread):
                     break
                 self.lock.wait()
                 task = self.prompt if self.prompt else threads['server'].recv_client(self.name)
-                if task:
+                if type(task) is dict:
                     if 'prompt' == task.get('command'):
                         self.prompt     = task.get('data')
                         command         = self._prompt(bytes(self.prompt).format(self.name))
