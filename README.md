@@ -1,14 +1,31 @@
 
-     Problem:
+THE ANGRY EGGPLANT PROJECT
 
-     Is it possible to build an ultra-portable, stealthy and persistent worm which self-replicates by infecting host machines with the 
-     purpose of building a peer-to-peer botnet that is written in pure python, has zero dependencies, runs on anything, requires no 
-     manual configuration, automates host discovery, and autonomously discovers and analyzes hosts to then generate, configure, and 
-     compile a unique encrypted deliverable for each target, utilizing mulitiple attack vectors for payload delivery, to gain a 
-     foothold, establish persistence, while minimizing potential exposure of peers in the botnet - while all network communication is 
-     encrypted end-to-end with state of the art cryptography?
-
-     Solution:
+         Angry Eggplant primarily acts as a remote access tool inspired by the
+         Meterpreter shell of the Metasploit Project, with some major improvements.
+         It is ultra-portable - it is written in pure python, has zero dependencies,
+         runs on anything, requires no manual configuration, and does not require
+         any downloads or installations to run - in fact, if it can't find something
+         it needs, rather than raise an error or fail to run, it automatically
+         downloads/installs it silently without any user interaction. This is
+         convenient for the remote access tool, but the true power of this is in
+         the autonomous mode which transforms the client from a reverse tcp shell
+         loaded with many payloads into something more closely resembling a worm
+         than a remote access tool. Operating in this mode it autonomously discovers
+         and analyzes hosts to then generate, configure, and compile a unique
+         encrypted deliverable for each target which acts as a stager that gains a
+         foothold and acts a stager from which to download and execute the main client
+         from. The client first establishes persistence with multiple methods to ensure
+         redundancy. Next it seeks to discover new host machines in its local network,
+         and spread itstelf to those hosts using mulitiple payload delivery vectors,
+         such as email, ssh, and ftp. It does all this from memory without leaving a
+         trace of evidence on the host machine's hard disk. It never connects to a
+         command & control server or exposes the attacker in any way - rather it only
+         will make connections with the machine that infected it and with any machines
+         it subsequently infects. Finally, and most importantly, all communication over
+         any network is encrypted from end-to-end with secure modern cryptography,
+         thus minimizing the amount of information exposed to potential discovery by
+         security researchers.
 
  
  
