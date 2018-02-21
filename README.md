@@ -1,10 +1,14 @@
 
-Problem:
+     Problem:
 
-     Is it possible to build an ultra-portable, stealthy and persistent worm which self-replicates by infecting host machines with the purpose of building a peer-to-peer botnet that is written in pure python, has zero dependencies, runs on anything, requires no manual configuration, automates host discovery, and autonomously discovers and analyzes hosts to then generate, configure, and compile a unique encrypted deliverable for each target, utilizing mulitiple attack vectors for payload delivery, to gain a foothold, establish persistence, while minimizing potential exposure of peers in the botnet - while all network communication is encrypted end-to-end with state of the art cryptography?
-     
+     Is it possible to build an ultra-portable, stealthy and persistent worm which self-replicates by infecting host machines with the 
+     purpose of building a peer-to-peer botnet that is written in pure python, has zero dependencies, runs on anything, requires no 
+     manual configuration, automates host discovery, and autonomously discovers and analyzes hosts to then generate, configure, and 
+     compile a unique encrypted deliverable for each target, utilizing mulitiple attack vectors for payload delivery, to gain a 
+     foothold, establish persistence, while minimizing potential exposure of peers in the botnet - while all network communication is 
+     encrypted end-to-end with state of the art cryptography?
 
-Solution:
+     Solution:
 
  
  
@@ -29,25 +33,16 @@ Solution:
 
 
                 https://github.com/colental/ae
-    Features:
-
+ 
         - 26 payloads (keylogger, webcam, packetsniffer, screenshot, etc.)
-
         - End-to-end encryption
-
         - Runs on Windows, Mac OS X, iOS, Linux, Android
-
-        - Automated host discovery
-
         - No dependencies 
-
         - No configuration
-
         - Pure python source
-
         - Compiles source into native executable format for each host
-
         - Multiple delivery vectors - email, websites, ssh, ftp
+        - Automated host discovery
 
 
   
