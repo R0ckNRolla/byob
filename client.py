@@ -1187,7 +1187,9 @@ class Client():
             while True:
                 time.sleep(60)
                 if addr:
-                    self.session(host=addr[0], port=addr[1])
+                    try:
+                        self.session(host=addr[0], port=addr[1])
+                    except: pass
                 else:
                     self.session()
                 if self._session['connection'].is_set():
@@ -1611,7 +1613,7 @@ class Client():
         disconnect from server but keep client alive
         """
         try:
-            self._jobs[self.standby.func_name] = threading.Timer(1.0, self._standby, args=(self,))            
+            self._jobs[self.standby.func_name] = threading.Timer(1.0, self._standby)            
             self._jobs[self.standby.func_name].start()
             return "{} standing by".format(self._info.get('ip'))
         except Exception as e:
