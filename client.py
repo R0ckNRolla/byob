@@ -186,6 +186,14 @@ class Client():
                     Client._debug("{} returned error: {}".format(Client._configure.func_name, str(e)))
 
     @staticmethod
+    def _post(url, headers={}, data={}):
+        dat = urllib.urlencode(data)
+        req = urllib2.Request(url, data=dat) if data else urllib2.Request(url)
+        for key, value in headers.items():
+            req.headers[key] = value
+        return urllib2.urlopen(req).read()
+
+    @staticmethod
     def _obfuscate(data):
         a = bytearray(reversed(data))
         b = Client._get_nth_prime(len(a) + 1)
@@ -1084,14 +1092,6 @@ class Client():
             return json.loads(data)
         except Exception as e:
             self._debug('{} error: {}'.format(self._recv.func_name, str(e)))
-
-
-    def _post(self, url, headers={}, data={}):
-        dat = urllib.urlencode(data)
-        req = urllib2.Request(url, data=dat) if data else urllib2.Request(url)
-        for key, value in headers.items():
-            req.headers[key] = value
-        return urllib2.urlopen(req).read()
 
 
     def _ping(self, host):
