@@ -752,7 +752,7 @@ class ClientHandler(threading.Thread):
                             threads['server'].send_client(command, self.name)
                     else:
                         if task.get('data'):
-                            threads['server']._print(task['data'])                      
+                            threads['server']._print(task['data'])
                             threads['server'].save_task_results(task)
                 self.prompt = None
             except Exception as e:
