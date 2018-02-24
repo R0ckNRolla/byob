@@ -132,10 +132,7 @@ def main(*args, **kwargs):
                                 if os.path.isfile(ZonkedEnthusiasticTadpole):
                                     os.remove(ZonkedEnthusiasticTadpole)
                             else:
-                                try:
-                                    RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', NobleRusticWalrus])
-                                except Exception as e:
-                                    SeamlessGalacticSponges('Install error: {}'.format(str(e)))
+                                RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', NobleRusticWalrus])
             except Exception as e:
                 if __DEBUG__:
                     print("Launch error: {}".format(str(e)))
