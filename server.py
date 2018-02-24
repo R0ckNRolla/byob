@@ -96,7 +96,7 @@ ___DB___    = {
 
 
 # enable debugging mode for local network only
-__DEBUG__   = True
+__DEBUG__   = False
 
 
 # comment/uncomment the following line to disable/enable color 
