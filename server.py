@@ -77,12 +77,10 @@ a8P     88 a8"    `Y88 a8"    `Y88 88P'    "8a 88 ""     `Y8 88P'   `"8a MM88MMM
 
 '''
 
+
 # default port for the server to listen on
-__PORT__    = 1337  
+__PORT__    = 1337
 
-
-# types of tasks that will be saved to the database
-tasks   = 
 
 # default database directory tree
 ___DB___    = {
@@ -96,8 +94,10 @@ ___DB___    = {
     'tasks': ['keylogger','packetsniff','persistence','ransom','screenshot','webcam','upload']
 }
 
+
 # enable debugging mode for local network only
 __DEBUG__   = False
+
 
 # comment/uncomment the following line to disable/enable color 
 colorama.init()
