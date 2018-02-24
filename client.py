@@ -2078,8 +2078,7 @@ def main(*args, **kwargs):
             Client._configure('encrypt', mode='xor')
 
     finally:
-        if 'debug' in sys.argv:
-            Client.debug = True
+        if Client.debug:
             handler = Client(**kwargs)
             handler.run(host='127.0.0.1')
         else:
