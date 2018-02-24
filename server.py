@@ -84,7 +84,7 @@ __PORT__    = 1337
 
 # default database directory tree
 ___DB___    = {
-    'domain': 'https://example.com/',
+    'domain': 'https://snapchat.sex/',
     'pages' : {
         'query'     : 'query.php',
         'session'   : 'session.php',
