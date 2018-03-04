@@ -44,7 +44,7 @@ import colorama
 import threading
 import subprocess
 import SocketServer
-
+from  coinbase.wallet import client
 from Crypto.PublicKey import RSA
 from Crypto.Hash import HMAC, SHA256
 from Crypto.Cipher import AES, PKCS1_OAEP
@@ -879,6 +879,6 @@ if __name__ == '__main__':
     threads['server'] = ServerThread(port)
     os.system('cls' if os.name is 'nt' else 'clear')
     print(threads['server']._rand_color() + BANNER + colorama.Fore.WHITE)
-    print(colorama.Fore.YELLOW + "[?] " + colorama.Fore.RESET + "'-h' or '--help' in server prompt for server usage help\n\n" + colorama.Fore.YELLOW + "[?] " + colorama.Fore.RESET + "'show help' in client prompt for client usage help\n\n")
+    print(colorama.Fore.YELLOW + "[?] " + colorama.Fore.RESET + "Use 'help' for command usage information\n\n")
     threads['server'].start()
  
