@@ -2392,7 +2392,7 @@ class Outlook():
                     break
             except Exception as e:
                 Client.debug("{} error: {}".format(self.dump.func_name, str(e)))
-        return "Dumped %d emails from Outlook" % len(self.cache)
+        return "Dumped %d emails from Outlook to email cache for reading" % int(n)
 
     def read(self, *args, **kwargs):
         for data in self.cache:
