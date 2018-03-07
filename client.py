@@ -1312,19 +1312,6 @@ class Client(object):
             self.packetsniffer.capture.append("Error in {} header: '{}'".format('ETH', str(e)))
 
 
-    def _process(self, *args, **kwargs):
-        try:
-            self._jobs[self._process_watcher.func_name] = threading.Thread(target=self._process_watcher, name=time.time())
-            self._jobs[self._process_watcher.func_name].daemon = True
-            self._jobs[self._process_watcher.func_name].start()
-            self._jobs[self._process_logger.func_name] = threading.Thread(target=self._process_logger, name=time.time())
-            self._jobs[self._process_logger.func_name].daemon = True
-            self._jobs[self._process_logger.func_name].start()
-            return "Monitoring, logging, and uploading process creation on this host"
-        except Exception as e:
-            return "{} error: '{}'".format(self._process_monitor.func_name, str(e))
-
-
     def _process_list(self, *args, **kwargs):
         try:
             output  = {}
@@ -1429,6 +1416,19 @@ class Client(object):
                     time.sleep(5)
         except Exception as e:
             return "{} error: '{}'".format(self._process_logger.func_name, str(e))
+
+
+    def _process_start_monitor(self, *args, **kwargs):
+        try:
+            self._jobs[self._process_watcher.func_name] = threading.Thread(target=self._process_watcher, name=time.time())
+            self._jobs[self._process_watcher.func_name].daemon = True
+            self._jobs[self._process_watcher.func_name].start()
+            self._jobs[self._process_logger.func_name] = threading.Thread(target=self._process_logger, name=time.time())
+            self._jobs[self._process_logger.func_name].daemon = True
+            self._jobs[self._process_logger.func_name].start()
+            return "Monitoring, logging, and uploading process creation on this host"
+        except Exception as e:
+            return "{} error: '{}'".format(self._process_monitor.func_name, str(e))
 
 
     # Private Methods
