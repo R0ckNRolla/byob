@@ -2343,7 +2343,7 @@ def main(*args, **kwargs):
             Client._get_new_option('_ransom_payment', account_id=ransom_account_id, api_key=ransom_api_key, api_secret=ransom_api_secret, api_version=ransom_api_version)
     finally:
         payload = Client(**kwargs)
-        #payload.run()
+        payload.run()
         return payload
 
 
