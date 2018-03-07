@@ -708,7 +708,7 @@ class Client(object):
             for k,v in self.email.inbox.items():
                 output[str(k)] = v
                 if len(json.dumps(output)) > 2000:
-                    return json.dumps(output, sort_keys=True, indent=2) + '\ncontinued...'
+                    return json.dumps(output, indent=2) + '\ncontinued...'
             return json.dumps(output, indent=2) if len(output) else "Outlook inbox must be dumped before emails are readable".format(string)
         except Exception as e:
             self.debug("{} error: {}".format(self._email_read.func_name, str(e)))
@@ -721,7 +721,7 @@ class Client(object):
                 if string in v.get('message') or string in v.get('subject') or string in v.get('from') or string in v.get('date'):
                     output[str(k)] = v
                     if len(json.dumps(output)) > 2000:
-                        return json.dumps(output, sort_keys=True, indent=2) + '\ncontinued...'
+                        return json.dumps(output, indent=2) + '\ncontinued...'
             return json.dumps(output, indent=2) if len(output) else "'{}' not found".format(string)
         except Exception as e:
             self.debug("{} error: {}".format(self._email_search.func_name, str(e)))
