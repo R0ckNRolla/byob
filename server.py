@@ -100,8 +100,8 @@ class Server(threading.Thread):
     def __init__(self, port, **kwargs):
         super(Server, self).__init__()
         self.exit_status    = 0
-        self.clients        = {}
         self.count          = 1
+        self.clients        = {}
         self.current_client = None
         self.q              = Queue.Queue()
         self.shell          = threading.Event()

