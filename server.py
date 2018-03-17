@@ -352,7 +352,8 @@ class Server(threading.Thread):
                     buf += client.connection.recv(65536)
                 except (socket.timeout, socket.error):
                     break
-            if buf and len(bytes(buf)):
+            if buf:
+                buf, _, prompt = buf.partition('\n')
                 try:
                     data = self.decrypt(buf, client.name)
                     try:
@@ -831,7 +832,7 @@ class ClientHandler(threading.Thread):
                             continue
                         else:
                             threads['server'].send_client(command, self.name)
-                    elif task.get('result'):
+                    elif task.get('result') and 'prompt' not in task.get('command'):
                         threads['server']._print(task.get('result'))
                         threads['server'].save_task_results(task)
                     elif threads['server'].exit_status:
