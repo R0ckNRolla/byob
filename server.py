@@ -348,7 +348,7 @@ class Server(threading.Thread):
         try:
             buf = client.connection.recv(65536)
             if buf:
-                buf, _, prompt = buf.partition('\n')
+                buf, _, __ = buf.partition('\n')
                 try:
                     data = self.decrypt(buf, client.name)
                     try:
