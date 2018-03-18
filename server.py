@@ -346,12 +346,7 @@ class Server(threading.Thread):
             self._error("Invalid Client ID: {}".format(client_id))
             self._return()
         try:
-            buf = ''
-            while '\n' not in buf:
-                try:
-                    buf += client.connection.recv(65536)
-                except (socket.timeout, socket.error):
-                    break
+            buf = client.connection.recv(65536)
             if buf:
                 buf, _, prompt = buf.partition('\n')
                 try:

