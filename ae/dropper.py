@@ -1,3 +1,11 @@
+#!/usr/bin/env python
+
+#
+# AE dropper
+# https://github.com/colental/ae
+#
+
+
 import os
 import sys
 import time
