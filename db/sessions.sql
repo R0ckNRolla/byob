@@ -1,5 +1,6 @@
 /*
-Copyright (c) 2017 colental
+
+Copyright (c) 2017 Angry Eggplant (https://github.com/colental/ae)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,6 +20,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+
     ,adPPYYba, 8b,dPPYba,   ,adPPYb,d8 88,dPPYba,   aa       aa
     ""     `Y8 88P'   `"8a a8"    `Y88 88P'   `"8a  88       88
     ,adPPPPP88 88       88 8b       88 88           8b       88
@@ -36,6 +38,9 @@ SOFTWARE.
      `"Ybbd8"'  `"YbbdP"Y8  `"YbbdP"Y8 88`YbbdP"'   88 `"8bbdP"Y8 88       88   88,
                 aa,    ,88  aa,    ,88 88                                       "Y888
                  "Y8bbdP"    "Y8bbdP"  88
+
+
+
 
 */
 
