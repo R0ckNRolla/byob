@@ -782,6 +782,7 @@ class ClientHandler(threading.Thread):
                     self.prompt = None
             except Exception as e:
                 self._error(str(e))
+                time.sleep(1)
                 break
         threads['server']._return()
 

