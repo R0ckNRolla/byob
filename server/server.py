@@ -37,22 +37,17 @@ import signal
 import random
 import hashlib
 import urllib2
-import functools
 import requests
-import tempfile
 import colorama
+import functools
 import cStringIO
 import threading
 import subprocess
 import collections
-import SocketServer
 import Crypto.Util
-import Crypto.Hash.HMAC
-import Crypto.Hash.SHA256
 import Crypto.Cipher.AES
-import Crypto.Cipher.PKCS1_OAEP
 import Crypto.PublicKey.RSA
-
+import Crypto.Cipher.PKCS1_OAEP
 
 BANNER = '''
 
