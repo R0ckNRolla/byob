@@ -102,7 +102,7 @@ def config(*arg, **options):
         for k,v in options.items():
             setattr(_wrapper, k, v)
         _wrapper.platforms = ['win32','linux2','darwin'] if not 'platforms' in options else options['platforms']
-        return wrapper
+        return _wrapper
     return _config
 
 
