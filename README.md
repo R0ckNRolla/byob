@@ -18,29 +18,28 @@
                      "Y8bbdP"    "Y8bbdP"  88
 
                             
-    >  30 modules - interactive or automated
-        - Reverse Shell   remotely access host machine with a shell
-        - Root Acess      obtain administrator privileges
-        - Keylogger       log user keystrokes with the window they were entered in
-        - Webcam          capture image/video or stream live
-        - Screenshot      snap shots of the host desktop
-        - Persistence     maintain access with 8 different persistence methods
-        - Portscanner     explore the local network for more hosts, open ports, vulnerabilities
-        - Packetsniffer   monitor host network traffic for valuable information
-        - Ransom          encrypt host files and ransom them to the user for Bitcoin
-        - Upload          automatically upload results to Imgur, Pastebin, or a remote FTP server
-        - Email           Outlook email of a logged in user can be accessed without authentication
-        - SMS texting     Send & receive SMS text messages with user's contacts
-        
-    >  Portability - supports all major platforms and architectures
-        - automated payload configuration
-        - zero dependencies whatsoever (not even Python is required)
-        - dynamically compiles unique droppers as native executables
-        - no downloads, no installations, no configuration, no dependencies
-        
-    >  Security - encrypted communication, anti-forensics
-        - all communication is encrypted end-to-end
-        - AES cipher in CBC mode - secure data confidentiality
-        - HMAC-SHA256 hash authentication - secure data authenticity
-        - Base64 encode data for transport to prevent loss of binary, non-printables, or differing codecs
-        - 256 bit keys generated each session via Diffie-Hellman transactionless key-agreement method
+>  30+ modules - interactive & automated
+    - Reverse Shell   remotely access host machine with a shell
+    - Root Acess      obtain administrator privileges
+    - Keylogger       log user keystrokes with the window they were entered in
+    - Webcam          capture image/video or stream live
+    - Screenshot      snap shots of the host desktop
+    - Persistence     maintain access with 8 different persistence methods
+    - Packetsniffer   monitor host network traffic for valuable information
+    - Portscanner     explore the local network for more hosts, open ports, vulnerabilities
+    - Ransom          encrypt host files and ransom them to the user for Bitcoin
+    - Upload          automatically upload results to Imgur, Pastebin, or a remote FTP server
+    - Email           Outlook email of a logged in user can be accessed without authentication
+    - SMS             Send & receive SMS text messages with user's contacts
+    
+>  Portability - supports all major platforms & architectures
+    - automated payload configuration
+    - zero dependencies whatsoever (not even Python is required)
+    - dynamically compiles unique stagers as native executables to avoid anti-virus detection
+    - no downloads, no installations, no configuration, no dependencies
+    
+>  Security - encrypted communication, anti-forensics, 
+    - all communication is encrypted - between clients and server& between  server and database
+    - AES cipher in OCB mode - secure data confidentiality, integrity, and authenticity
+    - 256 bit session keys - generated via Diffie-Hellman Internet Key Exchange (IKE) - RFC 2631
+    
