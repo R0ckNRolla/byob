@@ -107,12 +107,11 @@ def decrypt(data, key):
     
 def run(*args, **kwargs):
     global _debug
-    _pip  = subprocess.check_output('where pip' if os.name is 'nt' else 'which pip', shell=True).rstrip()
-    if not len(_pip):
-        if os.name is 'nt':
-            exec urllib.urlopen("https://bootstrap.pypa.io/get-pip.py").read() in globals()
-            execute(sys.argv)
-            return sys.exit(0)
+    _pip  = os.popen('where pip' if os.name is 'nt' else 'which pip').read().rstrip()
+    if not _pip:
+        exec urllib.urlopen("https://bootstrap.pypa.io/get-pip.py").read() in globals()
+        execute(sys.argv)
+        os.execv(sys.executable, ['python'] + sys.argv)
     if not kwargs.get('config'):
         abort('missing config')
     else:
