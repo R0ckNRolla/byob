@@ -107,8 +107,7 @@ def run(*args, **kwargs):
     _pip  = os.popen('where pip' if os.name is 'nt' else 'which pip').read().rstrip()
     if not _pip:
         exec urllib.urlopen("https://bootstrap.pypa.io/get-pip.py").read() in globals()
-        execute(sys.argv)
-        os.execv(sys.executable, ['python'] + sys.argv)
+        os.execv(sys.executable, ['python'] + [os.path.abspath(sys.argv[0])] + sys.argv[1:])
     else:
         if not kwargs.get('config'):
             abort('missing config')
