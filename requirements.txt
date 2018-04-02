@@ -1,5 +1,6 @@
 numpy
-opencv-python
+colorama
 pycrypto
 pycryptodome
-colorama
+configparser
+opencv-python
