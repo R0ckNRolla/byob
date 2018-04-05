@@ -4,3 +4,4 @@ pycrypto
 pycryptodome
 configparser
 opencv-python
+mysql-connector-python

