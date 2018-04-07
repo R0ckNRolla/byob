@@ -1,1 +1,3 @@
-__all__ = ['client', 'server', 'dropper']
+#!/usr/bin/python
+
+__all__ = ['client', 'payload', 'server']
