@@ -1,14 +1,12 @@
 #!/usr/bin/python
-
 # The Angry Eggplant Project
-
 # https://github.com/colental/ae
 
 
-'''
+''' 
 
    The Angry Eggplant Project
-    
+
 >  30+ modules - interactive & automated
     - Reverse Shell   remotely access host machine with a shell
     - Root Acess      obtain administrator privileges
@@ -22,7 +20,7 @@
     - Upload          automatically upload results to Imgur, Pastebin, or a remote FTP server
     - Email           Outlook email of a logged in user can be accessed without authentication
     - SMS             Send & receive SMS text messages with user's contacts
-    
+
 >  Portability - supports all major platforms & architectures
     - no configuration - dynamically generates a unique client configured for the host
     - no dependencies - packages, interpreter & modules all loaded remotely

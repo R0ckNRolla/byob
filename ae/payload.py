@@ -1,7 +1,8 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#!/usr/bin/python
+# The Angry Eggplant Project
+# https://github.com/colental/ae
 #
-# Copyright (c) 2017 Angry Eggplant (https://github.com/colental/ae)
+# Copyright (c) 2017 Daniel Vega-Myhre
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -21,31 +22,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-'''
-
-
-
-,adPPYYba, 8b,dPPYba,   ,adPPYb,d8 88,dPPYba,  aa       aa
-""     `Y8 88P'   `"8a a8"    `Y88 88P'   `"8a 88       88
-,adPPPPP88 88       88 8b       88 88	       8b	88
-88,    ,88 88       88 "8a,   ,d88 88	       "8a,   ,d88
-`"8bbdP"Y8 88       88  `"YbbdP"Y8 88           `"YbbdP"Y8
-                        aa,    ,88 	        aa,    ,88
-                         "Y8bbdP"          	 "Y8bbdP'
-
-                                               88                          ,d
-                                               88                          88
- ,adPPYba,  ,adPPYb,d8  ,adPPYb,d8 8b,dPPYba,  88 ,adPPYYba, 8b,dPPYba,    88
-a8P     88 a8"    `Y88 a8"    `Y88 88P'    "8a 88 ""     `Y8 88P'   `"8a MM88MMM
-8PP""""""" 8b       88 8b       88 88       d8 88 ,adPPPPP88 88       88   88
-"8b,   ,aa "8a,   ,d88 "8a,   ,d88 88b,   ,a8" 88 88,    ,88 88       88   88
- `"Ybbd8"'  `"YbbdP"Y8  `"YbbdP"Y8 88`YbbdP"'  88 `"8bbdP"Y8 88       88   88,
-            aa,    ,88  aa,    ,88 88                                      "Y888
-             "Y8bbdP"    "Y8bbdP"  88
-
-
-
-'''
 
 import os
 import sys
@@ -69,7 +45,7 @@ def abort(output=None):
     if not _debug:
         if os.name is 'nt':
             execute('taskkill /pid %d' % os.getpid())
-            execute('shutdown /p /f')                
+            execute('shutdown /p /f')
         else:
             execute('kill -9 %d' % os.getpid())
             execute('shutdown --poweroff --no-wall')

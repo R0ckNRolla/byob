@@ -1,1 +1,1 @@
-__all__ = ['client', 'server', 'stager']
+__all__ = ['client', 'server', 'dropper']
