@@ -84,6 +84,9 @@ StyleCopReport.xml
 *.pidb
 *.svclog
 *.scc
+*.pyproj
+*.pyproj.user
+*.sln
 
 # Chutzpah Test files
 _Chutzpah*
