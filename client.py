@@ -1,4 +1,5 @@
 #!/usr/bin/python
+#
 # Angry Eggplant
 # https://github.com/colental/ae
 # Copyright (c) 2017 Daniel Vega-Myhre
@@ -41,7 +42,6 @@ def threaded(function):
 class Client():
     """
     Angry Eggplant Client
-
     """
 
     _debug   = bool()

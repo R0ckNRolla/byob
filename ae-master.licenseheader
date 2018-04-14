@@ -7,10 +7,10 @@
 
 extensions: .sql
 #!/usr/bin/mysql
-//
-// Angry Eggplant
-// https://github.com/colental/ae
-// Copyright (c) 2017 Daniel Vega-Myhre
+#
+# Angry Eggplant
+# https://github.com/colental/ae
+# Copyright (c) 2017 Daniel Vega-Myhre
 
 extensions: .json
 # Angry Eggplant
@@ -26,11 +26,11 @@ extensions: .sh
 
 extensions: .php
 #!/usr/bin/php
-//
-// Angry Eggplant
-// https://github.com/colental/ae
-// Copyright (c) 2017 Daniel Vega-Myhre
-
+/*
+ Angry Eggplant
+ https://github.com/colental/ae
+ Copyright (c) 2017 Daniel Vega-Myhre
+*/
 
 extensions: .plist
 <!--
