@@ -84,9 +84,6 @@ StyleCopReport.xml
 *.pidb
 *.svclog
 *.scc
-*.pyproj
-*.pyproj.user
-*.sln
 
 # Chutzpah Test files
 _Chutzpah*
@@ -330,4 +327,3 @@ ASALocalRun/
 
 # MFractors (Xamarin productivity tool) working folder 
 .mfractor/
-

