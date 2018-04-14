@@ -56,7 +56,7 @@
 '''
 
 
-__all__ 	= ['client', 'payload', 'server']
+__all__ 	= ['client', 'server']
 __author__ 	= 'Daniel Vega-Myhre'
 __license__ 	= 'GPLv3'
 __version__ 	= '0.4.7'
