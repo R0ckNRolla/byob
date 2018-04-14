@@ -2,34 +2,16 @@
 #
 # The Angry Eggplant Project
 # https://github.com/colental/ae
-#
 # Copyright (c) 2017 Daniel Vega-Myhre
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
 
-// create angry egglant database if it doesnt exist
+
+# create angry egglant database if it doesnt exist
 CREATE DATABASE IF NOT EXISTS `ae`;
 
-// switch to the database
+# switch to the database
 use `ae`;
 
-// create clients table if it doesn't exist
+# create clients table if it does not exist
 CREATE TABLE IF NOT EXISTS `tbl_clients` (
   `id` text NOT NULL,
   `public_ip` text ,
@@ -46,7 +28,7 @@ CREATE TABLE IF NOT EXISTS `tbl_clients` (
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 
-// create sessions table if it doesn't exist
+# create sessions table if it does not exist
 CREATE TABLE IF NOT EXISTS `tbl_sessions` (
   `id` text NOT NULL,
   `client` text ,
@@ -59,7 +41,7 @@ CREATE TABLE IF NOT EXISTS `tbl_sessions` (
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 
-// create tasks table if it doesn't exist
+# create tasks table if it does not exist
 CREATE TABLE IF NOT EXISTS `tbl_tasks` (
   `id` text NOT NULL,
   `session` text ,
@@ -73,12 +55,12 @@ CREATE TABLE IF NOT EXISTS `tbl_tasks` (
 
 
 
-// create stored procedure for adding new clients
+# create stored procedure for adding new clients
 DELIMITER $$
 CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_addClient`(
     IN client_id varchar(32),
     IN client_public_ip varchar(42),
-    IN client_local_ip varchar(42),    
+    IN client_local_ip varchar(42),
     IN client_mac_address varchar(17),
     IN client_username text,
     IN client_administrator text,
@@ -100,7 +82,7 @@ BEGIN
     )
     values
     (
-    client_id, 
+    client_id,
     client_public_ip,
     client_local_ip,
     client_mac_address,
@@ -114,59 +96,59 @@ END$$
 DELIMITER ;
 
 
-//create stored procedure for adding new sessions
+#create stored procedure for adding new sessions
 DELIMITER $$
 CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_addSession`(
     IN session_id varchar(32),
     IN client_id varchar(32),
-	IN client_session_key text,
+    IN client_session_key text,
     IN client_public_key text,
     IN client_private_key text
 )
 BEGIN
     insert into tbl_sessions
-	(
+    (
     id,
-	client,
-	session_key,
-	public_key,
-	private_key
-	)
+    client,
+    session_key,
+    public_key,
+    private_key
+    )
     values (
-	session_id,
-	client_id,
-	client_session_key,
-	client_public_key,
-	client_private_key
-	);
+    session_id,
+    client_id,
+    client_session_key,
+    client_public_key,
+    client_private_key
+    );
 END$$
 DELIMITER ;
 
-// create stored procedure for adding task results
+# create stored procedure for adding task results
 DELIMITER $$
 CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_addTask`(
     IN task_id varchar(32),
     IN task_client_id varchar(32),
     IN task_session_id varchar(32),
-    IN task_command text, 
-	IN task_result text
+    IN task_command text,
+    IN task_result text
 )
 BEGIN
     insert into tbl_tasks
-	(
+    (
     id,
-	client,
-	session,
-	command,
-	result
+    client,
+    session,
+    command,
+    result
     )
     values
     (
-	task_id,
-	task_client_id,
-	task_session_id,
-	task_command,
-	task_result
+    task_id,
+    task_client_id,
+    task_session_id,
+    task_command,
+    task_result
     );
 END$$
 DELIMITER ;

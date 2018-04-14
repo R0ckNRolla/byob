@@ -1,0 +1,57 @@
+﻿extensions: .py
+#!/usr/bin/python
+#
+# Angry Eggplant
+# https://github.com/colental/ae
+# Copyright (c) 2017 Daniel Vega-Myhre
+
+extensions: .sql
+#!/usr/bin/mysql
+//
+// Angry Eggplant
+// https://github.com/colental/ae
+// Copyright (c) 2017 Daniel Vega-Myhre
+
+extensions: .json
+# Angry Eggplant
+# https://github.com/colental/ae
+# Copyright (c) 2017 Daniel Vega-Myhre
+
+extensions: .sh
+#!/usr/bin/bash
+#
+# Angry Eggplant
+# https://github.com/colental/ae
+# Copyright (c) 2017 Daniel Vega-Myhre
+
+extensions: .php
+#!/usr/bin/php
+//
+// Angry Eggplant
+// https://github.com/colental/ae
+// Copyright (c) 2017 Daniel Vega-Myhre
+
+
+extensions: .plist
+<!--
+ The Angry Eggplant Project
+ https://github.com/colental/ae
+ Copyright (c) 2017 Daniel Vega-Myhre
+-->
+
+extensions: .ps1
+<#
+ The Angry Eggplant Project
+ https://github.com/colental/ae
+ Copyright (c) 2017 Daniel Vega-Myhre
+#>
+
+extensions: .ini
+;  The Angry Eggplant Project
+;  https://github.com/colental/ae
+;  Copyright (c) 2017 Daniel Vega-Myhre
+
+extensions: .vbs
+' Angry Eggplant
+' https://github.com/colental/ae
+' Copyright (c) 2017 Daniel Vega-Myhre

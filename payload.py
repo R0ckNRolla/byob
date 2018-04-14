@@ -1,4 +1,9 @@
 #!/usr/bin/python
+# Angry Eggplant
+# https://github.com/colental/ae
+# Copyright (c) 2017 Daniel Vega-Myhre
+
+
 
 import os
 import sys

