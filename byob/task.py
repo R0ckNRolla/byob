@@ -14,12 +14,9 @@ import pickle
 import logging
 import SocketServer
 
-#byob
-import util
 
 
-
-class TaskHandler(SocketServer.BaseRequestHandler):
+class Handler(SocketServer.BaseRequestHandler):
     
     def handle(self):
         while True:
@@ -47,7 +44,7 @@ class TaskHandler(SocketServer.BaseRequestHandler):
             logging.error(str(e), extra={'submodule': TaskHandler.__name__})
 
 
-class TaskServer(SocketServer.ThreadingTCPServer):
+class Server(SocketServer.ThreadingTCPServer):
 
     allow_reuse_address = True
 
@@ -69,9 +66,4 @@ class TaskServer(SocketServer.ThreadingTCPServer):
             abort = self._abort
             if abort:
                 break
-
-
-def main(host='0.0.0.0', port=8000):
-    return TaskServer(host=host, port=port, handler=TaskHandler)
-
 
