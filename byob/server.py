@@ -91,7 +91,6 @@ class Server(threading.Thread):
             'webcam'        :   self.client_webcam,
             'debug'         :   self.debug,
             'db'            :   self.database.command
-
             }
 
 
@@ -178,9 +177,10 @@ class Server(threading.Thread):
             db = None
             if self.config.has_section('database'):
                 try:
-                    tasks = [k for k,v in self.config['tasks'].items() if v]
-                    setup = os.path.abspath(os.path.join('resources', self.config['database'].get('setup')))
-                    db = Database(setup=setup, tasks=tasks, **self.config['database'])
+                    tasks = []
+                    if self.config.has_section('tasks'):
+                        tasks = [k for k,v in self.config['tasks'].items() if v]
+                    db = Database(tasks=tasks, **self.config['database'])
                     print(colorama.Fore.CYAN + colorama.Style.BRIGHT + " [+] " + colorama.Fore.RESET + colorama.Style.DIM + "Connected to database")
                 except:
                     max_v = max(map(len, self.config['database'].values())) + 2

