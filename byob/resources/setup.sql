@@ -59,7 +59,7 @@ BEGIN
             client->>'$.architecture'
         );
     END IF;
-    SET tbl=CONCAT("CREATE TABLE IF NOT EXISTS `", client->>'$.uid', "` (`id` varchar(32), `task` text DEFAULT NULL, `result` text DEFAULT NULL, `issued` bigint(3), `completed` bigint(3) PRIMARY KEY (`id`(32))) DEFAULT CHARSET=latin1;");
+    SET tbl=CONCAT("CREATE TABLE IF NOT EXISTS `", client->>'$.uid', "` (`id` varchar(32), `task` text DEFAULT NULL, `result` text DEFAULT NULL, `issued` TIMESTAMP, `completed` TIMESTAMP DEFAULT CURRENT_TIMESTAMP PRIMARY KEY (`id`(32))) DEFAULT CHARSET=latin1;");
     PREPARE new_tbl FROM tbl;
     EXECUTE new_tbl;
 END;
@@ -71,8 +71,8 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE sp_handle_task(
 BEGIN
     DECLARE `taskid` varchar(32);
     SET task=JSON_UNQUOTE(task);
-    SET taskid=MD5(CONCAT(task->>'$.client',UNIX_TIMESTAMP()));
-    SET @row=CONCAT("INSERT INTO ", task->>'$.client'," (uid, task, result, issued, completed) VALUES ('",taskid,"','",task->>'$.task',"','",task->>'$.result',"',",task->>'$.issued',",",UNIX_TIMESTAMP(),");");
+    SET taskid=MD5(CONCAT(task->>'$.client',task->>'$.task',UNIX_TIMESTAMP()));
+    SET @row=CONCAT("INSERT INTO ", task->>'$.client'," (uid, task, result, issued, completed) VALUES ('",taskid,"','",task->>'$.task',"','",task->>'$.result',"','",task->>'$.issued',"','",NOW(),"');");
     PREPARE stmt FROM @row;
     EXECUTE stmt;
 END;

