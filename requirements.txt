@@ -4,6 +4,7 @@ twilio
 pyxhook
 pycrypto
 colorama
+pyinstaller
 configparser
 pycryptodome
 opencv-python

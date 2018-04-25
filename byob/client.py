@@ -22,7 +22,7 @@ from modules import crypto, util
 class ClientError(Exception):
     pass
 
-colorama.init(autoreset=False)
+colorama.init(autoreset=True)
 
 
 def py(options, payload='payload.py', stager='stager.py'):
@@ -118,7 +118,7 @@ def app(options, filename):
     
 def main(*args, **kwargs):
     try:
-        print(colorama.Fore.RESET + colorama.Style.BRIGHT + "\n\n\tClient Generator | Build Your Own Botnet\n")
+        print(colorama.Fore.CYAN + colorama.Style.BRIGHT + "\n\n\tClient Generator | Build Your Own Botnet\n")
         parser = argparse.ArgumentParser(prog='client.py', usage='client.py {py,exe,app} host port [options]', description="Client Generator (Build Your Own Botnet)", version='0.4.7')
         parser.add_argument('type', action='store', help='python, executable, app bundle', choices=['py','exe','app'])
         parser.add_argument('host', action='store', type=str, default='localhost', help='server IP')
