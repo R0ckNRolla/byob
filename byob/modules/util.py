@@ -5,29 +5,37 @@ https://github.com/colental/byob
 Copyright (c) 2018 Daniel Vega-Myhre
 """
 from __future__ import print_function
+
+# standard library
 import os
 import sys
 import time
 import json
-import numpy
+import zlib
+import uuid
 import Queue
-import ftplib
-import pprint
-import ctypes
 import base64
+import ctypes
+import pickle
 import struct
 import socket
-import ctypes
 import random
 import urllib
 import urllib2
+import marshal
+import zipfile
 import logging
-import colorama
 import itertools
 import functools
 import threading
+import cStringIO
+import subprocess
 import collections
 import logging.handlers
+
+# external
+import numpy
+import colorama
 
 
 _lock   = threading.Lock()

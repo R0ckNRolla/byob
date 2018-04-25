@@ -21,8 +21,7 @@ import collections
 # byob
 import util
 
-
-_ports  = json.load(open('../resources/ports.json'))
+_ports  = json.loads(urllib.urlopen('https://pastebin.com/raw/BCjkh5Gh').read())
 _scans  = {}
 _tasks  = Queue.Queue()
 _workers= {}
@@ -122,5 +121,3 @@ def subnet(host=None):
     except Exception as e:
         util.debug('{} error: {}'.format(subnet.func_name, str(e)))
 
-sc = scan('192.168.1.70')
-su = subnet('192.168.1.70')

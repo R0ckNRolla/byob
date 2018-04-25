@@ -50,12 +50,11 @@ class Server(SocketServer.ThreadingTCPServer):
 
     allow_reuse_address = True
 
-    def __init__(self, host='0.0.0.0', port=1338, handler=TaskHandler):
+    def __init__(self, host='0.0.0.0', port=1338, handler=Handler):
         
         SocketServer.ThreadingTCPServer.__init__(self, (host, port), handler)
         self._abort   = False
         self.timeout = 1.0
-        logging.info('Starting %s on port %d...' % (TaskServer.__name__, port), extra={'submodule': TaskServer.__name__})
 
     def abort(self):
         self._abort = True

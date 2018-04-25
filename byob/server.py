@@ -149,15 +149,13 @@ class Server(threading.Thread):
     def _get_config(self):
         config = configparser.ConfigParser()
         for path in [os.path.abspath(i) for i in os.listdir('.') + os.listdir('..') + os.listdir('resources') if i.endswith('.ini')]:
-            if 'config' in path and os.path.isfile(path):
+            if 'config' in path:
                 config.read(path)
                 break
         else:
             raise byobError("missing configuration file 'config.ini'")
         return config
 
-
-            
 
     def _get_socket(self, port):
         try:

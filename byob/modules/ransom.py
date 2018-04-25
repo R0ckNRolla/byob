@@ -10,14 +10,14 @@ from __future__ import print_function
 import os
 import sys
 import json
-import QUeue
+import Queue
 import base64
 import pickle
 import _winreg
 import threading
 import cStringIO
 import collections
-import Crypto.util
+import Crypto.Util
 import Crypto.Hash.HMAC
 import Crypto.Cipher.AES
 import Crypto.Hash.SHA256

