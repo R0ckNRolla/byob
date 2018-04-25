@@ -11,6 +11,7 @@ import time
 import json
 import numpy
 import Queue
+import ftplib
 import pprint
 import ctypes
 import base64

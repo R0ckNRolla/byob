@@ -24,4 +24,4 @@ __all__         = ['client','database','server']
 __package__ 	= 'byob'
 __author__      = 'Daniel Vega-Myhre'
 __license__ 	= 'GPLv3'
-__version__ 	= '0.4.7'
+__version__ 	= '0.5.1'

@@ -1,11 +1,5 @@
 #!/usr/bin/python
-"""
-Build Your Own Botnet
-https://github.com/colental/byob
-Copyright (c) 2018 Daniel Vega-Myhre
-"""
 from __future__ import print_function
-# standard libarary
 import os
 import sys
 import time
@@ -15,6 +9,7 @@ import base64
 import urllib
 import marshal
 import subprocess
+
 
 __DEBUG  = 1
 __RELOAD = 0
