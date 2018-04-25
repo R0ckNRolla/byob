@@ -17,8 +17,7 @@ import colorama
 import argparse
 import subprocess
 # byob
-import util
-import crypto
+from modules import crypto, util
 
 class ClientError(Exception):
     pass

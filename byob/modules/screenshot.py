@@ -6,9 +6,12 @@ Copyright (c) 2018 Daniel Vega-Myhre
 """
 from __future__ import print_function
 
+# standard library
 import mss
 
-from util import Util
+# byob
+import util
+
 
 @Util.config(platforms=['win32','linux2','darwin'], command=True, usage='screenshot upload=[method]')
 def screenshot(args):

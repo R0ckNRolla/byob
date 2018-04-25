@@ -4,6 +4,8 @@ Build Your Own Botnet
 https://github.com/colental/byob
 Copyright (c) 2018 Daniel Vega-Myhre
 """
+from __future__ import print_function
+
 # standard library
 import os
 import sys

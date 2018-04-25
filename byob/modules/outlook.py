@@ -5,13 +5,17 @@ https://github.com/colental/byob
 Copyright (c) 2018 Daniel Vega-Myhre
 """
 from __future__ import print_function
+
+# standard library
 import os
 import sys
 import json
 import win32com
 import pythoncom
 
-from util import Util
+# byob
+import util
+
 
 class Outlook():
 

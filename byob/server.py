@@ -42,8 +42,7 @@ import Crypto.PublicKey.RSA
 import Crypto.Cipher.PKCS1_OAEP
 
 # byob 
-import database
-import util
+from modules import crypto, database, util
 
 
 class ServerError(Exception):
