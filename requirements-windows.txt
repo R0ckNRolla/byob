@@ -1,9 +1,12 @@
 mss
+wmi
 numpy
+pyHook
 twilio
-pyxhook
+pywin32
 pycrypto
 colorama
+pythoncom
 configparser
 pycryptodome
 opencv-python
