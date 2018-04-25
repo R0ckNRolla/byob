@@ -3,6 +3,5 @@ colorama
 pycrypto
 pycryptodome
 configparser
-SocketServer
 opencv-python
 mysql-connector-python
