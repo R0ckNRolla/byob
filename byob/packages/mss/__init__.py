@@ -10,8 +10,8 @@ You can always get the latest version of this module at:
 If that URL should fail, try contacting the author.
 """
 
-from .exception import ScreenShotError
-from .factory import mss
+from exception import ScreenShotError
+from factory import mss
 
 __version__ = '3.2.0'
 __author__ = "Mickaël 'Tiger-222' Schoentgen"

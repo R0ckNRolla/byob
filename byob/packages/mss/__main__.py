@@ -10,10 +10,10 @@ import os.path
 import sys
 from argparse import ArgumentParser
 
-from . import __version__
-from .exception import ScreenShotError
-from .factory import mss
-from .tools import to_png
+import __version__
+from exception import ScreenShotError
+from factory import mss
+from tools import to_png
 
 
 def main(args=None):

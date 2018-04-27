@@ -6,9 +6,9 @@ Source: https://github.com/BoboTiG/python-mss
 
 from datetime import datetime
 
-from .exception import ScreenShotError
-from .screenshot import ScreenShot
-from .tools import to_png
+from exception import ScreenShotError
+from screenshot import ScreenShot
+from tools import to_png
 
 
 class MSSBase(object):

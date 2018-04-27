@@ -9,8 +9,8 @@ from __future__ import division
 import ctypes
 import ctypes.wintypes
 
-from .base import MSSBase
-from .exception import ScreenShotError
+from base import MSSBase
+from exception import ScreenShotError
 
 __all__ = ('MSS',)
 

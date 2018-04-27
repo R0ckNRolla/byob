@@ -12,9 +12,9 @@ import ctypes
 import ctypes.util
 import sys
 
-from .base import MSSBase
-from .exception import ScreenShotError
-from .screenshot import Size
+from base import MSSBase
+from exception import ScreenShotError
+from screenshot import Size
 
 __all__ = ('MSS',)
 

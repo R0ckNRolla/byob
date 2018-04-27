@@ -6,7 +6,7 @@ Source: https://github.com/BoboTiG/python-mss
 
 import collections
 
-from .exception import ScreenShotError
+from exception import ScreenShotError
 
 
 Pos = collections.namedtuple('Pos', 'left, top')

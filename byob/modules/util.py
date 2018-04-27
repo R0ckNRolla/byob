@@ -33,9 +33,18 @@ import subprocess
 import collections
 import logging.handlers
 
-# external
-import numpy
-import colorama
+# byob
+
+import util
+
+# remote imports
+
+with httpimport.remote_repo(['numpy','colorama'], base_url='http://localhost:8000'):
+    for module in ['numpy','colorama']:
+        try:
+            exec "import %s" % module
+        except ImportError:
+            util.debug("Error: unable to import '%s'" % module
 
 
 _lock   = threading.Lock()

@@ -445,6 +445,7 @@ class Server(threading.Thread):
             'help'          :   self.help,
             'exit'          :   self.quit,
             'quit'          :   self.quit,
+            'query'         :   self.query,
             '$'             :   self.debugger,
             'debug'         :   self.debugger,
             'settings'      :   self.settings,
@@ -459,11 +460,9 @@ class Server(threading.Thread):
             'sendall'	    :   self.task_broadcast,
             'braodcast'     :   self.task_broadcast,
             'results'       :   self.task_list,
-            'tasks'         :   self.task_list,
-            'query'         :   self.database.execute_query
+            'tasks'         :   self.task_list
             }
         
-
 
     def _server_prompt(self, data):
         with self._lock:
@@ -675,6 +674,13 @@ class Server(threading.Thread):
         else:
             self._error("{} error: invalid data type '{}'".format(self.display.func_name, type(info)))
 
+
+    def query(self, stmt):
+        try:
+            _ = self.database.execute_query(stmt, display=True)
+        except Exception as e:
+            self._error(str(e))
+    
 
     def settings(self, args=None):
         if not args:

