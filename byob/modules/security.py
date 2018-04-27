@@ -38,7 +38,7 @@ def diffiehellman(connection):
     else:
         util.debug("{} erorr: invalid input type - expected '{}', received '{}'".format(diffiehellman.func_name, socket.socket, type(connection)))
 
-def encrypt(data, key):
+def encrypt_aes(data, key):
     try:
         cipher = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_OCB)
         ciphertext, tag = cipher.encrypt_and_digest(data)
@@ -47,7 +47,7 @@ def encrypt(data, key):
     except Exception as e:
         util.debug("{} error: {}".format(encrypt.func_name, str(e)))
 
-def decrypt(data, key):
+def decrypt_aes(data, key):
     try:
         data = cStringIO.StringIO(base64.b64decode(data))
         nonce, tag, ciphertext = [ data.read(x) for x in (Crypto.Cipher.AES.block_size - 1, Crypto.Cipher.AES.block_size, -1) ]

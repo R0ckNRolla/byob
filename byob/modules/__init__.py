@@ -1,9 +1,5 @@
-
 #!/usr/bin/python
 """ 
-Build Your Own Botnet
-https://github.com/colental/byob
-Copyright (c) 2018 Daniel Vega-Myhre
 
 88                                  88
 88                                  88
@@ -17,11 +13,9 @@ Copyright (c) 2018 Daniel Vega-Myhre
                d8'
 
 """
-import crypto, email, keylogger, outlook, packetsniffer, payload, persistence, phone, portscan, screenshot, task, util, webcam
-
-__all__         = ['crypto', 'keylogger', 'outlook', 'packetsniffer', 'payload', 'persistence', 'phone', 'portscan', 'ransom', 'screenshot', 'task', 'util', 'webcam']
+__all__         = ['security', 'importer', 'keylogger', 'outlook', 'packetsniffer', 'persistence', 'phone', 'portscan', 'ransom', 'screenshot', 'task', 'util', 'webcam']
 __package__ 	= 'byob'
 __author__      = 'Daniel Vega-Myhre'
 __license__ 	= 'GPLv3'
-__version__ 	= '0.5.1'
+__version__ 	= '0.5.2'
 
