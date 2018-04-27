@@ -704,7 +704,7 @@ class Server(threading.Thread):
 
 
     def task_send(self, command, client_id=None):
-        client = self._get_client_from_id(client_id)
+        client = self._get_client(client_id)
         if client:
             try:
                 task    = {'client': client.info['id'], 'command': command}
@@ -755,15 +755,12 @@ class Server(threading.Thread):
 
     def task_list(self, client_id=None):
         try:
-            uid = None
-            if client_id and str(client_id).isdigit():
-                if client_id in self.clients:
-                    uid = clients[int(client_id)].uid
-                    return self.database.get_tasks(uid)
-                else:
-                    self._error("Error: invalid client ID '{}'".format(client_id))
-            else:
-                self._error("Error: invalid client ID '{}'".format(client_id))
+	    client = self._get_client(client_id) if client_id else None
+	    uid = client.uid if client else None
+            if uid:
+		return self.database.get_tasks(uid)
+	    else:
+		return self.database.get_tasks()
         except Exception as e:
             util.debug(e)
             
