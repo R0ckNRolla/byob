@@ -16,15 +16,14 @@ CREATE TABLE IF NOT exists `tbl_clients` (
     `architecture` text DEFAULT NULL,
     PRIMARY KEY (`uid`(32)))
     DEFAULT CHARSET=latin1;
-DROP PROCEDURE IF exists `sp_addClient`;
+DROP PROCEDURE IF exists `sp_handle_client`;
 DELIMITER $$
-CREATE DEFINER=`root`@`localhost` PROCEDURE sp_addClient(IN `info` text, OUT `client` JSON)
+CREATE DEFINER=`root`@`localhost` PROCEDURE sp_handle_client(IN `info` text, OUT `client` JSON)
 BEGIN
     DECLARE tbl text;
     DECLARE row text;
     SET client=JSON_UNQUOTE(info);
-    SET client=JSON_MERGE(client, JSON_OBJECT("uid", MD5(client->>'$.public_ip' + client->>'$.mac_address'), "online", 1));
-    SET client=JSON_MERGE(client, JSON_OBJECT("joined", NOW()));
+    SET client=JSON_MERGE(client, JSON_OBJECT("uid", MD5(CONCAT(client->>'$.public_ip', client->>'$.mac_address')), "online", 1, "joined", NOW()));
     INSERT INTO `tbl_clients`
     (
          online,
@@ -35,12 +34,13 @@ BEGIN
          local_ip,
          mac_address,
          username,
-        administrator,
+         administrator,
          device,
          platform,
          architecture
-     )
-    VALUES (
+    )
+    VALUES
+    (
          client->>'$.online',
          client->>'$.joined',
          client->>'$.last_online',
@@ -53,13 +53,12 @@ BEGIN
          client->>'$.device',
          client->>'$.platform',
          client->>'$.architecture'
-         );
-    SET tbl=CONCAT("CREATE TABLE IF NOT EXISTS `", client->>'$.uid', "` (`id` varchar(32), `task` text DEFAULT NULL, `result` text DEFAULT NULL, `issued` TIMESTAMP, `completed` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (`id`(32)) DEFAULT CHARSET=latin1;");
+    );
+    SET tbl=CONCAT("CREATE TABLE IF NOT EXISTS `", client->>'$.uid', "` (`id` serial, `uid` varchar(32), `task` text DEFAULT NULL, `result` text DEFAULT NULL, `issued` TIMESTAMP, `completed` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (`uid`(32))) DEFAULT CHARSET=latin1;");
     PREPARE stmt FROM tbl;
-    EXECUTE stmt;
+    EXECUTE tbl;
 END$$
-DELIMITER ;
-DROP PROCEDURE IF EXISTS sp_handle_task;
+DROP PROCEDURE IF EXISTS `sp_handle_task`;
 DELIMITER $$
 CREATE DEFINER=`root`@`localhost` PROCEDURE sp_handle_task(IN `task` text, OUT `@row` text)
 BEGIN

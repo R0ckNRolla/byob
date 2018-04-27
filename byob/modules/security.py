@@ -12,6 +12,7 @@ import json
 import struct
 import base64
 import socket
+import urllib
 import cStringIO
 import Crypto.Util
 import Crypto.Hash.HMAC

