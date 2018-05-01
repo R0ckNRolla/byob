@@ -33,25 +33,19 @@ import subprocess
 import collections
 import logging.handlers
 
-# byob
 
-import util
+# external
 
-# remote imports
+import numpy
+import colorama
 
-with httpimport.remote_repo(['numpy','colorama'], base_url='http://localhost:8000'):
-    for module in ['numpy','colorama']:
-        try:
-            exec "import %s" % module
-        except ImportError:
-            util.debug("Error: unable to import '%s'" % module
 
 
 _lock   = threading.Lock()
 _debug  = True
 
 
-def tasklogger(host, port):
+def task_handler(host, port):
     """ 
     Get a logger configured for reporting task results to server
     """
@@ -64,7 +58,7 @@ def tasklogger(host, port):
 
 def debug(info):
     """ 
-    Log debugging info
+    Debugging logger
     """
     if _debug:
         logger = logging.getLogger(__name__)
@@ -81,19 +75,6 @@ def platform():
         return sys.platform
     except Exception as e:
         debug("{} error: {}".format(platform.func_name, str(e)))
-
-
-def imports(base_url='http://localhost:8000', modules=['configparser', 'Crypto', 'Cryptodome', 'cv2', 'httpimport', 'mss', 'numpy', 'pyHook', 'PyInstaller', 'pyminifier', 'pythoncom', 'pywin32', 'pyxhook', 'requests', 'twilio', 'uuid', 'win32', 'win32com', 'wmi', 'Xlib']):
-        """ 
-        import remotely without installing
-        """
-        with importer.remote_repo(modules, base_url):
-            for module in modules:
-                try:
-                    exec "import %s" % module in globals()
-                    debug("%s imported successfully." % module)
-                except ImportError:
-                    debug("%s import failed." % module)
 
 
 def public_ip():

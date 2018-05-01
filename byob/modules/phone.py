@@ -6,22 +6,18 @@ Copyright (c) 2018 Daniel Vega-Myhre
 """
 from __future__ import print_function
 
-# standard library
+# remote imports
 
 import httpimport
 
-# byob
-
-import util
-
-# remote imports
+httpimport.INSECURE = True
 
 with httpimport.remote_repo(['twilio'], base_url='http://localhost:8000'):
     for module in ['twilio']:
         try:
             exec "import %s" % module
         except ImportError:
-            util.debug("Error: unable to import '%s'" % module
+            util.debug("Error: unable to import '%s'" % module)
 
 
                        
