@@ -1,6 +1,6 @@
 # BYOB (Build Your Own Botnet)
 
-[license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://github.com/colental/byob/master/LICENSE)
+[![license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://github.com/colental/byob/master/LICENSE)
 
 Use simple terminal commands to build:
 - __Servers__  functional Command & Control servers
