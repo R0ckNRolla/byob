@@ -10,5 +10,6 @@ pyinstaller
 pycryptodome
 configparser
 opencv-python
+SocketServer
 mysql-connector-python
 colorama
