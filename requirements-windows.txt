@@ -1,4 +1,14 @@
+mss
 wmi
+numpy
+twilio
 pyHook
 pywin32
+pycrypto
 pythoncom
+pyinstaller
+pycryptodome
+configparser
+opencv-python
+mysql-connector-python
+colorama
