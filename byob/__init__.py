@@ -67,4 +67,5 @@ __all__         = ['client','server']
 __author__      = 'Daniel Vega-Myhre'
 __license__ 	= 'GPLv3'
 __version__ 	= '0.1.2'
-main()
+if __name__     == '__main__':
+    main()
