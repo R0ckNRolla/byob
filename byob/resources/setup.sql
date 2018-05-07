@@ -65,7 +65,7 @@ BEGIN
     DECLARE `taskid` varchar(32);
     SET task=JSON_UNQUOTE(task);
     SET taskid=MD5(CONCAT(task->>'$.client',task->>'$.task',UNIX_TIMESTAMP()));
-    SET @row=CONCAT("INSERT INTO ", task->>'$.client'," (uid, task, result, issued, completed) VALUES ('",taskid,"','",task->>'$.task',"','",task->>'$.result',"','",task->>'$.issued',"','",NOW(),"');");
+    SET @row=CONCAT("INSERT INTO ", task->>'$.client'," (uid, task, issued) VALUES ('", taskid, "','", task->>'$.task', "','", task->>'$.issued', "','", NOW(), "') ON DUPLICATE KEY UPDATE ", task->>'$.client', " SET result='", task->>'$.result', "', completed=NOW() WHERE uid='", task->>'$.taskid', "';");
     PREPARE stmt FROM @row;
     EXECUTE stmt;
 END$$
