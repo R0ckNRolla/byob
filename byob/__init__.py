@@ -14,7 +14,7 @@ import sys
 import logging
 import subprocess
 
-logging.basicConfig(level=logging.DEBUG, handler=logging.StreamHandler())
+logging.basicConfig(level=logging.DEBUG, format='%(message)s', handler=logging.StreamHandler())
 
 
 def main():
