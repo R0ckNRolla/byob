@@ -9,4 +9,3 @@ configparser
 pycryptodome
 opencv-python
 mysql-connector-python
-SocketServer
