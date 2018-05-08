@@ -32,7 +32,7 @@ import util
 __tasks     = Queue.Queue()
 __ports     = json.loads(urllib.urlopen('https://pastebin.com/raw/BCjkh5Gh').read())
 __parser    = argparse.ArgumentParser(prog='portscan.py', description='Port Scanner (Build Your Own Botnet)', version='0.1.2', add_help=True)
-__workers   = collections.OrderedDict()
+__threads   = collections.OrderedDict()
 __lock      = threading.Lock()
 __verbose   = False
 __targets   = []
