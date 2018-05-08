@@ -4,9 +4,11 @@ Build Your Own Botnet
 https://github.com/colental/byob
 Copyright (c) 2018 Daniel Vega-Myhre
 """
+
 from __future__ import print_function
 
 # standard libarary
+
 import os
 import sys
 import time
@@ -15,110 +17,108 @@ import Queue
 import socket
 import random
 import urllib
+import colorama
+import argparse
 import threading
 import subprocess
 import collections
 
-# byob
+# remote imports
+
 import util
 
-_ports  = json.loads(urllib.urlopen('https://pastebin.com/raw/BCjkh5Gh').read())
-_scans  = {}
-_tasks  = Queue.Queue()
-_workers= {}
+# globals
 
-@util.progress_bar
+__tasks     = Queue.Queue()
+__ports     = json.loads(urllib.urlopen('https://pastebin.com/raw/BCjkh5Gh').read())
+__parser    = argparse.ArgumentParser(prog='portscan.py', description='Port Scanner (Build Your Own Botnet)', version='0.1.2', add_help=True)
+__workers   = collections.OrderedDict()
+__lock      = threading.Lock()
+__verbose   = False
+__targets   = []
+__results   = {}
+
+
+colorama.init(autoreset=False)
+
+
+@util.threaded
 def _threader(tasks):
-    try:
-        while True:
-            try:
-                method, task = tasks.get_nowait()
-                if callable(method):
-                    method(task)
-                tasks.task_done()
-            except Exception as e:
-                util.debug(e)
-                break
-    except Exception as e:
-        util.debug("{} error: {}".format(_threader.func_name, str(e)))
+    while True:
+        try:
+            method, task = tasks.get_nowait()
+            if callable(method):
+                _ = method(task)
+            tasks.task_done()
+        except:
+            break
 
-def ping(host):
+def _ping(host):
     try:
-        if host not in _scans:
+        if host not in __results:
             if subprocess.call("ping -{} 1 -w 90 {}".format('n' if os.name is 'nt' else 'c', host), 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
-                _scans[host] = {}
+                __results[host] = {}
                 return True
             else:
                 return False
         else:
             return True
-    except Exception as e:
+    except:
         return False
 
-
-def port(addr):
+def _scan(target):
     try:
-        host = str(addr[0])
-        port = str(addr[1])
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)                                                                            
         sock.settimeout(1.0)
-        sock.connect((host,int(port)))
+        sock.connect((str(target.host), int(target.port)))
         data = sock.recv(1024)
-        OpenPort = collections.namedtuple('OpenPort', ['port','protocol','service','state'])
+        sock.close()
         if data:
-            info = _ports
             data = ''.join([i for i in data if i in ([chr(n) for n in range(32, 123)])])
-            data = data.splitlines()[0] if '\n' in data else str(data if len(str(data)) <= 50 else data[:46] + ' ...')
-            item = {port: OpenPort(port, _ports[port]['protocol'], data, 'open')}
+            data = data.splitlines()[0] if '\n' in data else str(data if len(str(data)) <= 80 else data[:77] + '...')
+            item = { str(target.port) : { 'protocol': __ports[str(target.port)]['protocol'], 'service': data, 'state': 'open'}}
         else:
-            item = {port: {'protocol': _ports[port]['protocol'], 'service': _ports[port]['service'], 'state': 'open'}}
-        _scans.get(host).update(item)
+            item = { str(target.port) : { 'protocol': __ports[str(target.port)]['protocol'], 'service': __ports[str(target.port)]['service'], 'state': 'open'}}
+        __results.get(target.host).update(item)
     except (socket.error, socket.timeout):
         pass
     except Exception as e:
-        util.debug('{} error: {}'.format(port.func_name, str(e)))
+        util.debug("{} error: {}".format(_scan.func_name, str(e)))
 
 
-def scan(host):
+def run(target='127.0.0.1', subnet=False, ports=[21,22,23,25,80,110,111,135,139,443,445,993,995,1433,1434,3306,3389,8000,8008,8080,8888]):    
+    """
+    Run a portscan against a target hostname/IP address
+        
+    :param str target: Valid IPv4 address
+    :param list ports: Port numbers to scan on target host
+    :returns: Results in a nested dictionary object in JSON format
+    :rtype: dict
+    """
     try:
-        if ping(host):
-            ports = [21,22,23,25,53,80,110,111,135,139,143,179,443,445,514,993,995,1433,1434,1723,3306,3389,8000,8008,8080,8443,8888]
-            for p in ports:
-                _tasks.put_nowait((port, (host, p)))
-            for x in xrange(10):
-                _workers['portscan-%d' % x] = threading.Thread(target=_threader, args=(_tasks,), name=time.time())
-                _workers['portscan-%d' % x].daemon = True
-                _workers['portscan-%d' % x].start()
-            _tasks.join()
-        return json.dumps(_scans)
+        if not util.ipv4(target):
+            raise ValueError("target is not a valid IPv4 address")
+        task = collections.namedtuple('Target', ['host', 'port'])
+        stub = '.'.join(target.split('.')[:-1]) + '.%d'
+        util.debug('Scanning for online hosts in subnet {} - {}'.format(stub % 1, stub % 255))
+        if subnet:
+            for x in range(1,255):
+                if _ping(stub % x):
+                    __targets.append(stub % x)
+                    for port in ports:
+                        __tasks.put_nowait((_scan, task(stub % x, port)))
+        else:
+            __targets.append(target)
+            if _ping(target):
+                for port in ports:
+                    __tasks.put_nowait((_scan, task(target, port)))
+        if __tasks.qsize():
+            for i in range(1, int((__tasks.qsize() / 100) if __tasks.qsize() >= 100 else 1)):
+                __threads['portscan-%d' % i] = _threader(__tasks)
+            if __results and len(__results):
+                return dict({k: __results[k] for k in sorted(__results.keys()) if k in __targets})
+            else:
+                return "Target(s) offline"
     except Exception as e:
-        util.debug('{} error: {}'.format(scan.func_name, str(e)))
-
-def subnet(host=None):
-    try:
-        if not host:
-            host = socket.gethostbyname(socket.gethostname())
-        stub = '.'.join(str(host).split('.')[:-1]) + '.%d'
-        _local  = []
-        for i in xrange(1,255):
-            _tasks.put_nowait((ping, stub % i))
-        print('Scanning for online hosts in subnet {} - {}'.format(stub % 1, stub % 255))
-        for _ in xrange(10):
-            x = random.randrange(100)
-            _workers['portscan-%d' % x] = threading.Thread(target=_threader, args=(_tasks,), name=time.time())
-            _workers['portscan-%d' % x].setDaemon(True)
-            _workers['portscan-%d' % x].start()
-        _tasks.join()
-        print('Found {} online hosts'.format(len(_scans)))
-        print('Scanning for open ports')
-        for ip in _scans:
-            _tasks.put_nowait((scan, ip))
-        for n in xrange(10):
-            x = random.randrange(100)
-            _workers['portscan-%d' % x] = threading.Thread(target=_threader, args=(_tasks,), name=time.time())
-            _workers['portscan-%d' % x].start()
-        _tasks.join()
-        return json.dumps(_scans)
-    except Exception as e:
-        util.debug('{} error: {}'.format(subnet.func_name, str(e)))
+        util.debug("{} error: {}".format(_scan.func_name, str(e)))
 
