@@ -2,11 +2,8 @@
 
 [![license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://github.com/colental/byob/blob/master/LICENSE)
 
-## Command & Control Server
-**usage**: `server.py -p/--port <port>` 
-- Clients 
-  - reverse TCP shell w host-recruitment features
-- Droppers 
+## Create A Command & Control Server
+`server.py -p/--port <port>` 
   - compile stagers into native executables (Windows, Linux) or bundled applications (Mac OSX)
   - disguise droppers as any plugin/application (default: Java)
 
@@ -27,8 +24,8 @@
 - **Exectable**:           compile stagers into native executables (Windows, Linux) or bundled applications (Mac OSX)
 - **Disguised**:           disguise droppers as any plugin/application (default: Java)
 - **Distrubtion**:
-    - *Email*: email dropper links to contacts disguised as Imgur link
-    - *Texting/SMS*: text dropper link to contacts disguised as a shared Imgur link
+    - **Email**: email dropper links to contacts disguised as Imgur link
+    - **Texting/SMS**: text dropper link to contacts disguised as a shared Imgur link
 
 ### Portability
 - **Pure Python**:         simple, powerful language that makes writing your own modules easy
