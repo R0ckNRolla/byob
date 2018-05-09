@@ -2,26 +2,33 @@
 
 [![license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://github.com/colental/byob/blob/master/LICENSE)
 
-Use simple terminal commands to build:
-- __Servers__  functional Command & Control servers
-- __Clients__ loaded with remote-access tools and host-recreuitment features
-- __Droppers__ compiled into executable binaries disguised as plugin updates
+## Command & Control Server
+**usage**: `server.py -p/--port <port>` 
+- Clients 
+  - reverse TCP shell w host-recruitment features
+- Droppers 
+  - compile stagers into native executables (Windows, Linux) or bundled applications (Mac OSX)
+  - disguise droppers as any plugin/application (default: Java)
+
 
 ...*all without writing a single line of code!*
 
-### Modules
-- **Ransom Files**:        encrypt host files and ransom them to the user for Bitcoin
-- **Upload Files**:        automatically upload valuable data via FTP or Pastebin
-- **Webcam**:              live stream from webcam or auto-upload captured images/videos
-- **Keylogger**:           log the keystrokes, clipboard, and name of the active window
-- **Screenshot**:          snap screenshots of the current users desktop 
-- **Escalate Privileges**: bypass UAC to gain administrator privileges (Windows platforms)
-- **Packet Sniffer**:      capture logs of host network traffic (Linux & Mac OSX)
-- **Port Scanner**:        scan the local network to map online hosts and open ports
+- **Modules**:
+    - *Ransom Files*:        encrypt host files and ransom them to the user for Bitcoin
+    - *Upload Files*:        automatically upload valuable data via FTP or Pastebin
+    - *Webcam*:              live stream from webcam or auto-upload captured images/videos
+    - *Keylogger*:           log the keystrokes, clipboard, and name of the active window
+    - *Screenshot*:          snap screenshots of the current users desktop 
+    - *Escalate Privileges*: bypass UAC to gain administrator privileges (Windows platforms)
+    - *Packet Sniffer*:      capture logs of host network traffic (Linux & Mac OSX)
+    - *Port Scanner*:        scan the local network to map online hosts and open ports
 
-### Distrubtion
-- **Email**:               email dropper links to contacts disguised as Imgur link
-- **Texting/SMS**:         text dropper link to contacts disguised as a shared Imgur link
+### Dropper
+- **Exectable**:           compile stagers into native executables (Windows, Linux) or bundled applications (Mac OSX)
+- **Disguised**:           disguise droppers as any plugin/application (default: Java)
+- **Distrubtion**:
+    - *Email*: email dropper links to contacts disguised as Imgur link
+    - *Texting/SMS*: text dropper link to contacts disguised as a shared Imgur link
 
 ### Portability
 - **Pure Python**:         simple, powerful language that makes writing your own modules easy
@@ -84,14 +91,7 @@ that you want to use for the following features:
   - wallet_address  - static bitcoin wallet address for receiving payments
   - coinbase_api_key - create temporary wallets with link to a payment interface with a countdown timer
 
-**Note**: none of this information is ever logged or saved in any way
-
 --------------------------------------------------
-
-## Usage 
-
-### Create a Command & Control Server 
-`server.py -p/--port <port>`
 
 ### Generate a client stager
 `client.py <type> [options]`
