@@ -4,23 +4,24 @@
 
 Use simple terminal commands to build:
 - __Servers__  functional Command & Control servers
-- __Payloads__ clients loaded with remote-access tools and host-recreuitment features
+- __Clients__ loaded with remote-access tools and host-recreuitment features
 - __Droppers__ compiled into executable binaries disguised as plugin updates
 
 ...*all without writing a single line of code!*
 
-### Features
+### Modules
 - **Ransom Files**:        encrypt host files and ransom them to the user for Bitcoin
 - **Upload Files**:        automatically upload valuable data via FTP or Pastebin
-- **Outlook Email**:       upload emails / send dropper links to contacts disguised as Imgur link
-- **SMS/Texting**:         text dropper link to contacts disguised as a shared Imgur link
 - **Webcam**:              live stream from webcam or auto-upload captured images/videos
 - **Keylogger**:           log the keystrokes, clipboard, and name of the active window
-- **Screenshot**:          snap screenshots of the current desktop
-- **Reverse TCP Shell**:   remote access directly through a terminal with all Unix command
-- **Escalate Privileges**: bypass UAC to gain administrator privileges (Windows only)
-- **Packet Sniffer**:      capture logs of host network traffic
+- **Screenshot**:          snap screenshots of the current users desktop 
+- **Escalate Privileges**: bypass UAC to gain administrator privileges (Windows platforms)
+- **Packet Sniffer**:      capture logs of host network traffic (Linux & Mac OSX)
 - **Port Scanner**:        scan the local network to map online hosts and open ports
+
+### Distrubtion
+- **Email**:               email dropper links to contacts disguised as Imgur link
+- **Texting/SMS**:         text dropper link to contacts disguised as a shared Imgur link
 
 ### Portability
 - **Pure Python**:         simple, powerful language that makes writing your own modules easy
