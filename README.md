@@ -5,7 +5,7 @@
 Use simple terminal commands to build:
 - __Servers__  functional Command & Control servers
 - __Payloads__ clients loaded with remote-access tools and host-recreuitment features
-- __Droppers__ compiled into executable binaries and disgusied as plugin updates
+- __Droppers__ compiled into executable binaries disguised as plugin updates
 
 ...*all without writing a single line of code!*
 
