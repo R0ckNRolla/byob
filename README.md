@@ -16,7 +16,7 @@ that you want to use for the following features:
 - **Imgur**:  `api_key`
 ____________________________________________
 
-## Server
+# Server
 `server.py <-p/--port PORT> [-c/--config CONFIG] [-h/--help] [-d/--debug]` 
 
 ### Commands
@@ -34,7 +34,7 @@ ____________________________________________
 - **Tasks**: records issued tasks and updates entries upon receiving results
 ____________________________________________
 
-## Client
+# Client
 `client.py <py/exe/app> [-n/--name NAME] [-i/--icon ICON]`
 
 ### Stealth
