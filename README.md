@@ -1,8 +1,12 @@
-# BYOB (Build Your Own Botnet)  
+# BYOB (Build Your Own Botnet) 
+
 [![license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://github.com/colental/byob/blob/master/LICENSE)
-## Usage
-1) `git clone https://github.com/colental/byob`
-2) Edit the [configuration](config.ini) file to add any API Keys or login credentials 
+
+### Installation
+`git clone https://github.com/colental/byob`
+
+### Configuration
+Edit the [configuration](config.ini) file to add any API Keys or login credentials 
 that you want to use for the following features:
 - **MySQL**: `mysql_host`, `mysql_user`, `mysql_password`
 - **FTP**: `ftp_host`, `ftp_user`, `ftp_password`
@@ -10,30 +14,8 @@ that you want to use for the following features:
 - **Pastebin**: `pastebin_dev_key` 
 - **Imgur**: `imgur_api_key` 
 - **Bitcoin**: `bitcoin_wallet_address`
-3) Create server
-4) Distribute clients
-5) Profit!
-____________________________________________
 
-## Server
-`server.py <-p/--port PORT> [-c/--config CONFIG] [-h/--help] [-d/--debug]` 
-
-### Commands
-- `client [ID]`: interact with selected client via reverse TCP shell
-- `clients [-v/--verbose]`: list details of all online & offline clients
-- `sessions [-v/--verbose]`: list session details online client session details
-- `back`: background the current session and put the shell on standby
-- `settings <option> [VALUE]`: show/set server console display settings
-- `query [SQL]`: query the MySQL database and return output, if any
-- `exit/quit [Y/N]`: exit the server and optionally keep sessions alive
-
-### Database
-- **Clients**: adds new clients, manages current clients, removes old clients
-- **Sessions**: manages active online sessions and saves offline sessions
-- **Tasks**: records issued tasks and updates entries upon receiving results
-____________________________________________
-
-## Client
+# Client
 `client.py <py|exe|app> [-n/--name NAME] [-i/--icon ICON]`
 
 ### Modules
@@ -78,4 +60,23 @@ ____________________________________________
 - **File Permissions**:   modify client permissions to prevent non-owners from reading/removing it
 - **File Attributes**:    modify client attributes to make it hidden/system-file/read-only/etc.
 - **Add New User**:       add a new username + password that is does not appear at login screen
+
 ---------------------------------------------
+
+# Server
+`server.py <-p/--port PORT> [-c/--config CONFIG] [-h/--help] [-d/--debug]` 
+
+## Commands
+- `client [ID]`: interact with selected client via reverse TCP shell
+- `clients [-v/--verbose]`: list details of all online & offline clients
+- `sessions [-v/--verbose]`: list session details online client session details
+- `back`: background the current session and put the shell on standby
+- `settings <option> [VALUE]`: show/set server console display settings
+- `query [SQL]`: query the MySQL database and return output, if any
+- `exit/quit [Y/N]`: exit the server and optionally keep sessions alive
+
+## Database
+- **Clients**: adds new clients, manages current clients, removes old clients
+- **Sessions**: manages active online sessions and saves offline sessions
+- **Tasks**: records issued tasks and updates entries upon receiving results
+____________________________________________
