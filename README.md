@@ -8,8 +8,8 @@
 ### Configuration
 Edit the [configuration](config.ini) file to add any API Keys or login credentials 
 that you want to use for the following features:
-- **MySQL**: *required*: `host`, `user`, `password` | *optional*: `database`
-- **Pastebin**: *required*: `api_dev_key` | *optional*: `api_user_key`
+- **MySQL**: *required*: `host`, `user`, `password`
+- **Pastebin**: *required*: `api_dev_key`
 - **Twilio**: *required*: `account_sid`, `api_key`, `auth_token`
 - **FTP**: *required*: `host`, `user`, `password`
 - **Bitcoin**: *required*: `wallet_address`
