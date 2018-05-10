@@ -3,7 +3,7 @@
 [![license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://github.com/colental/byob/blob/master/LICENSE)
 
 ### Installation
-- **Usage**: `git clone https://github.com/colental/byob`
+**Usage**: `git clone https://github.com/colental/byob`
 
 ### Configuration
 Edit the [configuration](config.ini) file to add any API Keys or login credentials 
@@ -14,6 +14,8 @@ that you want to use for the following features:
 - **FTP**:  `host`, `user`, `password`
 - **Bitcoin**:  `wallet_address`
 - **Imgur**:  `api_key`
+
+-----------------------------------------------
 
 # Client
 **Usage**: `client.py <py/exe/app> [-n/--name NAME] [-i/--icon ICON]`
