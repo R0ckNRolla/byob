@@ -8,15 +8,15 @@
 ### Configuration
 Edit the [configuration](config.ini) file to add any API Keys or login credentials 
 that you want to use for the following features:
-- **MySQL**: *host, user, password*
-- **FTP**: *host, user, password*
-- **Twilio**: *account_sid, api_key, auth_token*
-- **Pastebin**: *api_dev_key 
-- **Imgur**: *api_key*
-- **Bitcoin**: *wallet_address*
+**MySQL**: *host, user, password*
+**FTP**: *host, user, password*
+**Twilio**: *account_sid, api_key, auth_token*
+**Pastebin**: *api_dev_key 
+**Imgur**: *api_key*
+**Bitcoin**: *wallet_address*
 
-# Clients
-`client.py <py/exe/app> [-n/--name NAME] [-i/--icon ICON]`
+# Client
+**Usage**: `client.py <py/exe/app> [-n/--name NAME] [-i/--icon ICON]`
 
 ### Modules
 - **Ransom Files**  encrypt host files and ransom them to the user for Bitcoin
@@ -63,7 +63,7 @@ that you want to use for the following features:
 ---------------------------------------------
 
 # Server
-`server.py <-p/--port PORT> [-c/--config CONFIG] [-h/--help] [-d/--debug]` 
+**Usage**: `server.py <-p/--port PORT> [-c/--config CONFIG] [-h/--help] [-d/--debug]` 
 
 ### Commands
 - `client [ID]`: interact with selected client via reverse TCP shell
