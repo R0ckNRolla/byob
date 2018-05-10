@@ -2,8 +2,7 @@
 
 [![license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://github.com/colental/byob/blob/master/LICENSE)
 
-### Installation
-`git clone https://github.com/colental/byob`
+**Installation**: `git clone https://github.com/colental/byob`
 
 ### Configuration
 Edit the [configuration](config.ini) file to add any API Keys or login credentials 
