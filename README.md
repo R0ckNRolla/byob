@@ -7,12 +7,12 @@
 ### Configuration
 Edit the [configuration](config.ini) file to add any API Keys or login credentials 
 that you want to use for the following features:
-**MySQL**: *host, user, password*
-**FTP**: *host, user, password*
-**Twilio**: *account_sid, api_key, auth_token*
-**Pastebin**: *api_dev_key 
-**Imgur**: *api_key*
-**Bitcoin**: *wallet_address*
+- **MySQL**: *host, user, password*
+- **FTP**: *host, user, password*
+- **Twilio**: *account_sid, api_key, auth_token*
+- **Pastebin**: *api_dev_key 
+- **Imgur**: *api_key*
+- **Bitcoin**: *wallet_address*
 
 # Client
 **Usage**: `client.py <py/exe/app> [-n/--name NAME] [-i/--icon ICON]`
