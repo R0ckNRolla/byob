@@ -17,8 +17,15 @@
 
 """
 
-__all__         = ['escalate', 'importer', 'keylogger', 'outlook', 'packetsniffer', 'payload', 'persistence', 'phone', 'portscan', 'process', 'ransom', 'screenshot', 'security', 'stager', 'util', 'webcam']
-__package__ 	= 'byob'
+def __init__():
+    for module in __all__:
+        try:
+            exec "import {}".format(module) in globals()
+        except:
+            pass
+
+__all__         = ['escalate', 'importer', 'keylogger', 'outlook', 'packetsniffer', 'persistence', 'phone', 'portscan', 'process', 'ransom', 'screenshot', 'security', 'util', 'webcam']
 __author__      = 'Daniel Vega-Myhre'
 __license__ 	= 'GPLv3'
 __version__ 	= '0.1.2'
+__init__()

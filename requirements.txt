@@ -1,11 +1,4 @@
-mss
-numpy
-twilio
-pyxhook
+bs4
 pycrypto
-colorama
-pyinstaller
 configparser
-pycryptodome
-opencv-python
 mysql-connector-python

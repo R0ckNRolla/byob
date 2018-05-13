@@ -3,17 +3,16 @@ from __future__ import print_function
 import imp
 import sys
 import logging
-from contextlib import contextmanager
-try:
-    from urllib2 import urlopen
-except:
-    from urllib.request import urlopen
+import urllib2
+import contextlib
+
+INSECURE = True
+NON_SOURCE = False
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
+logger.addHandler(logging.StreamHandler())
 
-NON_SOURCE = False
-INSECURE = False
 
 class HttpImporter(object):
 
@@ -23,51 +22,51 @@ class HttpImporter(object):
         self.non_source = NON_SOURCE
 
         if not INSECURE and not self.__isHTTPS(base_url) :
-            logger.warning("[-] '%s.INSECURE' is not set! Aborting..." % (__name__))
+            logger.debug("[-] '%s.INSECURE' is not set! Aborting..." % (__name__))
             raise Exception("Plain HTTP URL provided with '%s.INSECURE' not set" % __name__)
 
         if not self.__isHTTPS(base_url):
-            logger.warning("[!] Using non HTTPS URLs ('%s') can be a security hazard!" % self.base_url)
+            logger.debug("[!] Using non HTTPS URLs ('%s') can be a security hazard!" % self.base_url)
 
 
     def find_module(self, fullname, path=None):
         logger.debug("FINDER=================")
         logger.debug("[!] Searching %s" % fullname)
         logger.debug("[!] Path is %s" % path)
-        logger.info("[@] Checking if in declared remote module names >")
+        logger.debug("[@] Checking if in declared remote module names >")
         if fullname.split('.')[0] not in self.module_names:
-            logger.info("[-] Not found!")
+            logger.debug("[-] Not found!")
             return None
 
-        logger.info("[@] Checking if built-in >")
+        logger.debug("[@] Checking if built-in >")
         try:
             loader = imp.find_module(fullname, path)
             if loader:
                 return None
-                logger.info("[-] Found locally!")
+                logger.debug("[-] Found locally!")
         except ImportError:
             pass
-        logger.info("[@] Checking if it is name repetition >")
+        logger.debug("[@] Checking if it is name repetition >")
         if fullname.split('.').count(fullname.split('.')[-1]) > 1:
-            logger.info("[-] Found locally!")
+            logger.debug("[-] Found locally!")
             return None
 
-        logger.info("[*]Module/Package '%s' can be loaded!" % fullname)
+        logger.debug("[*]Module/Package '%s' can be loaded!" % fullname)
         return self
 
 
     def load_module(self, name):
         imp.acquire_lock()
         logger.debug("LOADER=================")
-        logger.debug("[+] Loading %s" % name)
+        logger.info("[+] Loading %s" % name)
         if name in sys.modules:
-            logger.info('[+] Module "%s" already loaded!' % name)
+            logger.debug('[+] Module "%s" already loaded!' % name)
             imp.release_lock()
             return sys.modules[name]
 
         if name.split('.')[-1] in sys.modules:
             imp.release_lock()
-            logger.info('[+] Module "%s" loaded as a top level module!' % name)
+            logger.debug('[+] Module "%s" loaded as a top level module!' % name)
             return sys.modules[name.split('.')[-1]]
 
         module_url = self.base_url + '%s.py' % name.replace('.', '/')
@@ -82,12 +81,12 @@ class HttpImporter(object):
             if self.non_source :
                 package_src = self.__fetch_compiled(package_url)
             if package_src == None :
-                package_src = urlopen(package_url).read()
+                package_src = urllib2.urlopen(package_url).read()
             final_src = package_src
             final_url = package_url
         except IOError as e:
             package_src = None
-            logger.info("[-] '%s' is not a package:" % name)
+            logger.debug("[-] '%s' is not a package:" % name)
 
         if final_src == None:
             try:
@@ -96,17 +95,17 @@ class HttpImporter(object):
                 if self.non_source :
                     module_src = self.__fetch_compiled(module_url)
                 if module_src == None :
-                    module_src = urlopen(module_url).read()
+                    module_src = urllib2.urlopen(module_url).read()
                 final_src = module_src
                 final_url = module_url
             except IOError as e:
                 module_src = None
-                logger.info("[-] '%s' is not a module:" % name)
-                logger.warning("[!] '%s' not found in HTTP repository. Moving to next Finder." % name)
+                logger.debug("[-] '%s' is not a module:" % name)
+                logger.debug("[!] '%s' not found in HTTP repository. Moving to next Finder." % name)
                 imp.release_lock()
                 return None
 
-        logger.debug("[+] Importing '%s'" % name)
+        logger.info("[+] Importing '%s'" % name)
         mod = imp.new_module(name)
         mod.__loader__ = self
         mod.__file__ = final_url
@@ -116,7 +115,7 @@ class HttpImporter(object):
             mod.__package__ = name.split('.')[0]
 
         mod.__path__ = ['/'.join(mod.__file__.split('/')[:-1]) + '/']
-        logger.debug("[+] Ready to execute '%s' code" % name)
+        logger.info("[+] Ready to execute '%s' code" % name)
         sys.modules[name] = mod
         exec(final_src, mod.__dict__)
         logger.info("[+] '%s' imported succesfully!" % name)
@@ -127,7 +126,7 @@ class HttpImporter(object):
         import marshal
         module_src = None
         try :
-            module_compiled = urlopen(url + 'c').read()
+            module_compiled = urllib2.urlopen(url + 'c').read()
             try :
                 module_src = marshal.loads(module_compiled[8:])
                 return module_src
@@ -147,7 +146,7 @@ class HttpImporter(object):
         return self.base_url.startswith('https') 
 
 
-@contextmanager
+@contextlib.contextmanager
 def remote_repo(modules, base_url='http://localhost:8000/'):
     importer = add_remote_repo(modules, base_url)
     yield
@@ -198,7 +197,7 @@ def _add_git_repo(url_builder, username=None, repo=None, module=None, branch=Non
     return add_remote_repo(module, url)
 
 
-@contextmanager
+@contextlib.contextmanager
 def github_repo(username=None, repo=None, module=None, branch=None, commit=None):
     importer = _add_git_repo(__create_github_url,
         username, repo, module=module, branch=branch, commit=commit)
@@ -208,7 +207,7 @@ def github_repo(username=None, repo=None, module=None, branch=None, commit=None)
 
 
 
-@contextmanager
+@contextlib.contextmanager
 def bitbucket_repo(username=None, repo=None, module=None, branch=None, commit=None):
     importer = _add_git_repo(__create_bitbucket_url,
         username, repo, module=module, branch=branch, commit=commit)
@@ -224,5 +223,5 @@ def load(module_name, url = 'http://localhost:8000/'):
         module = loader.load_module(module_name)
         if module :
             return module
-    raise ImportError("Module '%s' cannot be imported from URL: '%s'" % (module_name, url) )
+    raise ImportError("Module '%s' cannot be imported from URL: '%s'" % (module_name, url))
 
