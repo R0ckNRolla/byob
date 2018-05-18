@@ -1,8 +1,0 @@
-mss
-numpy
-twilio
-pyxhook
-colorama
-pyinstaller
-pycryptodome
-opencv-python
