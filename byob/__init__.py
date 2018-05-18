@@ -15,7 +15,6 @@ Build Your Own Botnet
 https://github.com/colental/byob
 Copyright (c) 2018 Daniel Vega-Myhre
 """
-from __future__ import print_function
 
 __all__     = ['client','modules','server']
 __author__  = 'Daniel Vega-Myhre'
@@ -29,12 +28,13 @@ import sys
 import time
 import urllib
 import logging
-import ensurepip
 import subprocess
 
+
 def main():
+    pip_path = None
     root_dir = os.getcwd()
-    requires = os.path.normpath(os.path.abspath(os.path.join(root_dir, 'requirements.txt' if os.name == 'nt' else 'requirements-windows.txt')))
+    requires = os.path.abspath(os.path.join(root_dir, 'requirements.txt'))
     debugger = logging.getLogger(__name__)
     debugger.setLevel(logging.DEBUG)
     debugger.addHandler(logging.StreamHandler())
@@ -45,20 +45,19 @@ def main():
     except Exception as e:
         debugger.debug("Error in pip package installer: {}".format(str(e)))
 
-        # install pip if missing
+    # install pip if missing
+    if not pip_path:
         try:
-            bootstrap = ensurepip.bootstrap()
+            exec urllib.urlopen("https://bootstrap.pypa.io/get-pip.py").read() in globals()
         except Exception as e:
-            debugger.debug("Error bootstrapping pip into Python: {}".format(str(e)))
-            try:
-                exec urllib.urlopen("https://bootstrap.pypa.io/get-pip.py").read() in globals()
-            except Exception as e:
-                debugger.debug("Error installing pip: {}".format(str(e)))
+            debugger.debug("Error installing pip: {}".format(str(e)))
 
         # restart
         os.execv(sys.executable, ['python'] + [os.path.abspath(sys.argv[0])] + sys.argv[1:])
 
-    if globals().get('pip_path'):
+    else:
+
+        # install required packages
         with open(requires, 'r') as fp:
             for package in fp.readlines():
                 try:
@@ -68,21 +67,21 @@ def main():
 
         # client
         try:
-            import byob.client
+            import client
         except Exception as e:
-            debugger.debug("Error in byob.client: {}".format(str(e)))
+            debugger.debug("Error importing byob.client: {}".format(str(e)))
 
         # server
         try:
-            import byob.server
+            import server
         except Exception as e:
-            debugger.debug("Error in byob.server: {}".format(str(e)))
+            debugger.debug("Error importing byob.server: {}".format(str(e)))
 
         # modules
         try:
-            import byob.modules
+            import modules
         except Exception as e:
-            debugger.debug("Error in byob.modules: {}".format(str(e)))
+            debugger.debug("Error importing byob.modules: {}".format(str(e)))
 
 
 if __name__ == '__main__':

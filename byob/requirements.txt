@@ -1,0 +1,15 @@
+bs4
+mss
+wmi
+numpy
+pyHook
+twilio
+pyxhook
+pywin32
+colorama
+pythoncom
+PyInstaller
+configparser
+pycryptodome
+opencv-python
+mysql-connector-python

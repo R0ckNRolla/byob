@@ -24,8 +24,10 @@ def __init__():
         except:
             pass
 
-__all__         = ['escalate', 'importer', 'keylogger', 'outlook', 'packetsniffer', 'persistence', 'phone', 'portscan', 'process', 'ransom', 'screenshot', 'security', 'util', 'webcam']
+__all__         = ['escalate','keylogger', 'outlook', 'packetsniffer', 'persistence', 'phone', 'portscan', 'process', 'ransom', 'screenshot', 'security', 'util', 'webcam']
 __author__      = 'Daniel Vega-Myhre'
 __license__ 	= 'GPLv3'
 __version__ 	= '0.1.2'
-__init__()
+
+if __name__ == '__main__':
+    __init__()
