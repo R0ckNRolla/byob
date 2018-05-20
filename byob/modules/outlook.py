@@ -16,9 +16,12 @@ import json
 
 import util
 
-packages = ['win32comext.client','pythoncom']
-results  = {}
+# globals
 
+packages  = ['win32comext.client','pythoncom']
+platforms = ['win32']
+util.is_compatible(platforms, __name__)
+util.imports(packages)
 
 def installed():
     if os.name == 'nt':

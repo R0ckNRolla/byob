@@ -59,4 +59,4 @@ def run(url, key):
         logger.error("{} returned error: {}".format(run.func_name, str(e)))
 
 if __name__ == '__main__':
-    client = run(url='__URL__', key='__KEY__')
+    client = run(__KWARGS__)

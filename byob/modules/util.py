@@ -38,25 +38,26 @@ import logging.handlers
 
 # globals
 
-_abort         = False
-_debug         = True
-_requirements  = ['numpy','colorama','_winreg']
-_lock          = threading.Lock()
-_debugger      = logging.getLogger(__name__)
-_debugger.setLevel(logging.DEBUG)
-_debugger.addHandler(logging.StreamHandler())
+packages  = ['numpy','colorama','_winreg']
+platforms = ['win32','linux2','darwin']
+results   = {}
+_abort    = False
+_debug    = True
+_lock     = threading.Lock()
 
-# requirements
 
-try:
-    import numpy
-    import colorama
-    if os.name == 'nt':
-        import _winreg
-except ImportError:
-    execfile('__init__.py')
-    os.execv(sys.executable, ['python'] + [os.path.abspath(sys.argv[0])] + sys.argv[1:])
+def imports(packages, module=None):
+    for package in packages:
+        try:
+            exec "import {}".format(package) in globals()
+        except ImportError:
+            debug("missing package '{}' is required".format(package) + " for module '{}'".format(module) if module else "")
 
+def is_compatible(platforms=['win32','linux2','darwin'], module=None):
+    if sys.platform in platforms:
+        return True
+    debug("module {} is not yet compatible with {} platforms".format(module if module else '', sys.platform))
+    return False
 
 def _debugger(name=None):
     if not name:
@@ -66,7 +67,6 @@ def _debugger(name=None):
     if not logger.handlers:
         logger.addHandler(logging.StreamHandler())
     return logger
-    
 
 def debug(info):
     """
@@ -676,3 +676,5 @@ def _update_progress_bar(progress, length=50):
                              '-' * int(PROGRESS_BAR_LENGTH-block))
             sys.stdout.flush()
 
+is_compatible(platforms, __name__)
+imports(packages)

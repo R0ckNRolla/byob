@@ -12,15 +12,18 @@ import os
 import sys
 import ctypes
 
-
-__Escalate_imports = ['win32com']
-
 # modules
 
 import util
 
+# globals
 
-           
+packages  = ['win32com','win32comext']
+platforms = ['win32']
+util.is_compatible(platforms, __name__)
+util.imports(packages)
+
+
 @util.config(platforms=['win32'], command=True, usage='escalate')
 def escalate(self, target):
     """

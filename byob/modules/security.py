@@ -19,20 +19,22 @@ import logging
 import tempfile
 import cStringIO
 
+# modules
+
+import util
 
 # globals
 
-_requirements   = ['Crypto','Crypto.Util','Crypto.Cipher.AES','Crypto.Hash.HMAC','Crypto.Hash.MD5','Crypto.PublicKey.RSA','Crypto.Cipher.PKCS1_OAEP']
-_debugger       = logging.getLogger(__name__)
-_debugger.setLevel(logging.DEBUG)
-_debugger.addHandler(logging.StreamHandler())
-
+packages   = ['Crypto','Crypto.Util','Crypto.Cipher.AES','Crypto.Hash.HMAC','Crypto.Hash.MD5','Crypto.PublicKey.RSA','Crypto.Cipher.PKCS1_OAEP']
+platforms  = ['win32','linux2','darwin']
+util.is_compatible(platforms, __name__)
+util.imports(packages)
 
 
 def encrypt_aes(data, key):
     """
     AES-256-OCB encryption
-        
+
     `Required`
     :param str data:    plaintext
     :param str key:     256-bit key

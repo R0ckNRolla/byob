@@ -7,6 +7,7 @@ Copyright (c) 2018 Daniel Vega-Myhre
 from __future__ import print_function
 
 # standard libarary
+
 import os
 import sys
 import json
@@ -14,15 +15,19 @@ import cStringIO
 import threading
 import collections
 
-# byob
+# modules
+
 import util
 
+# globals
 
-_abort   = False
-_buffer  = cStringIO.StringIO()
-_workers = {}
-results  = []
-
+packages  = []
+platforms = ['win32','linux2','darwin']
+_abort    = False
+_buffer   = cStringIO.StringIO()
+_workers  = {}
+util.is_compatible(platforms, __name__)
+util.imports(packages)
 
 def list(*args, **kwargs):
     try:

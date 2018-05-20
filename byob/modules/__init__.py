@@ -17,17 +17,17 @@
 
 """
 
-def __init__():
-    for module in __all__:
-        try:
-            exec "import {}".format(module) in globals()
-        except:
-            pass
-
-__all__         = ['escalate','keylogger', 'outlook', 'packetsniffer', 'persistence', 'phone', 'portscan', 'process', 'ransom', 'screenshot', 'security', 'util', 'webcam']
+__all__         = ['escalate','keylogger', 'outlook', 'packetsniffer', 'payload', 'persistence', 'phone', 'portscan', 'process', 'ransom', 'screenshot', 'security', 'stager', 'util', 'webcam']
 __author__      = 'Daniel Vega-Myhre'
 __license__ 	= 'GPLv3'
 __version__ 	= '0.1.2'
 
+def main():
+   for module in __all__:
+        try:
+            exec "import {}".format(module) in globals()
+        except ImportError:
+            pass
+
 if __name__ == '__main__':
-    __init__()
+   main()
