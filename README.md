@@ -4,38 +4,29 @@
 
 ## Installation
 `git clone https://github.com/colental/byob`
-
-### Configuration
-Edit the [configuration](config.ini) file to add any API Keys or login credentials 
-that you want to use for the following features:
-- **MySQL**:  `host`, `user`, `password`
-- **Pastebin**:  `api_dev_key`
-- **Twilio**:  `account_sid`, `api_key`, `auth_token`
-- **FTP**:  `host`, `user`, `password`
-- **Bitcoin**:  `wallet_address`
-- **Imgur**:  `api_key`
-____________________________________________
+___________________________________________________________________________
 
 # Server
 `server.py <-p/--port PORT> [-c/--config CONFIG] [-h/--help] [-d/--debug]` 
 
 ### Commands
-- `client [ID]`: interact with selected client via reverse TCP shell
-- `clients [-v/--verbose]`: list details of all online & offline clients
-- `sessions [-v/--verbose]`: list session details online client session details
-- `back`: background the current session and put the shell on standby
-- `settings <option> [VALUE]`: show/set server console display settings
-- `query [SQL]`: query the MySQL database and return output, if any
+- `session [ID]`: interact with selected client via reverse TCP shell
+- `sessions [-v/--verbose]`: list all sessions
+- `bg/back/background`: background the current session
+- `set <option> [VALUE]`: set a configurable option
+- `settings`: display currently configured settings
+- `query [QUERY]`: query the MySQL database and return output, if any
 - `exit/quit [Y/N]`: exit the server and optionally keep sessions alive
 
-### Database
-- **Clients**: adds new clients, manages current clients, removes old clients
-- **Sessions**: manages active online sessions and saves offline sessions
+### Optional: MySQL Database
+- **Sessions**: manages active online sessions and tracks tasks sessions issued
 - **Tasks**: records issued tasks and updates entries upon receiving results
-____________________________________________
+___________________________________________________________________________
 
 # Client
-`client.py <py/exe/app> [-n/--name NAME] [-i/--icon ICON]`
+`client.py [-h] [-v] [--host HOST] [--port PORT] 
+	   [--upload] [--obfuscate] [--compress] 
+	   [--encrypt] [--debug]`
 
 ### Stealth
 - **Firewall evasion**     reverse TCP shells use outgoing connections not filtered by firewalls
@@ -79,4 +70,4 @@ ____________________________________________
 - **File Permissions**:   modify client permissions to prevent non-owners from reading/removing it
 - **File Attributes**:    modify client attributes to make it hidden/system-file/read-only/etc.
 - **Add New User**:       add a new username + password that is does not appear at login screen
-____________________________________________
+______________________________________________________________________________________

@@ -1856,6 +1856,3 @@ class Shell():
                 data = security.decrypt_aes(msg, self.key)
                 return json.loads(data)
 
-if __name__ == '__main__':
-    shell=Shell(__KWARGS__)
-    shell.run()

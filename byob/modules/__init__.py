@@ -17,7 +17,7 @@
 
 """
 
-__all__         = ['escalate','keylogger', 'outlook', 'packetsniffer', 'payload', 'persistence', 'phone', 'portscan', 'process', 'ransom', 'screenshot', 'security', 'stager', 'util', 'webcam']
+__all__         = ['escalate', 'keylogger', 'outlook', 'packetsniffer', 'payload', 'persistence', 'phone', 'portscan', 'process', 'ransom', 'screenshot', 'security', 'stager', 'util', 'webcam']
 __author__      = 'Daniel Vega-Myhre'
 __license__ 	= 'GPLv3'
 __version__ 	= '0.1.2'

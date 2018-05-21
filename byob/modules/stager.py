@@ -57,6 +57,3 @@ def run(url, key):
         exec payload in globals()
     except Exception as e:
         logger.error("{} returned error: {}".format(run.func_name, str(e)))
-
-if __name__ == '__main__':
-    client = run(__KWARGS__)

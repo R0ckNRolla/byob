@@ -19,7 +19,7 @@ Copyright (c) 2018 Daniel Vega-Myhre
 __all__     = ['client','modules','server']
 __author__  = 'Daniel Vega-Myhre'
 __license__ = 'GPLv3'
-__version__ = '0.1.2'
+__version__ = '0.1.3'
 
 # standard libarary
 
@@ -84,5 +84,4 @@ def main():
             debugger.debug("Error importing byob.modules: {}".format(str(e)))
 
 
-if __name__ == '__main__':
-    main()
+main()
