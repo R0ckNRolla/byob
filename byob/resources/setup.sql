@@ -1,3 +1,4 @@
+DELIMITER $$
 CREATE DATABASE IF NOT exists `byob`;
 use `byob`;
 CREATE TABLE IF NOT exists `tbl_sessions` (
@@ -23,7 +24,7 @@ BEGIN
     DECLARE `@sql` text;
     DECLARE `uid` varchar(32);
     SET session=JSON_UNQUOTE(input);
-    SET session=JSON_MERGE(session, JSON_OBJECT("uid", MD5(CONCAT(session->>'$.public_ip', session->>'$.mac_address'))));
+    SET session=JSON_MERGE(session, JSON_OBJECT('uid', MD5(CONCAT(session->>'$.public_ip', session->>'$.mac_address'))));
     INSERT INTO `tbl_sessions`
     (
          online,

